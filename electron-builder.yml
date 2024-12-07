@@ -1,5 +1,5 @@
 appId: 'ionlauncher'
-productName: 'ION Launcher'
+productName: 'ION-Launcher'
 artifactName: '${productName}-setup-${version}.${ext}'
 
 copyright: 'Copyright © 2018-2024 IONNetwork'
