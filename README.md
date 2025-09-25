@@ -2,9 +2,9 @@
 
 <h1 align="center">ION Launcher</h1>
 
-<em><h5 align="center">(Helios Launcher Fork)</h5></em>
+<em><h5 align="center"><a href="https://github.com/dscalzi/HeliosLauncher" style="text-decoration:none;">(Helios Launcher Fork)</a></h5></em>
 
-[<p align="center"><img src="https://img.shields.io/github/actions/workflow/status/dscalzi/HeliosLauncher/build.yml?branch=master&style=for-the-badge" alt="gh actions">](https://github.com/dscalzi/HeliosLauncher/actions) [<img src="https://img.shields.io/github/downloads/dscalzi/HeliosLauncher/total.svg?style=for-the-badge" alt="downloads">](https://github.com/dscalzi/HeliosLauncher/releases) <img src="https://forthebadge.com/images/badges/winter-is-coming.svg"  height="28px" alt="winter-is-coming"></p>
+[<p align="center"><img src="https://img.shields.io/github/actions/workflow/status/IONNetworkTeam/IONLauncher/build.yml?branch=master&style=for-the-badge" alt="gh actions">](https://github.com/dscalzi/HeliosLauncher/actions) [<img src="https://img.shields.io/github/downloads/IONNetworkTeam/IONLauncher/total.svg?style=for-the-badge" alt="downloads">](https://github.com/dscalzi/HeliosLauncher/releases) <img src="https://forthebadge.com/images/badges/winter-is-coming.svg"  height="28px" alt="winter-is-coming"></p>
 
 <p align="center">Join modded servers without worrying about installing Java, Forge, or other mods. We'll handle that for you.</p>
 
@@ -43,10 +43,10 @@ You can download from [GitHub Releases](https://github.com/dscalzi/HeliosLaunche
 
 #### Latest Release
 
-[![](https://img.shields.io/github/release/dscalzi/HeliosLauncher.svg?style=flat-square)](https://github.com/dscalzi/HeliosLauncher/releases/latest)
+[![](https://img.shields.io/github/release/dscalzi/HeliosLauncher.svg?style=flat-square)](https://github.com/IONNetworkTeam/IONLauncher/releases/latest)
 
 #### Latest Pre-Release
-[![](https://img.shields.io/github/release/dscalzi/HeliosLauncher/all.svg?style=flat-square)](https://github.com/dscalzi/HeliosLauncher/releases)
+[![](https://img.shields.io/github/release/dscalzi/HeliosLauncher/all.svg?style=flat-square)](https://github.com/IONNetworkTeam/IONLauncher/releases)
 
 **Supported Platforms**
 
@@ -54,10 +54,10 @@ If you download from the [Releases](https://github.com/dscalzi/HeliosLauncher/re
 
 | Platform | File |
 | -------- | ---- |
-| Windows x64 | `Helios-Launcher-setup-VERSION.exe` |
-| macOS x64 | `Helios-Launcher-setup-VERSION-x64.dmg` |
-| macOS arm64 | `Helios-Launcher-setup-VERSION-arm64.dmg` |
-| Linux x64 | `Helios-Launcher-setup-VERSION.AppImage` |
+| Windows x64 | ` ION-Launcher-setup-VERSION.exe` |
+| macOS x64 | `ION-Launcher-setup-VERSION-x64.dmg` |
+| macOS arm64 | `ION-Launcher-setup-VERSION-arm64.dmg` |
+| Linux x64 | `ION-Launcher-setup-VERSION.AppImage` |
 
 ## Console
 
@@ -174,16 +174,6 @@ This allows you to debug Electron's [main process][mainprocess]. You can debug s
 This allows you to debug Electron's [renderer process][rendererprocess]. This requires you to install the [Debugger for Chrome][chromedebugger] extension.
 
 Note that you **cannot** open the DevTools window while using this debug configuration. Chromium only allows one debugger, opening another will crash the program.
-
----
-
-### Note on Third-Party Usage
-
-Please give credit to the original author and provide a link to the original source. This is free software, please do at least this much.
-
-For instructions on setting up Microsoft Authentication, see https://github.com/dscalzi/HeliosLauncher/blob/master/docs/MicrosoftAuth.md.
-
----
 
 ## Resources
 
