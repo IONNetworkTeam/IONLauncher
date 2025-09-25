@@ -1,0 +1,222 @@
+name: Build and Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (without v prefix)'
+        required: true
+      draft:
+        description: 'Create as draft release'
+        type: boolean
+        default: true
+      prerelease:
+        description: 'Mark as prerelease'
+        type: boolean
+        default: false
+      releaseNotes:
+        description: 'Release notes (optional)'
+        required: false
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux
+          - os: windows-latest
+            platform: win
+          - os: macos-latest
+            platform: mac
+
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build for Windows
+        if: matrix.platform == 'win'
+        run: npm run dist:win
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build for Mac (Universal)
+        if: matrix.platform == 'mac'
+        run: npm run dist:mac
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build for Linux
+        if: matrix.platform == 'linux'
+        run: npm run dist:linux
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Collect build stats
+        run: |
+          echo "BUILD_DATE=$(date +'%Y-%m-%d %H:%M:%S')" >> $GITHUB_ENV
+          echo "FILE_COUNT=$(find dist -type f | wc -l)" >> $GITHUB_ENV
+
+          if [ -d "dist" ]; then
+            total_size=$(du -sh dist | cut -f1)
+            echo "ARTIFACT_SIZE=$total_size" >> $GITHUB_ENV
+          else
+            echo "ARTIFACT_SIZE=unknown" >> $GITHUB_ENV
+          fi
+        shell: bash
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ matrix.platform }}
+          path: |
+            dist/*.exe
+            dist/*.msi
+            dist/*.dmg
+            dist/*.AppImage
+            dist/*.deb
+            dist/*.rpm
+            dist/*.blockmap
+            dist/latest-*.yml
+            dist/*.yml
+
+
+      - name: Create build stats file
+        run: |
+          mkdir -p ./stats
+          cat > ./stats/build-stats.txt << EOF
+          platform: ${{ matrix.platform }}
+          date: ${{ env.BUILD_DATE }}
+          file_count: ${{ env.FILE_COUNT }}
+          size: ${{ env.ARTIFACT_SIZE }}
+          EOF
+        shell: bash
+
+      - name: Upload build stats
+        uses: actions/upload-artifact@v4
+        with:
+          name: stats-${{ matrix.platform }}
+          path: ./stats/build-stats.txt
+
+  create-release:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Display structure of downloaded files
+        run: ls -R artifacts/
+        shell: bash
+
+      - name: Get version from tag
+        if: startsWith(github.ref, 'refs/tags/')
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_ENV
+        shell: bash
+
+      - name: Use manual version
+        if: github.event_name == 'workflow_dispatch'
+        run: echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_ENV
+        shell: bash
+
+      - name: Collect release stats
+        run: |
+          echo "BUILD_DATE=$(date +'%Y-%m-%d %H:%M:%S %Z')" >> $GITHUB_ENV
+          echo "TOTAL_FILES=$(find artifacts -type f | wc -l)" >> $GITHUB_ENV
+
+          win_files=$(find artifacts/dist-win -type f 2>/dev/null | wc -l || echo "0")
+          linux_files=$(find artifacts/dist-linux -type f 2>/dev/null | wc -l || echo "0")
+          mac_files=$(find artifacts/dist-mac -type f 2>/dev/null | wc -l || echo "0")
+
+
+
+          echo "WIN_FILES=$win_files" >> $GITHUB_ENV
+          echo "LINUX_FILES=$linux_files" >> $GITHUB_ENV
+          echo "MAC_FILES=$mac_files" >> $GITHUB_ENV
+        shell: bash
+
+      - name: List latest-*.yml files in summary
+        run: |
+          echo "## Auto-Update Metadata Files" >> $GITHUB_STEP_SUMMARY
+          find artifacts -type f -name 'latest-*.yml' | sort | xargs -n1 basename | while read file; do
+            echo "- $file" >> $GITHUB_STEP_SUMMARY
+          done
+        shell: bash
+
+
+      - name: Create job summary
+        run: |
+          echo "# ION-Launcher v${VERSION} Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Build Information" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version:** v${VERSION}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Build Date:** ${BUILD_DATE}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Draft Release:** ${{ github.event.inputs.draft || 'true' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Prerelease:** ${{ github.event.inputs.prerelease || 'false' }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Build Statistics" >> $GITHUB_STEP_SUMMARY
+          echo "- **Total Files:** ${TOTAL_FILES}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Files by Platform:**" >> $GITHUB_STEP_SUMMARY
+          echo "  - Windows: ${WIN_FILES}" >> $GITHUB_STEP_SUMMARY
+          echo "  - Linux: ${LINUX_FILES}" >> $GITHUB_STEP_SUMMARY
+          echo "  - macOS (Universal): ${MAC_FILES}" >> $GITHUB_STEP_SUMMARY
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Release" >> $GITHUB_STEP_SUMMARY
+          echo "- **Release URL:** https://github.com/${{ github.repository }}/releases/tag/v${VERSION}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Build Completed Successfully ✅" >> $GITHUB_STEP_SUMMARY
+        shell: bash
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref || format('v{0}', github.event.inputs.version) }}
+          name: ION-Launcher v${{ env.VERSION }}
+          draft: ${{ github.event.inputs.draft || true }}
+          prerelease: ${{ github.event.inputs.prerelease || false }}
+          files: |
+            artifacts/dist-win/*.exe
+            artifacts/dist-win/*.msi
+            artifacts/dist-mac/ION-Launcher-*.dmg
+            artifacts/dist-linux/*.AppImage
+            artifacts/dist-linux/*.deb
+            artifacts/dist-linux/*.rpm
+            artifacts/**/*.blockmap
+            artifacts/**/latest-*.yml
+            artifacts/**/latest.yml
+          body: |
+            ${{ github.event.inputs.releaseNotes || '- Performance improvements and bug fixes' }}
+            
+            ### Installation
+            Download the appropriate installer for your platform:
+            - **Windows**: `ION-Launcher-Setup-${{ env.VERSION }}.exe`
+            - **macOS Intel (x64)**: `ION-Launcher-${{ env.VERSION }}-x64.dmg`
+            - **macOS Apple Silicon (ARM64)**: `ION-Launcher-${{ env.VERSION }}-arm64.dmg`
+            - **Linux**: `ION-Launcher-${{ env.VERSION }}.AppImage` or `.deb` package
+            
+            ### Auto-Updates
+            The launcher will automatically check for updates and prompt you to install them.
+            
+            ### 🛠Support
+            If you encounter any issues, please report them on our [GitHub Issues](https://github.com/IONNetworkTeam/IONLauncher/issues) page or on our [Discord](https://discord.ion-network.de).
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
