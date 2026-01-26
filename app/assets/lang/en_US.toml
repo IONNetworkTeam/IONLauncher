@@ -150,7 +150,7 @@ requiredValue = "* Required"
 
 [js.login.error.unknown]
 title = "Unknown Error During Login"
-desc = "An unknown error has occurred. Please see the console for details."
+desc = "An unknown error has occurred. Try logging out and back in again. If the issue persists, please check the console for details."
 
 [js.landing.launch]
 pleaseWait = "Please wait.."
