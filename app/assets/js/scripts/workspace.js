@@ -35,6 +35,9 @@ const Workspace = (() => {
         const id = ConfigManager.getSelectedServer()
         if(!id || typeof Slices === 'undefined') return
         ground.src = Slices.coverFor(id)
+        // The release the per-release tabs (Java, Mods) apply to.
+        const name = Slices.byId(id)?.name ?? ''
+        document.querySelectorAll('#settingsContainer .ws-applies-name').forEach(el => { el.textContent = name })
     }
 
     function setGear(on){

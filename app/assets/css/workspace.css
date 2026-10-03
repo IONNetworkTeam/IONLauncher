@@ -1,8 +1,8 @@
 /*
- * The settings workspace (workspace.js): settings.ejs's existing markup, re-set in the slices'
- * look — a section bar across the top, one centred column, sections with a rule, rows, accent
- * switches. Every selector starts at #settingsContainer so it wins over launcher.css and
- * ion-theme.css without !important.
+ * The settings workspace (workspace.js, settings.ejs): a section bar across the top, one centred
+ * column of sections — a ruled mono heading (.gh) and rows (.row) — accent switches and sliders.
+ * Every selector starts at #settingsContainer so it wins over launcher.css and ion-theme.css,
+ * which still style the Helios classes settings.js generates, without !important.
  */
 
 /* The workspace: right of the folded band (236px + the 3px gap), over the Play view */
@@ -34,52 +34,134 @@
 #settingsContainer .ws-tabline{position:absolute;bottom:-1px;height:2px;border-radius:2px;background:var(--acc);transition:left .45s cubic-bezier(.3,1.3,.5,1),width .45s cubic-bezier(.3,1.3,.5,1),background .6s}
 
 /* The column */
-#settingsContainer #settingsContainerRight{position:absolute;top:64px;left:0;right:0;bottom:0;width:auto;height:auto;overflow-y:auto;padding:36px 36px 64px;box-sizing:border-box}
-#settingsContainer .settingsTab{max-width:780px;margin:0 auto;padding:0;width:auto}
-#settingsContainer .settingsTabHeader{display:flex;flex-direction:column;gap:10px;margin:0 0 8px}
-#settingsContainer .settingsTabHeaderText{font-size:44px;font-weight:800;letter-spacing:-.03em;line-height:1}
-#settingsContainer .settingsTabHeaderDesc{font-size:15px;color:rgba(255,255,255,.6)}
+#settingsContainer #settingsContainerRight{position:absolute;top:64px;left:0;right:0;bottom:0;width:auto;height:auto;overflow-y:auto;padding:8px 36px 64px;box-sizing:border-box}
+#settingsContainer .settingsTab{max-width:720px;margin:0 auto;padding:0;width:auto;height:auto;overflow:visible}
+#settingsContainer .settingsTab > *:first-child{margin-top:28px}
 
-/* Section headings: mono caps with a rule */
-#settingsContainer .settingsModsHeader,#settingsContainer #settingsMemoryTitle,#settingsContainer .settingsFileSelTitle,#settingsContainer #settingsJVMOptsTitle,#settingsContainer .settingsAuthAccountTypeHeaderLeft span{display:flex;align-items:center;gap:14px;margin:36px 0 4px;font:500 11px 'Geist Mono',ui-monospace,monospace;letter-spacing:.24em;text-transform:uppercase;color:rgba(255,255,255,.6)}
-#settingsContainer .settingsModsHeader:after,#settingsContainer #settingsMemoryTitle:after,#settingsContainer .settingsFileSelTitle:after,#settingsContainer #settingsJVMOptsTitle:after{content:'';flex:1;height:1px;background:rgba(255,255,255,.13)}
+/* A thin scrollbar for the column */
+#settingsContainer #settingsContainerRight::-webkit-scrollbar{width:10px}
+#settingsContainer #settingsContainerRight::-webkit-scrollbar-track{background:transparent}
+#settingsContainer #settingsContainerRight::-webkit-scrollbar-thumb{background:rgb(255 255 255 / .16);border:3px solid transparent;background-clip:padding-box;border-radius:999px}
+#settingsContainer #settingsContainerRight::-webkit-scrollbar-thumb:hover{background-color:rgb(255 255 255 / .3)}
+
+/* Type */
+#settingsContainer .rt{font-size:14.5px;font-weight:600;color:#fff}
+#settingsContainer .rd{margin-top:4px;font-size:13px;line-height:1.5;color:rgba(255,255,255,.55);max-width:52ch}
+#settingsContainer .rd a{color:var(--acc-text)}
+#settingsContainer .rd strong{color:rgba(255,255,255,.8);font-weight:600}
+
+/* Sections: a mono heading with a rule; an action may sit at its end */
+#settingsContainer .gh{display:flex;align-items:center;gap:14px;margin:36px 0 2px}
+#settingsContainer .gh h3{margin:0;font:500 11px 'Geist Mono',ui-monospace,monospace;letter-spacing:.24em;color:rgba(255,255,255,.6);text-transform:uppercase;white-space:nowrap}
+#settingsContainer .gh i{flex:1;height:1px;background:rgba(255,255,255,.13)}
 
 /* Rows */
-#settingsContainer .settingsFieldContainer{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:32px;margin:0;padding:17px 0;border:0;border-bottom:1px solid rgba(255,255,255,.08);background:none}
-#settingsContainer .settingsFieldTitle{font-size:14.5px;font-weight:600;color:#fff}
-#settingsContainer .settingsFieldDesc{display:block;margin-top:4px;font-size:13px;line-height:1.5;color:rgba(255,255,255,.55);max-width:50ch}
+#settingsContainer .row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:32px;padding:17px 0;border-bottom:1px solid rgba(255,255,255,.08)}
+#settingsContainer .ws-block{display:flex;flex-direction:column;gap:10px;padding:17px 0;border-bottom:1px solid rgba(255,255,255,.08)}
+#settingsContainer .ws-sub{padding:20px 0 6px}
 
-/* Switches */
-#settingsContainer .toggleSwitch{width:44px;height:26px}
-#settingsContainer .toggleSwitchSlider{border-radius:999px;background:rgba(255,255,255,.18);border:0;transition:background-color .25s}
-#settingsContainer .toggleSwitchSlider:before{width:20px;height:20px;left:3px;bottom:3px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.35);transition:transform .35s cubic-bezier(.3,1.5,.5,1)}
+/* "Applies to" — the release the band picked */
+#settingsContainer .ws-applies{margin:0;display:flex;align-items:center;gap:12px;font:500 11px 'Geist Mono',ui-monospace,monospace;letter-spacing:.22em;text-transform:uppercase;color:rgba(255,255,255,.55)}
+#settingsContainer .ws-applies i{width:28px;height:1px;background:rgba(255,255,255,.3)}
+#settingsContainer .ws-applies b{font-weight:500;color:var(--acc-text);transition:color .6s}
+#settingsContainer .ws-applies-note{margin:8px 0 0;font-size:13px;color:rgba(255,255,255,.45)}
+#settingsContainer .settingsSelServContainer{display:none}
+
+/* Controls */
+#settingsContainer .btn,#settingsContainer .settingsAuthAccountSelect,#settingsContainer .settingsAuthAccountLogOut,#settingsContainer .settingsDropinRemoveButton{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:0 15px;border:1px solid rgba(255,255,255,.16);border-radius:9px;background:rgba(255,255,255,.04);color:#fff;font:500 13px 'Geist',system-ui,sans-serif;text-decoration:none;white-space:nowrap;cursor:pointer;transition:border-color .2s,background .2s}
+#settingsContainer .btn:hover,#settingsContainer .settingsAuthAccountSelect:hover:not(:disabled),#settingsContainer .settingsAuthAccountLogOut:hover,#settingsContainer .settingsDropinRemoveButton:hover{border-color:rgba(255,255,255,.4);background:rgba(255,255,255,.08)}
+#settingsContainer .btn:disabled,#settingsContainer .settingsAuthAccountSelect:disabled{opacity:.55;cursor:default}
+#settingsContainer .field,#settingsContainer input[type=number],#settingsContainer input[type=text]{height:36px;box-sizing:border-box;padding:0 12px;border:1px solid rgba(255,255,255,.14);border-radius:9px;background:rgba(8,9,12,.5);color:#fff;font:400 13px 'Geist Mono',ui-monospace,monospace}
+#settingsContainer .field:focus,#settingsContainer input:focus{outline:none;border-color:rgba(255,255,255,.5)}
+#settingsContainer input:disabled{color:rgba(255,255,255,.7)}
+#settingsContainer input[type=number]::-webkit-inner-spin-button{display:none}
+#settingsContainer .ws-wide{width:100%}
+#settingsContainer .ws-res{display:flex;align-items:center;gap:8px}
+#settingsContainer .ws-res input{width:86px}
+#settingsContainer .ws-res-x{font:400 13px 'Geist Mono',ui-monospace,monospace;color:rgba(255,255,255,.4)}
+#settingsContainer .ws-file{display:flex;gap:8px}
+#settingsContainer .ws-file input{flex:1;min-width:0}
+#settingsContainer .kbd{display:inline-block;margin-left:2px;padding:2px 6px;border:1px solid rgba(255,255,255,.22);border-bottom-width:2px;border-radius:5px;font:500 10.5px 'Geist Mono',ui-monospace,monospace;color:rgba(255,255,255,.7)}
+
+/* Switches: 44×26 in the release's accent, a knob with a little overshoot */
+#settingsContainer .toggleSwitch{position:relative;display:inline-block;width:44px;height:26px;margin:0;flex-shrink:0}
+#settingsContainer .toggleSwitch input{opacity:0;width:0;height:0}
+#settingsContainer .toggleSwitchSlider{position:absolute;inset:0;cursor:pointer;border:0;border-radius:999px;background:rgba(255,255,255,.18);transition:background-color .25s}
+#settingsContainer .toggleSwitchSlider:before{content:'';position:absolute;width:20px;height:20px;left:3px;bottom:3px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.35);transition:transform .35s cubic-bezier(.3,1.5,.5,1)}
 #settingsContainer .toggleSwitch input:checked + .toggleSwitchSlider{background:var(--acc)}
 #settingsContainer .toggleSwitch input:checked + .toggleSwitchSlider:before{transform:translateX(18px)}
+#settingsContainer .toggleSwitch input:disabled + .toggleSwitchSlider{opacity:.4;cursor:default}
 
-/* Buttons and fields */
-#settingsContainer .settingsAddAuthAccount,#settingsContainer .settingsFileSelButton,#settingsContainer #settingsDropinFileSystemButton,#settingsContainer #settingsShaderpackButton,#settingsContainer .settingsAboutButton,#settingsContainer .settingsAuthAccountSelect,#settingsContainer .settingsAuthAccountLogOut,#settingsContainer #settingsUpdateActionButton{display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 15px;border:1px solid rgba(255,255,255,.16);border-radius:9px;background:rgba(255,255,255,.04);color:#fff;font:500 13px 'Geist',system-ui,sans-serif;text-decoration:none;cursor:pointer}
-#settingsContainer .settingsAddAuthAccount:hover,#settingsContainer .settingsFileSelButton:hover,#settingsContainer #settingsDropinFileSystemButton:hover,#settingsContainer .settingsAboutButton:hover,#settingsContainer .settingsAuthAccountSelect:hover,#settingsContainer .settingsAuthAccountLogOut:hover,#settingsContainer #settingsUpdateActionButton:hover{border-color:rgba(255,255,255,.4);background:rgba(255,255,255,.08)}
-#settingsContainer input[type=number],#settingsContainer input[type=text]{height:36px;box-sizing:border-box;padding:0 12px;border:1px solid rgba(255,255,255,.14);border-radius:9px;background:rgba(8,9,12,.5);color:#fff;font:400 13px 'Geist Mono',ui-monospace,monospace}
-#settingsContainer input[type=number]:focus,#settingsContainer input[type=text]:focus{outline:none;border-color:rgba(255,255,255,.5)}
-
-/* Memory: the numbers as type, the sliders in the accent */
-#settingsContainer .settingsMemoryLabel{font:500 30px 'Geist Mono',ui-monospace,monospace;letter-spacing:-.04em;color:#fff}
-#settingsContainer .settingsMemoryHeader{font-size:14.5px;font-weight:600;color:#fff}
-#settingsContainer .settingsMemoryStatusValue{font:500 19px 'Geist Mono',ui-monospace,monospace;letter-spacing:-.03em}
-#settingsContainer .settingsMemoryStatusTitle{font-size:11px;color:rgba(255,255,255,.5)}
-#settingsContainer .rangeSlider{height:4px;border-radius:2px;background:rgba(255,255,255,.12)}
+/* Memory: the maximum as a large number, the sliders in the accent */
+#settingsContainer .ws-mem{padding:22px 0 18px;border-bottom:1px solid rgba(255,255,255,.08)}
+#settingsContainer .ws-mem-top{display:flex;align-items:flex-end;gap:28px;margin-bottom:22px}
+#settingsContainer .ws-mem-big{font:500 88px 'Geist Mono',ui-monospace,monospace;letter-spacing:-.06em;line-height:.85;color:#fff}
+#settingsContainer .ws-mem-side{display:flex;flex-direction:column;gap:4px;padding-bottom:6px;font-size:13px;line-height:1.5;color:rgba(255,255,255,.55)}
+#settingsContainer .ws-mem-side b{font-weight:500;color:rgba(255,255,255,.8)}
+#settingsContainer .ws-mem-side .settingsMemoryStatusValue{font:500 13px 'Geist Mono',ui-monospace,monospace}
+#settingsContainer .ws-min{display:flex;align-items:center;gap:14px}
+#settingsContainer .ws-min .rangeSlider{width:200px}
+#settingsContainer .ws-min .settingsMemoryLabel{min-width:44px;font:500 15px 'Geist Mono',ui-monospace,monospace;color:#fff;text-align:right}
+#settingsContainer .rangeSlider{position:relative;width:100%;height:4px;margin:8px 0;border-radius:2px;background:rgba(255,255,255,.12)}
 #settingsContainer .rangeSliderBar{height:4px;border-radius:2px;background:var(--acc)}
-#settingsContainer .rangeSliderTrack{width:18px;height:18px;margin-top:-7px;border-radius:50%;background:#fff;box-shadow:0 0 0 4px color-mix(in srgb,var(--acc) 35%,transparent)}
-#settingsContainer #settingsMemoryDesc,#settingsContainer .settingsFileSelDesc,#settingsContainer #settingsJVMOptsDesc,#settingsContainer #settingsShaderpackDesc{font-size:13px;line-height:1.5;color:rgba(255,255,255,.55)}
+#settingsContainer .rangeSliderTrack{width:18px;height:18px;top:-7px;margin-top:0;border-radius:50%;background:#fff;box-shadow:0 0 0 4px color-mix(in srgb,var(--acc) 35%,transparent),0 1px 3px rgba(0,0,0,.4);cursor:grab}
 
-/* "Applies to": the band picks the release, so the old switch button goes */
-#settingsContainer .settingsSelServContainer{margin:22px 0 0;padding:0;border:0;background:none}
-#settingsContainer .settingsSwitchServerContainer{display:none}
-#settingsContainer .settingsSelServContent{font:500 11px 'Geist Mono',ui-monospace,monospace;letter-spacing:.22em;text-transform:uppercase;color:var(--acc-text)}
+/* Version (About, Updates) */
+#settingsContainer .ws-version{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;padding:22px 0;border-bottom:1px solid rgba(255,255,255,.08)}
+#settingsContainer .ws-version-title{font:500 11px 'Geist Mono',ui-monospace,monospace;letter-spacing:.2em;text-transform:uppercase;color:var(--acc-text)}
+#settingsContainer .ws-version-big{margin:10px 0 8px;font:500 56px 'Geist Mono',ui-monospace,monospace;letter-spacing:-.05em;line-height:.9;color:#fff}
+#settingsContainer .ws-links{display:flex;flex-wrap:wrap;gap:8px;padding:18px 0}
+#settingsContainer .settingsChangelogContent{padding:14px 0 6px}
+#settingsContainer .settingsChangelogText{margin-top:8px;font-size:13px;line-height:1.6;color:rgba(255,255,255,.7)}
+#settingsContainer .settingsChangelogText a{color:var(--acc-text)}
+#settingsContainer .settingsChangelogActions{padding:10px 0}
 
-/* Accounts as rows */
-#settingsContainer .settingsAuthAccountTypeContainer{margin:0;border:0;background:none}
-#settingsContainer .settingsAuthAccountTypeHeader{display:flex;align-items:center;justify-content:space-between;margin:28px 0 4px;padding:0;border:0;background:none}
+/* Rows settings.js builds: mods */
+#settingsContainer #settingsModsContainer{width:auto}
+#settingsContainer #settingsReqModsContent,#settingsContainer #settingsOptModsContent,#settingsContainer #settingsDropinModsContent{display:flex;flex-direction:column;width:auto;margin:0;padding:0;border:0;border-radius:0;background:none;backdrop-filter:none}
+#settingsContainer #settingsDropinModsContent:empty{display:none}
+#settingsContainer .settingsBaseMod{margin:0;padding:0;border:0;border-bottom:1px solid rgba(255,255,255,.08);border-radius:0;background:none}
+#settingsContainer .settingsModContent{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:12px 0;border:0;background:none}
+#settingsContainer .settingsModStatus{margin-right:0}
+#settingsContainer .settingsModMainWrapper{display:flex;align-items:center;gap:14px}
+#settingsContainer .settingsModStatus{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+#settingsContainer .settingsModName{font-size:14px;font-weight:600;color:#fff}
+#settingsContainer .settingsModVersion{font:400 11.5px 'Geist Mono',ui-monospace,monospace;color:rgba(255,255,255,.5)}
+#settingsContainer .settingsSubModContainer{margin:0 0 6px 21px;border-left:1px solid rgba(255,255,255,.1);padding-left:14px}
+#settingsContainer .settingsSubModContainer .settingsBaseMod{border-bottom-color:rgba(255,255,255,.05)}
+#settingsContainer .settingsModBadges{margin-top:4px}
+
+/* Rows settings.js builds: accounts */
+#settingsContainer .settingsCurrentAccounts{display:flex;flex-direction:column}
 #settingsContainer .settingsAuthAccount{display:flex;align-items:center;gap:16px;margin:0;padding:14px 0;border:0;border-bottom:1px solid rgba(255,255,255,.08);border-radius:0;background:none}
+#settingsContainer .settingsAuthAccountLeft{flex-shrink:0}
+#settingsContainer .settingsAuthAccountImage{height:60px;image-rendering:pixelated}
+#settingsContainer .settingsAuthAccountRight{flex:1;display:flex;align-items:center;justify-content:space-between;gap:16px;min-width:0}
+#settingsContainer .settingsAuthAccountDetails{display:flex;gap:28px;min-width:0}
+#settingsContainer .settingsAuthAccountDetailTitle{display:block;font:500 10.5px 'Geist Mono',ui-monospace,monospace;letter-spacing:.2em;text-transform:uppercase;color:rgba(255,255,255,.5)}
+#settingsContainer .settingsAuthAccountDetailValue{display:block;margin-top:4px;font-size:13.5px;color:#fff;word-break:break-all}
+#settingsContainer .settingsAuthAccountActions{display:flex;gap:8px;flex-shrink:0}
+#settingsContainer .settingsAuthAccountWrapper{display:flex;gap:8px}
+#settingsContainer .settingsAuthAccountSelect[selected]{border-color:transparent;background:var(--acc);color:#fff;opacity:1}
+
+/* Shader dropdown */
+#settingsContainer .ws-shader{display:flex;align-items:center;gap:8px}
+#settingsContainer .settingsSelectContainer{position:relative;width:210px}
+#settingsContainer .settingsSelectSelected{display:flex;align-items:center;width:100%;font-family:'Geist',system-ui,sans-serif;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#settingsContainer .settingsSelectSelected:after{display:none}
+#settingsContainer .settingsSelectOptions{position:absolute;top:42px;left:0;right:0;z-index:5;max-height:240px;overflow-y:auto;padding:6px;border-radius:12px;background:rgba(18,20,26,.96);box-shadow:inset 0 0 0 1px rgba(255,255,255,.1),0 20px 50px -16px rgba(0,0,0,.8)}
+#settingsContainer .settingsSelectOptions div{padding:8px 10px;border-radius:8px;font-size:13px;color:rgba(255,255,255,.85);cursor:pointer}
+#settingsContainer .settingsSelectOptions div:hover,#settingsContainer .settingsSelectOptions div[selected]{background:rgba(255,255,255,.08);color:#fff}
+
+/* Settings sync rows (settings.js): a server or a pack per row */
+#settingsContainer #settingsSyncServersContent,#settingsContainer #settingsSyncPacksContent{display:flex;flex-direction:column}
+#settingsContainer .settingsSyncServer,#settingsContainer .settingsSyncPack{display:flex;align-items:center;justify-content:space-between;gap:24px;margin:0;padding:12px 0;border:0;border-bottom:1px solid rgba(255,255,255,.08);border-radius:0;background:none}
+#settingsContainer .settingsSyncServerName,#settingsContainer .settingsSyncPackName{font-size:14px;font-weight:600;color:#fff}
+#settingsContainer .settingsSyncServerVersion,#settingsContainer .settingsSyncPackInfo{font:400 11.5px 'Geist Mono',ui-monospace,monospace;color:rgba(255,255,255,.5)}
+#settingsContainer .settingsSyncServerNote{font-size:12px;color:rgba(255,255,255,.45)}
+#settingsContainer .settingsSyncPackModes{display:flex;gap:2px;padding:3px;border-radius:9px;background:rgba(255,255,255,.06)}
+#settingsContainer .settingsSyncPackMode{height:28px;padding:0 10px;border:0;border-radius:7px;background:none;color:rgba(255,255,255,.6);font:500 12px 'Geist',system-ui,sans-serif;cursor:pointer}
+#settingsContainer .settingsSyncPackMode[selected]{background:rgba(255,255,255,.14);color:#fff}
+#settingsContainer #settingsSyncServersContainer[disabled],#settingsContainer #settingsSyncPacksContainer[disabled]{opacity:.45;pointer-events:none}
 
 @media (prefers-reduced-motion:reduce){#settingsContainer,#settingsContainer *{transition-duration:.01s !important}}
