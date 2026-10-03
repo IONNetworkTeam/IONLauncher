@@ -125,6 +125,7 @@ const TitleBar = (() => {
 
     accountButton.addEventListener('click', e => { e.stopPropagation(); toggleMenu() })
     document.addEventListener('click', e => { if(!e.target.closest('#accountMenu')) toggleMenu(false) })
+    document.addEventListener('keydown', e => { if(e.key === 'Escape' && menu.classList.contains('is-open')) toggleMenu(false) })
     menu.addEventListener('click', async e => {
         const sw = e.target.closest('[data-switch]')
         if(sw){ setSelectedAccount(sw.dataset.switch); toggleMenu(false); return }
