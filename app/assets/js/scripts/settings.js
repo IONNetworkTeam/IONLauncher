@@ -1169,9 +1169,9 @@ settingsMinRAMRange.onchange = (e) => {
 
     // Change range bar color based on the selected value.
     if(sMinV >= max/2){
-        bar.style.background = '#e86060'
+        bar.style.background = 'var(--ion-critical)'
     } else if(sMinV >= max/4) {
-        bar.style.background = '#e8e18b'
+        bar.style.background = 'var(--ion-warn)'
     } else {
         bar.style.background = null
     }
@@ -1201,9 +1201,9 @@ settingsMaxRAMRange.onchange = (e) => {
 
     // Change range bar color based on the selected value.
     if(sMaxV >= max/2){
-        bar.style.background = '#e86060'
+        bar.style.background = 'var(--ion-critical)'
     } else if(sMaxV >= max/4) {
-        bar.style.background = '#e8e18b'
+        bar.style.background = 'var(--ion-warn)'
     } else {
         bar.style.background = null
     }
@@ -1431,8 +1431,8 @@ function populateVersionInformation(version, valueElement, titleElement, checkEl
     valueElement.innerHTML = version
     if(isPrerelease(version)){
         titleElement.innerHTML = Lang.queryJS('settings.about.preReleaseTitle')
-        titleElement.style.color = '#ff886d'
-        checkElement.style.background = '#ff886d'
+        titleElement.style.color = 'var(--ion-warn)'
+        checkElement.style.background = 'var(--ion-warn)'
     } else {
         titleElement.innerHTML = Lang.queryJS('settings.about.stableReleaseTitle')
         titleElement.style.color = null

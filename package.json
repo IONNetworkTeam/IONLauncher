@@ -12,7 +12,11 @@
   "private": true,
   "main": "index.js",
   "scripts": {
+    "build:css": "tailwindcss -i app/assets/css/tailwind.src.css -o app/assets/css/ion.css",
+    "watch:css": "tailwindcss -i app/assets/css/tailwind.src.css -o app/assets/css/ion.css --watch",
+    "prestart": "npm run build:css",
     "start": "electron .",
+    "predist": "npm run build:css",
     "dist": "electron-builder build",
     "dist:win": "npm run dist -- -w",
     "dist:mac": "npm run dist -- -m",
@@ -41,9 +45,11 @@
   },
   "devDependencies": {
     "@stylistic/eslint-plugin": "^5.6.1",
+    "@tailwindcss/cli": "^4.3.3",
     "electron": "^39.2.7",
     "electron-builder": "^26.4.0",
-    "eslint": "^9.39.2"
+    "eslint": "^9.39.2",
+    "tailwindcss": "^4.3.3"
   },
   "repository": {
     "type": "git",

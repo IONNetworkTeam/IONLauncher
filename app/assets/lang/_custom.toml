@@ -18,3 +18,7 @@ supportLink = "https://github.com/IONNetworkTeam/IONLauncher/issues"
 welcomeHeader = "WELCOME TO ION Network"
 welcomeDescription = "With this Launcher you can easily connect to VelonaSMP and other Minecraft Servers powered by ION Network."
 welcomeDescCTA = "You are just a few clicks away."
+
+[js.web]
+# The website shown in the Challenges, Stats and News tabs. See docs/website-integration.md.
+url = "https://beta.ion-network.de"
