@@ -110,3 +110,36 @@ and password once, checks them against `/api/launcher/feed`, and answers the cha
 tab with them. If the user ticks *Remember on this computer*, they are stored encrypted with
 Electron's `safeStorage` in `web-auth.bin` in the launcher's data folder. `ION_WEB_AUTH=user:password`
 provides them for development.
+
+## Friends
+
+The launcher can show the player's friends: a strip beside the Play view and a window of their own,
+turned on in Settings › Launcher › Friends (`settings.launcher.friends`, or `ION_FRIENDS=1` for a
+development run). They read the site's `/api/launcher/friends/*` routes, from the main process like
+the feed, and open one WebSocket at `wss://<site>/api/launcher/friends/ws`.
+
+The launcher proves it holds the selected Minecraft account with Mojang's server-join handshake:
+
+```
+POST /api/launcher/friends/session/start      {uuid, name}        → {serverId}
+      launcher → Mojang: POST sessionserver.mojang.com/session/minecraft/join
+POST /api/launcher/friends/session/complete   {uuid, serverId}    → {token, expiresAt}
+DELETE /api/launcher/friends/session          Authorization: Bearer <token>
+```
+
+The token (64 hex characters) is kept per account, encrypted with `safeStorage` in
+`friends-session.bin`, and sent as `Authorization: Bearer` on every other friends route; a `401`
+mints a new one. Sign-out and account switches call `DELETE`. The Minecraft access token goes to
+Mojang only.
+
+The routes, their bodies and answers, the 30 s presence heartbeat (`PUT …/me/presence`), the
+socket protocol (`auth` with a ticket from `POST …/ws-ticket`, `subscribe user:notifications`,
+`ping` every 30 s, frames whose `data.type` is `"friends"`) and the `FriendsView` shape are the
+site's to document; `app/assets/js/friends/api.js` lists what the launcher calls. Everything
+degrades: no session means an empty strip, a `503` keeps the last view with its actions greyed, and
+the Play button never waits for any of it.
+
+A site behind HTTP basic authentication cannot serve these routes to the launcher as they are:
+`Authorization` carries either the site password or the bearer, and the launcher sends the bearer.
+The gate has to let `/api/launcher/friends/*` through (the routes check the bearer themselves) or
+read the password from somewhere else.
