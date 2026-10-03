@@ -590,3 +590,30 @@ Ex.
     }
 }
 ```
+
+## ION extensions (`ion` field)
+
+The ION Launcher Manager adds an `ion` object to `ForgeMod`/`FabricMod` modules after Nebula
+generates the index. Helios ignores it; ION-Launcher reads it before file validation.
+
+```json
+"ion": {
+    "source": "modrinth" | "curseforge" | "github",
+    "download": "hosted" | "direct" | "manual",
+    "projectUrl": "https://modrinth.com/mod/sodium",
+    "license": { "id": "LGPL-3.0-only", "name": "", "url": "https://..." } | null,
+    "manual": { "pageUrl": "https://www.curseforge.com/minecraft/mc-mods/x/download/123", "fileName": "x-1.0.jar" },
+    "github": { "repo": "owner/repo", "assetPattern": null, "prerelease": false, "tag": "v1.4.0", "sha256": "..." | null }
+}
+```
+
+* `download: hosted`: the artifact is served by ION as usual.
+* `download: direct`: `artifact.url` points at the platform's CDN (or a GitHub release asset); ION does not host the jar.
+* `download: manual`: `artifact.url` is the mod's download **page**. The launcher asks the player to download the
+  file (`manual.fileName`), validates it against `artifact.MD5`/`size`, and copies it into place before Helios runs.
+  Manual mods whose file is missing and that the player disabled are removed from the on-disk index that Helios' child
+  process reads.
+* `source: github`: module id is `ion.github.<owner>:<repo>:<tag>@jar`. At launch the launcher looks up the newest
+  release (`github.prerelease` includes pre-releases), picks the first asset matching `github.assetPattern`
+  (default: first `.jar` that is not `-sources`/`-dev`/`-javadoc`/`-api`), rewrites id/url/size and verifies the file
+  against the asset's SHA-256 digest (or size). The values in the index are the fallback when GitHub is unreachable.

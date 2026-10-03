@@ -499,7 +499,7 @@ async function dlAsync(login = true) {
         return
     }
 
-    const serv = distro.getServerById(ConfigManager.getSelectedServer())
+    let serv = distro.getServerById(ConfigManager.getSelectedServer())
 
     if(login) {
         if(ConfigManager.getSelectedAccount() == null){
@@ -511,6 +511,21 @@ async function dlAsync(login = true) {
     setLaunchDetails(Lang.queryJS('landing.dlAsync.pleaseWait'))
     toggleLaunchArea(true)
     setLaunchPercentage(0, 100)
+
+    // ION: resolve GitHub mods and collect manual downloads before Helios validates files.
+    try {
+        distro = await prepareIonModules(distro, ConfigManager.getSelectedServer())
+    } catch(err) {
+        loggerLaunchSuite.error('Error while preparing mods.', err)
+        showLaunchFailure(Lang.queryJS('landing.dlAsync.errorDuringLaunchTitle'), Lang.queryJS('landing.dlAsync.seeConsoleForDetails'))
+        return
+    }
+    if(distro == null){
+        // The player cancelled the manual download step.
+        toggleLaunchArea(false)
+        return
+    }
+    serv = distro.getServerById(ConfigManager.getSelectedServer())
 
     const fullRepairModule = new FullRepair(
         ConfigManager.getCommonDirectory(),
@@ -557,6 +572,12 @@ async function dlAsync(login = true) {
                 setDownloadPercentage(percent)
             })
             setDownloadPercentage(100)
+            const corrupted = await findCorruptedGithubFiles(serv)
+            if(corrupted.length > 0){
+                loggerLaunchSuite.error(`GitHub mods failed verification: ${corrupted.join(', ')}`)
+                showLaunchFailure(Lang.queryJS('landing.dlAsync.errorDuringFileDownloadTitle'), Lang.queryJS('landing.dlAsync.githubModCorrupted', { mods: corrupted.join(', ') }))
+                return
+            }
         } catch(err) {
             loggerLaunchSuite.error('Error during file download.')
             showLaunchFailure(Lang.queryJS('landing.dlAsync.errorDuringFileDownloadTitle'), err.displayable || Lang.queryJS('landing.dlAsync.seeConsoleForDetails'))
