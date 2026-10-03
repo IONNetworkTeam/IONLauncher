@@ -1,0 +1,84 @@
+/*
+ * The settings workspace (workspace.js): settings.ejs's existing markup, re-set in the slices'
+ * look — a section bar across the top, one centred column, sections with a rule, rows, accent
+ * switches. Every selector starts at #settingsContainer so it wins over launcher.css and
+ * ion-theme.css without !important.
+ */
+
+/* The workspace: right of the folded band (236px + the 3px gap), over the Play view */
+#settingsContainer{position:absolute;top:0;right:0;bottom:0;left:239px;z-index:25;display:block;overflow:hidden;background:#111319;color:#fff;font-family:'Geist',system-ui,sans-serif;opacity:0;transform:translateX(60px);transition:opacity .5s,transform .9s cubic-bezier(.75,0,.2,1)}
+#settingsContainer.is-open{opacity:1;transform:none}
+#settingsContainer:before{display:none}
+#settingsContainer .ws-ground{position:absolute;inset:-14%;width:128%;height:128%;object-fit:cover;filter:blur(60px) saturate(1.3);transition:opacity .8s;pointer-events:none}
+#settingsContainer:after{content:'';position:absolute;inset:0;background:rgba(15,17,23,.84);pointer-events:none}
+#settingsContainer > *{position:relative;z-index:1}
+
+/* Section bar */
+#settingsContainer #settingsContainerLeft{width:auto;height:64px;padding:0 36px;border-bottom:1px solid rgba(255,255,255,.08);box-sizing:border-box}
+#settingsContainer #settingsNavContainer{height:100%;flex-direction:row;align-items:center}
+#settingsContainer #settingsNavHeader{height:auto;margin-right:20px}
+#settingsContainer #settingsNavHeaderText{font-size:16px;font-weight:800;letter-spacing:-.01em}
+#settingsContainer #settingsNavItemsContainer{height:100%;flex:1;justify-content:flex-start}
+#settingsContainer #settingsNavItemsContent{flex-direction:row;align-items:stretch;height:100%;width:100%}
+#settingsContainer .settingsNavItem{margin:0;padding:0 14px;height:64px;border:0;border-radius:0;background:none;color:rgba(255,255,255,.5);font:600 13.5px 'Geist',system-ui,sans-serif;transition:color .2s}
+#settingsContainer .settingsNavItem:hover,#settingsContainer .settingsNavItem:focus{color:#fff;background:none}
+#settingsContainer .settingsNavItem[selected]{color:#fff;background:none;box-shadow:none}
+#settingsContainer .settingsNavItem[selected]:before{display:none}
+#settingsContainer .settingsNavSpacer{flex:0 0 18px}
+#settingsContainer #settingsNavContentBottom{margin-left:auto;display:flex;align-items:center;position:static}
+#settingsContainer .settingsNavDivider{display:none}
+#settingsContainer #settingsNavDone{height:36px;padding:0 15px;border:0;border-radius:9px;background:rgba(255,255,255,.1);color:#fff;font:500 13px 'Geist',system-ui,sans-serif}
+#settingsContainer #settingsNavDone:hover{background:rgba(255,255,255,.16)}
+#settingsContainer #settingsNavDone:disabled{opacity:.5}
+#settingsContainer .ws-tabline{position:absolute;bottom:-1px;height:2px;border-radius:2px;background:var(--acc);transition:left .45s cubic-bezier(.3,1.3,.5,1),width .45s cubic-bezier(.3,1.3,.5,1),background .6s}
+
+/* The column */
+#settingsContainer #settingsContainerRight{position:absolute;top:64px;left:0;right:0;bottom:0;width:auto;height:auto;overflow-y:auto;padding:36px 36px 64px;box-sizing:border-box}
+#settingsContainer .settingsTab{max-width:780px;margin:0 auto;padding:0;width:auto}
+#settingsContainer .settingsTabHeader{display:flex;flex-direction:column;gap:10px;margin:0 0 8px}
+#settingsContainer .settingsTabHeaderText{font-size:44px;font-weight:800;letter-spacing:-.03em;line-height:1}
+#settingsContainer .settingsTabHeaderDesc{font-size:15px;color:rgba(255,255,255,.6)}
+
+/* Section headings: mono caps with a rule */
+#settingsContainer .settingsModsHeader,#settingsContainer #settingsMemoryTitle,#settingsContainer .settingsFileSelTitle,#settingsContainer #settingsJVMOptsTitle,#settingsContainer .settingsAuthAccountTypeHeaderLeft span{display:flex;align-items:center;gap:14px;margin:36px 0 4px;font:500 11px 'Geist Mono',ui-monospace,monospace;letter-spacing:.24em;text-transform:uppercase;color:rgba(255,255,255,.6)}
+#settingsContainer .settingsModsHeader:after,#settingsContainer #settingsMemoryTitle:after,#settingsContainer .settingsFileSelTitle:after,#settingsContainer #settingsJVMOptsTitle:after{content:'';flex:1;height:1px;background:rgba(255,255,255,.13)}
+
+/* Rows */
+#settingsContainer .settingsFieldContainer{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:32px;margin:0;padding:17px 0;border:0;border-bottom:1px solid rgba(255,255,255,.08);background:none}
+#settingsContainer .settingsFieldTitle{font-size:14.5px;font-weight:600;color:#fff}
+#settingsContainer .settingsFieldDesc{display:block;margin-top:4px;font-size:13px;line-height:1.5;color:rgba(255,255,255,.55);max-width:50ch}
+
+/* Switches */
+#settingsContainer .toggleSwitch{width:44px;height:26px}
+#settingsContainer .toggleSwitchSlider{border-radius:999px;background:rgba(255,255,255,.18);border:0;transition:background-color .25s}
+#settingsContainer .toggleSwitchSlider:before{width:20px;height:20px;left:3px;bottom:3px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.35);transition:transform .35s cubic-bezier(.3,1.5,.5,1)}
+#settingsContainer .toggleSwitch input:checked + .toggleSwitchSlider{background:var(--acc)}
+#settingsContainer .toggleSwitch input:checked + .toggleSwitchSlider:before{transform:translateX(18px)}
+
+/* Buttons and fields */
+#settingsContainer .settingsAddAuthAccount,#settingsContainer .settingsFileSelButton,#settingsContainer #settingsDropinFileSystemButton,#settingsContainer #settingsShaderpackButton,#settingsContainer .settingsAboutButton,#settingsContainer .settingsAuthAccountSelect,#settingsContainer .settingsAuthAccountLogOut,#settingsContainer #settingsUpdateActionButton{display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 15px;border:1px solid rgba(255,255,255,.16);border-radius:9px;background:rgba(255,255,255,.04);color:#fff;font:500 13px 'Geist',system-ui,sans-serif;text-decoration:none;cursor:pointer}
+#settingsContainer .settingsAddAuthAccount:hover,#settingsContainer .settingsFileSelButton:hover,#settingsContainer #settingsDropinFileSystemButton:hover,#settingsContainer .settingsAboutButton:hover,#settingsContainer .settingsAuthAccountSelect:hover,#settingsContainer .settingsAuthAccountLogOut:hover,#settingsContainer #settingsUpdateActionButton:hover{border-color:rgba(255,255,255,.4);background:rgba(255,255,255,.08)}
+#settingsContainer input[type=number],#settingsContainer input[type=text]{height:36px;box-sizing:border-box;padding:0 12px;border:1px solid rgba(255,255,255,.14);border-radius:9px;background:rgba(8,9,12,.5);color:#fff;font:400 13px 'Geist Mono',ui-monospace,monospace}
+#settingsContainer input[type=number]:focus,#settingsContainer input[type=text]:focus{outline:none;border-color:rgba(255,255,255,.5)}
+
+/* Memory: the numbers as type, the sliders in the accent */
+#settingsContainer .settingsMemoryLabel{font:500 30px 'Geist Mono',ui-monospace,monospace;letter-spacing:-.04em;color:#fff}
+#settingsContainer .settingsMemoryHeader{font-size:14.5px;font-weight:600;color:#fff}
+#settingsContainer .settingsMemoryStatusValue{font:500 19px 'Geist Mono',ui-monospace,monospace;letter-spacing:-.03em}
+#settingsContainer .settingsMemoryStatusTitle{font-size:11px;color:rgba(255,255,255,.5)}
+#settingsContainer .rangeSlider{height:4px;border-radius:2px;background:rgba(255,255,255,.12)}
+#settingsContainer .rangeSliderBar{height:4px;border-radius:2px;background:var(--acc)}
+#settingsContainer .rangeSliderTrack{width:18px;height:18px;margin-top:-7px;border-radius:50%;background:#fff;box-shadow:0 0 0 4px color-mix(in srgb,var(--acc) 35%,transparent)}
+#settingsContainer #settingsMemoryDesc,#settingsContainer .settingsFileSelDesc,#settingsContainer #settingsJVMOptsDesc,#settingsContainer #settingsShaderpackDesc{font-size:13px;line-height:1.5;color:rgba(255,255,255,.55)}
+
+/* "Applies to": the band picks the release, so the old switch button goes */
+#settingsContainer .settingsSelServContainer{margin:22px 0 0;padding:0;border:0;background:none}
+#settingsContainer .settingsSwitchServerContainer{display:none}
+#settingsContainer .settingsSelServContent{font:500 11px 'Geist Mono',ui-monospace,monospace;letter-spacing:.22em;text-transform:uppercase;color:var(--acc-text)}
+
+/* Accounts as rows */
+#settingsContainer .settingsAuthAccountTypeContainer{margin:0;border:0;background:none}
+#settingsContainer .settingsAuthAccountTypeHeader{display:flex;align-items:center;justify-content:space-between;margin:28px 0 4px;padding:0;border:0;background:none}
+#settingsContainer .settingsAuthAccount{display:flex;align-items:center;gap:16px;margin:0;padding:14px 0;border:0;border-bottom:1px solid rgba(255,255,255,.08);border-radius:0;background:none}
+
+@media (prefers-reduced-motion:reduce){#settingsContainer,#settingsContainer *{transition-duration:.01s !important}}
