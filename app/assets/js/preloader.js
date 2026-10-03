@@ -17,6 +17,12 @@ logger.info('Loading..')
 // Load ConfigManager
 ConfigManager.load()
 
+// Config writes are asynchronous; write whatever is still pending before the window closes.
+// eslint-disable-next-line no-undef
+window.addEventListener('beforeunload', () => {
+    ConfigManager.saveSync()
+})
+
 // Yuck!
 // TODO Fix this
 DistroAPI['commonDir'] = ConfigManager.getCommonDirectory()

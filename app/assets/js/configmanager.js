@@ -84,6 +84,12 @@ const DEFAULT_CONFIG = {
             autoConnect: true,
             launchDetached: true
         },
+        settingsSync: {
+            enabled: true,
+            excludedServers: [],
+            sharePacks: true,
+            packModes: {}
+        },
         launcher: {
             allowPrerelease: false,
             dataDirectory: dataPath
@@ -108,11 +114,81 @@ let config = null
 
 // Persistance Utility Functions
 
+/** How long save() waits for further changes before writing, so bursts of saves become one write. */
+const SAVE_DELAY = 50
+
+let saveTimer = null
+let saveInFlight = false
+let saveGeneration = 0
+
+function serialize(){
+    return JSON.stringify(config, null, 4)
+}
+
+/**
+ * Write the configuration to disk without blocking. The file is replaced atomically (write to a
+ * temporary file, then rename), so a crash mid-write cannot leave a truncated config behind.
+ * Only one write runs at a time; a save() during a write queues one more.
+ */
+async function writeConfig(){
+    saveInFlight = true
+    const generation = saveGeneration
+    const tmpPath = configPath + '.tmp'
+    try {
+        await fs.writeFile(tmpPath, serialize(), 'UTF-8')
+        // A saveSync() has written newer data in the meantime; do not replace it with this.
+        if(generation === saveGeneration){
+            await fs.rename(tmpPath, configPath)
+        } else {
+            await fs.remove(tmpPath)
+        }
+    } catch(err) {
+        logger.error('Failed to save the configuration.', err)
+    } finally {
+        saveInFlight = false
+        if(saveTimer === 'queued'){
+            saveTimer = null
+            exports.save()
+        }
+    }
+}
+
 /**
  * Save the current configuration to a file.
+ *
+ * The write happens shortly afterwards, off the UI thread. Several saves in quick succession
+ * (the launcher makes four during startup alone) result in a single write. A synchronous write
+ * stalls the whole window for as long as the disk takes, which can be seconds on a busy or slow
+ * drive, or with an antivirus scanning every rewrite. Use saveSync() only where the process is
+ * about to exit.
  */
 exports.save = function(){
-    fs.writeFileSync(configPath, JSON.stringify(config, null, 4), 'UTF-8')
+    if(saveInFlight){
+        saveTimer = 'queued'
+        return
+    }
+    if(saveTimer == null){
+        saveTimer = setTimeout(() => {
+            saveTimer = null
+            writeConfig()
+        }, SAVE_DELAY)
+    }
+}
+
+/**
+ * Write any pending changes to disk immediately. For shutdown, when there is no time to wait
+ * for an asynchronous write.
+ */
+exports.saveSync = function(){
+    if(saveTimer == null && !saveInFlight){
+        return
+    }
+    if(saveTimer != null && saveTimer !== 'queued'){
+        clearTimeout(saveTimer)
+    }
+    saveTimer = null
+    saveGeneration++
+    fs.writeFileSync(configPath, serialize(), 'UTF-8')
 }
 
 /**
@@ -132,7 +208,7 @@ exports.load = function(){
         } else {
             doLoad = false
             config = DEFAULT_CONFIG
-            exports.save()
+            fs.writeFileSync(configPath, serialize(), 'UTF-8')
         }
     }
     if(doLoad){
@@ -146,7 +222,7 @@ exports.load = function(){
             logger.info('Generating a new configuration file.')
             fs.ensureDirSync(path.join(configPath, '..'))
             config = DEFAULT_CONFIG
-            exports.save()
+            fs.writeFileSync(configPath, serialize(), 'UTF-8')
         }
         if(doValidate){
             config = validateKeySet(DEFAULT_CONFIG, config)
@@ -792,6 +868,93 @@ exports.getLaunchDetached = function(def = false){
  */
 exports.setLaunchDetached = function(launchDetached){
     config.settings.game.launchDetached = launchDetached
+}
+
+// Settings Sync
+
+/**
+ * Check if Minecraft settings are synchronized between instances.
+ *
+ * @param {boolean} def Optional. If true, the default value will be returned.
+ * @returns {boolean} Whether or not Minecraft settings are synchronized between instances.
+ */
+exports.getSettingsSyncEnabled = function(def = false){
+    return !def ? config.settings.settingsSync.enabled : DEFAULT_CONFIG.settings.settingsSync.enabled
+}
+
+/**
+ * Change whether Minecraft settings are synchronized between instances.
+ *
+ * @param {boolean} enabled Whether or not Minecraft settings are synchronized between instances.
+ */
+exports.setSettingsSyncEnabled = function(enabled){
+    config.settings.settingsSync.enabled = enabled
+}
+
+/**
+ * Check if the user excluded a server from settings sync.
+ *
+ * @param {string} serverid The server id.
+ * @returns {boolean} True if the server's settings are not synchronized.
+ */
+exports.isSettingsSyncExcluded = function(serverid){
+    return config.settings.settingsSync.excludedServers.includes(serverid)
+}
+
+/**
+ * Exclude a server from settings sync, or include it again.
+ *
+ * @param {string} serverid The server id.
+ * @param {boolean} excluded True to exclude the server.
+ */
+exports.setSettingsSyncExcluded = function(serverid, excluded){
+    const list = config.settings.settingsSync.excludedServers.filter(id => id !== serverid)
+    if(excluded){
+        list.push(serverid)
+    }
+    config.settings.settingsSync.excludedServers = list
+}
+
+/**
+ * Check if resource packs and shader packs are shared between instances.
+ *
+ * @param {boolean} def Optional. If true, the default value will be returned.
+ * @returns {boolean} Whether or not packs are shared between instances.
+ */
+exports.getSharePacks = function(def = false){
+    return !def ? config.settings.settingsSync.sharePacks : DEFAULT_CONFIG.settings.settingsSync.sharePacks
+}
+
+/**
+ * Change whether resource packs and shader packs are shared between instances.
+ *
+ * @param {boolean} sharePacks Whether or not packs are shared between instances.
+ */
+exports.setSharePacks = function(sharePacks){
+    config.settings.settingsSync.sharePacks = sharePacks
+}
+
+/**
+ * Get the sharing mode of every pack the user changed from the default.
+ *
+ * @returns {Object<string, string>} Pack file name to 'everywhere' or 'off'.
+ */
+exports.getPackModes = function(){
+    return { ...config.settings.settingsSync.packModes }
+}
+
+/**
+ * Set how a pack is shared.
+ *
+ * @param {string} packName The pack's file or folder name.
+ * @param {string} mode 'compatible' (the default), 'everywhere' or 'off'.
+ */
+exports.setPackMode = function(packName, mode){
+    if(mode === 'compatible' || mode == null){
+        delete config.settings.settingsSync.packModes[packName]
+    } else {
+        config.settings.settingsSync.packModes[packName] = mode
+    }
 }
 
 // Launcher Settings
