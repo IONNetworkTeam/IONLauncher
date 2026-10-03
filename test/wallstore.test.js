@@ -81,3 +81,14 @@ test('a corrupt manifest starts empty', async () => {
     assert.deepEqual(s.list(), { releases: {} })
     await assert.rejects(fs.access(path.join(dir, 'stray.tmp')))
 })
+
+test('an empty release list is an outage, not "every wallpaper was removed"', async () => {
+    const dir = await tmp()
+    let sets = { R1: [['a', 'v1']] }
+    const s = createWallStore({ dir, fetchJson: async () => remote(sets), fetchBytes: async () => Buffer.from('x'), onChange(){}, logger: quiet })
+    await s.open(); await s.sync()
+    const kept = s.list().releases.R1
+    sets = {}
+    assert.equal(await s.sync(), false)
+    assert.deepEqual(s.list().releases.R1, kept)
+})

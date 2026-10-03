@@ -56,7 +56,8 @@ function createWallStore({ dir, fetchJson, fetchBytes, onChange, logger }){
     async function run(){
         let body
         try { body = await fetchJson('/api/launcher/releases') } catch(err) { body = null; logger.warn('Wallpaper list unavailable.', err) }
-        if(!body || !Array.isArray(body.releases)) return false
+        // No list, or an empty one, is the site having a bad moment: keep everything as it is.
+        if(!body || !Array.isArray(body.releases) || body.releases.length === 0) return false
 
         const previous = manifest
         const { downloads, next } = planSync(manifest, body.releases)
