@@ -33,13 +33,21 @@ function fileNameFor(id, version, url){
     return `${safe}-${tag}${['.jpg', '.jpeg', '.png', '.webp'].includes(ext) ? ext : '.jpg'}`
 }
 
+/**
+ * Wallpaper downloads go through the site's authenticated fetch, which prefixes the site's address,
+ * so only a plain path under /api/launcher/wallpapers/ may ever be fetched: anything else (an
+ * absolute URL, `@host`, a `..`) could send the site login somewhere else.
+ */
+const WALLPAPER_PATH = /^\/api\/launcher\/wallpapers\/[^/?#.][^/?#]*(\?[^#]*)?$/
+
 function planSync(manifest, remote){
     const files = {}
     const releases = {}
     const downloads = []
     for(const release of remote){
         releases[release.id] = []
-        for(const wp of release.wallpapers || []){
+        for(const wp of Array.isArray(release.wallpapers) ? release.wallpapers : []){
+            if(typeof wp?.id !== 'string' || typeof wp.url !== 'string' || !WALLPAPER_PATH.test(wp.url)) continue
             releases[release.id].push(wp.id)
             if(files[wp.id]) continue
             const have = manifest.files[wp.id]

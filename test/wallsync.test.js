@@ -71,3 +71,15 @@ test('retired files carry over until the store deletes them', () => {
     const m = { ...emptyManifest(), retired: ['old.jpg'] }
     assert.deepEqual(planSync(m, []).next.retired, ['old.jpg'])
 })
+
+test('only the site\'s wallpaper path is ever fetched (the fetch carries the site login)', () => {
+    const remote = [{ id: 'R1', wallpapers: [
+        { id: 'ok', version: 'v1', url: '/api/launcher/wallpapers/ok?v=v1' },
+        { id: 'evil', version: 'v1', url: '@other.host/steal' },
+        { id: 'abs', version: 'v1', url: 'https://other.host/x.jpg' },
+        { id: 'up', version: 'v1', url: '/api/launcher/../admin' }
+    ] }]
+    const { downloads, next } = planSync(emptyManifest(), remote)
+    assert.deepEqual(downloads.map(d => d.id), ['ok'])
+    assert.deepEqual(next.releases.R1, ['ok'])
+})

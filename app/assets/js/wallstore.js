@@ -82,7 +82,13 @@ function createWallStore({ dir, fetchJson, fetchBytes, onChange, logger }){
 
     function sync(){
         // One sync at a time; a second call while one runs waits for it.
-        if(!syncing) syncing = run().finally(() => { syncing = null })
+        // A failed sync (disk full, a malformed answer, a window gone mid-notify) is logged and
+        // leaves the cache as it was; it never becomes an unhandled rejection in the main process.
+        if(!syncing){
+            syncing = run()
+                .catch(err => { logger.error('Wallpaper sync failed.', err); return false })
+                .finally(() => { syncing = null })
+        }
         return syncing
     }
 

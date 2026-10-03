@@ -92,3 +92,10 @@ test('an empty release list is an outage, not "every wallpaper was removed"', as
     assert.equal(await s.sync(), false)
     assert.deepEqual(s.list().releases.R1, kept)
 })
+
+test('a sync that fails half-way resolves false instead of rejecting', async () => {
+    const dir = await tmp()
+    const s = createWallStore({ dir, fetchJson: async () => ({ releases: [{ id: 'R1', wallpapers: 7 }] }), fetchBytes: async () => Buffer.from('x'), onChange(){ throw new Error('window gone') }, logger: quiet })
+    await s.open()
+    assert.equal(await s.sync(), false)
+})
