@@ -416,6 +416,19 @@ function isLocalHost(hostname){
     return hostname === 'localhost' || hostname === '127.0.0.1'
 }
 
+const MAP_PARTITION = 'persist:ionmap'
+/** Origins of the releases' live maps, handed over by the renderer when a map tab opens. */
+const mapOrigins = new Set()
+// Synchronous: the renderer attaches the map's webview right after, and the origin must be known by then.
+ipcMain.on('web:allowMap', (e, url) => {
+    try {
+        const u = new URL(url)
+        if(u.protocol === 'https:' || u.protocol === 'http:') mapOrigins.add(u.origin)
+    } catch { /* not a URL */ }
+    e.returnValue = true
+})
+const isMapUrl = url => { try { return mapOrigins.has(new URL(url).origin) } catch { return false } }
+
 function allowedInWebview(url){
     let u
     try { u = new URL(url) } catch { return false }
@@ -445,6 +458,18 @@ app.on('login', (event, _webContents, details, authInfo, callback) => {
 
 app.on('web-contents-created', (_event, contents) => {
     contents.on('will-attach-webview', (event, webPreferences, params) => {
+        // A release's live map: its own partition, no site login, no bridge, its own origin only.
+        if(params.partition === MAP_PARTITION){
+            delete webPreferences.preload
+            delete webPreferences.preloadURL
+            webPreferences.nodeIntegration = false
+            webPreferences.nodeIntegrationInSubFrames = false
+            webPreferences.contextIsolation = true
+            webPreferences.sandbox = true
+            webPreferences.webSecurity = true
+            if(!isMapUrl(params.src)) event.preventDefault()
+            return
+        }
         delete webPreferences.preloadURL
         webPreferences.preload = WEBBRIDGE_PRELOAD
         webPreferences.nodeIntegration = false
@@ -461,13 +486,14 @@ app.on('web-contents-created', (_event, contents) => {
         if(/^https?:/.test(url)) shell.openExternal(url)
         return { action: 'deny' }
     })
+    const isMapView = contents.session === session.fromPartition(MAP_PARTITION)
     contents.on('will-navigate', (event, url) => {
-        if(allowedInWebview(url)) return
+        if(isMapView ? isMapUrl(url) : allowedInWebview(url)) return
         event.preventDefault()
         if(/^https?:/.test(url)) shell.openExternal(url)
     })
     contents.on('will-redirect', (event, url) => {
-        if(!allowedInWebview(url)) event.preventDefault()
+        if(!(isMapView ? isMapUrl(url) : allowedInWebview(url))) event.preventDefault()
     })
 })
 

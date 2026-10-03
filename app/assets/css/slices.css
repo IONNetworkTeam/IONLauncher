@@ -190,6 +190,11 @@
 .slice-desc{margin:18px 0 0;max-width:44ch;font-size:15.5px;line-height:1.45;color:rgba(255,255,255,.72)}
 .slice-extra{pointer-events:auto}
 .modes{margin-top:24px;display:flex;gap:8px}
+.mode{display:flex;flex-direction:column;align-items:center;gap:6px;width:74px;padding:10px 0 8px;border:0;border-radius:11px;background:rgba(9,10,14,.5);backdrop-filter:blur(10px);color:#fff;font:600 10.5px 'Geist',system-ui,sans-serif;cursor:pointer;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);transition:transform .35s cubic-bezier(.3,1.5,.5,1),background .2s}
+.mode:hover{transform:translateY(-5px);background:rgba(9,10,14,.75)}
+.mode img{width:28px;height:28px;image-rendering:pixelated}
+.mode-bar{display:block;width:16px;height:2px;border-radius:2px;transition:width .35s cubic-bezier(.3,1.5,.5,1)}
+.mode:hover .mode-bar{width:30px}
 .slice-side{display:flex;flex-direction:column;align-items:stretch;gap:14px;flex-shrink:0;pointer-events:auto}
 .ann{position:absolute;top:26px;left:48px}
 .ann-dot{background:var(--acc-text)}
@@ -278,6 +283,7 @@
 .peek-title{display:block;margin:6px 4px 0;font-size:15px;font-weight:700;line-height:1.3}
 .peek-foot{display:flex;justify-content:space-between;margin:10px 4px 4px;font-size:12px;color:rgba(255,255,255,.55)}
 .peek-cta{transition:color .2s}
+.peek:hover .peek-cta{color:#fff}
 .tb-drag{flex:1;align-self:stretch}
 .tb-coins{display:flex;align-items:center;gap:7px;height:28px;padding:0 9px;border-radius:7px;font:400 12px 'Geist Mono',ui-monospace,monospace;color:rgba(255,255,255,.85)}
 .tb-coins img{width:12px;height:12px}

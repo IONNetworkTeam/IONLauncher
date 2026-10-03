@@ -18,6 +18,9 @@ const WEBBRIDGE_PRELOAD = 'file://' + require('path').join(__dirname, 'assets', 
 /** What the website last reported, or null until it has. */
 let webState = null
 let currentTab = 'home'
+/** A release's live map runs in its own partition: no site login, no bridge (index.js). */
+const MAP_PARTITION = 'persist:ionmap'
+let currentMapUrl = null
 const webviews = {}
 /** Each web tab's curtain setter: `(state, message)`, state one of none, loading, failed, locked. */
 const curtains = {}
@@ -32,6 +35,7 @@ function escapeHtml(s){
 
 /** Where a web tab opens. Stats opens on the selected player's own page. */
 function tabRoot(tab){
+    if(tab === 'map') return currentMapUrl
     if(tab === 'stats'){
         const name = webState?.minecraftName || ConfigManager.getSelectedAccount()?.displayName
         if(name) return `/stats/${encodeURIComponent(name)}`
@@ -46,6 +50,10 @@ function tabRoot(tab){
  * @param {string=} path A path on the website to open in that tab.
  */
 function showTab(tab, path){
+    if(tab === 'map' && path){
+        currentMapUrl = path
+        ipcRenderer.sendSync('web:allowMap', path)
+    }
     const again = tab === currentTab
     currentTab = tab
     document.getElementById('stage').classList.toggle('away', tab !== 'home')
@@ -107,8 +115,8 @@ function ensureWebview(tab){
     if(webLocked) lockCurtain(setCurtain)
 
     const view = document.createElement('webview')
-    view.setAttribute('partition', Web.partition)
-    view.setAttribute('preload', WEBBRIDGE_PRELOAD)
+    view.setAttribute('partition', tab === 'map' ? MAP_PARTITION : Web.partition)
+    if(tab !== 'map') view.setAttribute('preload', WEBBRIDGE_PRELOAD)
     view.setAttribute('webpreferences', 'contextIsolation=yes, sandbox=yes')
     view.setAttribute('src', new URL(tabRoot(tab), Web.url).toString())
     panel.appendChild(view)
