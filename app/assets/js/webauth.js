@@ -152,7 +152,13 @@ function isGateChallenge(res){
  */
 async function fetchWeb(pathname, init = {}){
     const url = Web.url + pathname
-    const withAuth = creds => ({ ...init, headers: { ...(init.headers || {}), ...(creds ? { Authorization: header(creds) } : {}) }, cache: 'no-store' })
+    const headers = { ...(init.headers || {}) }
+    // A request that carries its own Authorization (a bearer the site issued) is sent as it is:
+    // there is one such header, and a gate challenge to it is the caller's to report, not a
+    // reason to doubt the stored site login or to ask the user for it.
+    const own = Object.keys(headers).some(k => k.toLowerCase() === 'authorization')
+    if(own) return net.fetch(url, { ...init, headers, cache: 'no-store' })
+    const withAuth = creds => ({ ...init, headers: { ...headers, ...(creds ? { Authorization: header(creds) } : {}) }, cache: 'no-store' })
     let res = await net.fetch(url, withAuth(current))
     if(res.status === 401 && isGateChallenge(res)){
         const creds = await credentials(!!current)
@@ -168,8 +174,9 @@ async function fetchWeb(pathname, init = {}){
  * @param {string} pathname A path under /api/launcher/.
  * @param {{method?: string, body?: any, bearer?: string}} [init] The body is sent as JSON; the
  *        bearer is a token the site issued (the friends session), added as `Authorization: Bearer`.
- * @returns {Promise<{ok: boolean, status: number, data?: any, error?: string, code?: string, retryAfter?: number}>}
- *          `data` is the parsed answer (null for a 204); refusals carry the site's `error` and `code`.
+ * @returns {Promise<{ok: boolean, status: number, data?: any, error?: string, code?: string, retryAfter?: number, gate?: boolean}>}
+ *          `data` is the parsed answer (null for a 204); refusals carry the site's `error` and `code`;
+ *          `gate` marks a 401 from the site's basic-auth gate rather than from the route.
  */
 async function fetchJson(pathname, { method = 'GET', body, bearer } = {}){
     if(typeof pathname !== 'string' || !pathname.startsWith('/api/launcher/')){
@@ -184,6 +191,7 @@ async function fetchJson(pathname, { method = 'GET', body, bearer } = {}){
         try { data = await res.json() } catch { data = null }
     }
     const out = { ok: res.ok, status: res.status, data }
+    if(res.status === 401 && isGateChallenge(res)) out.gate = true
     if(!res.ok){
         if(typeof data?.error === 'string') out.error = data.error
         if(typeof data?.code === 'string') out.code = data.code

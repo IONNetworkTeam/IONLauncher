@@ -7,6 +7,7 @@
  * launcher itself adds, beside the website's own (`NOT_FOUND`, `ALREADY_FRIENDS`, …):
  *
  *   NO_SESSION    no launcher session could be minted (status 0, `reason` says why)
+ *   GATE          the site's password gate refused the bearer request (401 with a Basic challenge)
  *   OFFLINE       the website did not answer (status 0)
  *   UNAVAILABLE   503: the backend is down, keep the last view and try again later
  *   RATE_LIMITED  429, with `retryAfter` seconds when the site said
@@ -19,7 +20,7 @@
 const BASE = '/api/launcher/friends'
 const seg = encodeURIComponent
 
-const silent = { info(){}, warn(){}, error(){} }
+const silent = { info(){}, warn(){}, error(){}, debug(){} }
 
 /**
  * @param {Object} deps
@@ -32,7 +33,9 @@ function createFriendsApi({ fetchJson, session, account, logger = silent }){
 
     async function send(method, path, body, bearer){
         try {
-            return await fetchJson(BASE + path, { method, body, bearer })
+            const res = await fetchJson(BASE + path, { method, body, bearer })
+            logger.debug(`Friends: ${method} ${path || '/'} → ${res.status}${res.code ? ` ${res.code}` : ''}`)
+            return res
         } catch(err) {
             logger.warn(`Friends: ${method} ${path} did not reach the website.`, err)
             return { ok: false, status: 0, code: 'OFFLINE', error: null }
@@ -52,6 +55,8 @@ function createFriendsApi({ fetchJson, session, account, logger = silent }){
         const first = await session.ensure(acc)
         if(!first.token) return { ok: false, status: 0, code: 'NO_SESSION', reason: first.reason ?? 'invalid', error: null }
         let res = await send(method, path, body, first.token)
+        // The gate in front of the site answered, not the route: the session is fine, the site is not reachable this way.
+        if(res.status === 401 && res.gate) return { ok: false, status: 401, code: 'GATE', error: null, data: null }
         if(res.status === 401){
             // The website forgot or refused the session: mint a new one, once, and try again.
             session.invalidate(acc.uuid)

@@ -104,3 +104,12 @@ test('a 401 drops the session, mints once and repeats the call; a second 401 giv
     assert.equal(second.code, 'NO_SESSION')
     assert.equal(h.calls.length, 4)
 })
+
+test('a gate challenge to a bearer request is reported as GATE and keeps the session', async () => {
+    const h = harness([{ ok: false, status: 401, gate: true }])
+    const r = await h.api.view()
+    assert.equal(r.code, 'GATE')
+    assert.equal(r.status, 401)
+    assert.deepEqual(h.invalidated, [])
+    assert.equal(h.calls.length, 1)
+})

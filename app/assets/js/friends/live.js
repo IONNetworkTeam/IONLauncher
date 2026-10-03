@@ -85,6 +85,7 @@ function createLiveChannel({ ticket, poll, url, onEvent, onSnapshot, onStatus = 
         try { frame = JSON.parse(typeof raw === 'string' ? raw : String(raw)) } catch { return }
         if(!frame || typeof frame !== 'object') return
         if(frame.type === 'auth_ok'){
+            logger.info('Live channel: authenticated.')
             backoff = MIN_BACKOFF_MS
             setAuthed(true)
             send({ type: 'subscribe', channel: CHANNEL })

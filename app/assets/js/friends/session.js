@@ -29,7 +29,7 @@ const RATE_LIMIT_BACKOFF_MS = 60000
 const EXPIRY_MARGIN_MS = 5 * 60000
 const TOKEN = /^[0-9a-f]{64}$/i
 
-const silent = { info(){}, warn(){}, error(){} }
+const silent = { info(){}, warn(){}, error(){}, debug(){} }
 
 /** Mojang wants the profile id without dashes. */
 function undashed(uuid){
