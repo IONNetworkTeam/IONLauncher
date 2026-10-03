@@ -93,10 +93,9 @@ if(!isDev){
 }
 
 /**
- * Send a notification to the main process changing the value of
- * allowPrerelease. If we are running a prerelease version, then
- * this will always be set to true, regardless of the current value
- * of val.
+ * Tell the main process whether the user wants beta (pre-release)
+ * versions of the launcher. Turning it off on a beta returns to the
+ * latest stable release.
  * 
  * @param {boolean} val The new allow prerelease value.
  */

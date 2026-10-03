@@ -16,16 +16,28 @@ const LangLoader                        = require('./app/assets/js/langloader')
 // Setup Lang
 LangLoader.setupLanguage()
 
+let betaChannel = null
+
+/**
+ * Choose the update channel. Betas are published as GitHub pre-releases (e.g. 2.3.0-beta.1).
+ *
+ * @param {boolean} beta True to receive beta versions, false for stable releases only.
+ * @returns {boolean} Whether the channel changed.
+ */
+function setUpdateChannel(beta){
+    const changed = betaChannel !== null && betaChannel !== beta
+    betaChannel = beta
+    autoUpdater.allowPrerelease = beta
+    // Leaving the beta means installing the latest stable release, which is an older version.
+    autoUpdater.allowDowngrade = !beta && semver.prerelease(app.getVersion()) != null
+    return changed
+}
+
 // Setup auto updater.
 function initAutoUpdater(event, data) {
 
-    if(data){
-        autoUpdater.allowPrerelease = true
-    } else {
-        // Defaults to true if application version contains prerelease components (e.g. 0.12.1-alpha.1)
-        // autoUpdater.allowPrerelease = true
-    }
-    
+    setUpdateChannel(!!data)
+
     if(isDev){
         autoUpdater.autoInstallOnAppQuit = false
         autoUpdater.updateConfigPath = path.join(__dirname, 'dev-app-update.yml')
@@ -65,15 +77,12 @@ ipcMain.on('autoUpdateAction', (event, arg, data) => {
                 })
             break
         case 'allowPrereleaseChange':
-            if(!data){
-                const preRelComp = semver.prerelease(app.getVersion())
-                if(preRelComp != null && preRelComp.length > 0){
-                    autoUpdater.allowPrerelease = true
-                } else {
-                    autoUpdater.allowPrerelease = data
-                }
-            } else {
-                autoUpdater.allowPrerelease = data
+            // Sent on every settings save; check for updates only when the channel changed.
+            if(setUpdateChannel(!!data) && !isDev){
+                autoUpdater.checkForUpdates()
+                    .catch(err => {
+                        event.sender.send('autoUpdateNotification', 'realerror', err)
+                    })
             }
             break
         case 'installUpdateNow':

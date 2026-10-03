@@ -11,7 +11,7 @@ on:
         type: boolean
         default: true
       prerelease:
-        description: 'Mark as prerelease'
+        description: 'Mark as prerelease (always on for versions like 2.3.0-beta.1)'
         type: boolean
         default: false
       releaseNotes:
@@ -136,6 +136,17 @@ jobs:
         run: echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_ENV
         shell: bash
 
+      # A version with a pre-release component (2.3.0-beta.1) is a beta. It must be published as a
+      # GitHub pre-release: only launchers that joined the beta look at pre-releases.
+      - name: Detect beta
+        run: |
+          if [[ "$VERSION" == *-* || "${{ github.event.inputs.prerelease }}" == "true" ]]; then
+            echo "PRERELEASE=true" >> $GITHUB_ENV
+          else
+            echo "PRERELEASE=false" >> $GITHUB_ENV
+          fi
+        shell: bash
+
       - name: Collect release stats
         run: |
           echo "BUILD_DATE=$(date +'%Y-%m-%d %H:%M:%S %Z')" >> $GITHUB_ENV
@@ -155,7 +166,7 @@ jobs:
       - name: List latest-*.yml files in summary
         run: |
           echo "## Auto-Update Metadata Files" >> $GITHUB_STEP_SUMMARY
-          find artifacts -type f -name 'latest-*.yml' | sort | xargs -n1 basename | while read file; do
+          find artifacts -type f -name 'latest*.yml' | sort | xargs -n1 basename | while read file; do
             echo "- $file" >> $GITHUB_STEP_SUMMARY
           done
         shell: bash
@@ -169,7 +180,7 @@ jobs:
           echo "- **Version:** v${VERSION}" >> $GITHUB_STEP_SUMMARY
           echo "- **Build Date:** ${BUILD_DATE}" >> $GITHUB_STEP_SUMMARY
           echo "- **Draft Release:** ${{ github.event.inputs.draft || 'true' }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Prerelease:** ${{ github.event.inputs.prerelease || 'false' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Prerelease:** ${PRERELEASE}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "## Build Statistics" >> $GITHUB_STEP_SUMMARY
           echo "- **Total Files:** ${TOTAL_FILES}" >> $GITHUB_STEP_SUMMARY
@@ -191,7 +202,7 @@ jobs:
           tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref || format('v{0}', github.event.inputs.version) }}
           name: ION-Launcher v${{ env.VERSION }}
           draft: ${{ github.event.inputs.draft || true }}
-          prerelease: ${{ github.event.inputs.prerelease || false }}
+          prerelease: ${{ env.PRERELEASE }}
           files: |
             artifacts/dist-win/*.exe
             artifacts/dist-win/*.msi
