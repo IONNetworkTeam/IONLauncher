@@ -542,6 +542,8 @@ async function dlAsync(login = true) {
         showLaunchFailure(Lang.queryJS('landing.dlAsync.errorDuringLaunchTitle'), err.message || Lang.queryJS('landing.dlAsync.errorDuringLaunchText'))
     })
     fullRepairModule.childProcess.on('close', (code, _signal) => {
+        // The child has read the (possibly pruned) index; put the full one back.
+        restoreDistributionOnDisk()
         if(code !== 0){
             loggerLaunchSuite.error(`Full Repair Module exited with code ${code}, assuming error.`)
             showLaunchFailure(Lang.queryJS('landing.dlAsync.errorDuringLaunchTitle'), Lang.queryJS('landing.dlAsync.seeConsoleForDetails'))

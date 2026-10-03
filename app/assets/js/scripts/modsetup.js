@@ -32,8 +32,9 @@ async function prepareIonModules(distro, serverId){
         if(!IonMods.isGithubModule(mdl)) continue
         const { repo, prerelease } = mdl.ion.github
         try {
-            const { release, cache } = await IonMods.fetchLatestRelease(repo, prerelease, ConfigManager.getGithubReleaseCache(repo))
-            ConfigManager.setGithubReleaseCache(repo, cache)
+            const { release, cache, fromCache, error } = await IonMods.resolveGithubRelease(repo, prerelease, ConfigManager.getGithubReleaseCache(repo))
+            if(fromCache) loggerModSetup.warn(`Could not check GitHub releases for ${repo}; using the last known release ${release.tag_name}.`, error)
+            else ConfigManager.setGithubReleaseCache(repo, cache)
             if(IonMods.applyRelease(mdl, release)){
                 loggerModSetup.info(`${mdl.name}: using GitHub release ${release.tag_name}.`)
                 changed = true
@@ -68,10 +69,27 @@ async function prepareIonModules(distro, serverId){
         if(!await isModuleFilePresent(module)) stillMissing.push(module.rawModule.id)
     }
     const forChild = IonMods.pruneUnavailableManualModules(raw, serverId, stillMissing)
-    const file = DistroAPI.isDevMode() ? 'distribution_dev.json' : 'distribution.json'
-    await fsx.writeJson(path.join(ConfigManager.getLauncherDirectory(), file), forChild)
+    const file = path.join(ConfigManager.getLauncherDirectory(), DistroAPI.isDevMode() ? 'distribution_dev.json' : 'distribution.json')
+    await IonMods.writeJsonAtomic(file, forChild)
+    // The pruned copy is only for the child; restoreDistributionOnDisk() puts the full index back
+    // once it has run, so a later offline start (or dev mode's read-back) still sees every module.
+    pendingRestore = stillMissing.length > 0 ? { file, raw } : null
 
     return distro
+}
+
+let pendingRestore = null
+
+/** Undo the pruning done for Helios' child process. Safe to call when nothing is pending. */
+async function restoreDistributionOnDisk(){
+    const pending = pendingRestore
+    pendingRestore = null
+    if(pending == null) return
+    try {
+        await IonMods.writeJsonAtomic(pending.file, pending.raw)
+    } catch(err) {
+        loggerModSetup.warn('Could not restore the full distribution index on disk.', err)
+    }
 }
 
 /** True when the module's file exists and matches its MD5 (or just exists, when the index has none). */
@@ -237,11 +255,32 @@ function showManualModsDialog(modules){
             if(pending.size === 0) dialog.querySelector('[data-manual="continue"]').disabled = false
         }
 
-        // Pick up files the player saved to Downloads (polling covers editors that don't emit watch events).
+        // Pick up files the player saved to Downloads (polling covers editors that don't emit watch
+        // events). Browsers rename a second download to "x (1).jar", so every variant is tried, and a
+        // file that has the right name but the wrong contents is reported once instead of silently.
+        const rejected = new Set()
         async function scanDownloads(){
+            let names
+            try {
+                names = await fsx.readdir(downloadsDir)
+            } catch {
+                return
+            }
             for(const mdl of [...pending.values()]){
-                const candidate = path.join(downloadsDir, mdl.rawModule.ion.manual.fileName)
-                if(await fsx.pathExists(candidate)) await tryAccept(mdl, candidate)
+                for(const name of IonMods.candidateDownloads(mdl.rawModule.ion.manual.fileName, names)){
+                    const candidate = path.join(downloadsDir, name)
+                    let stamp
+                    try {
+                        const stats = await fsx.stat(candidate)
+                        stamp = `${candidate}:${stats.size}:${stats.mtimeMs}`
+                    } catch {
+                        continue
+                    }
+                    if(rejected.has(stamp)) continue
+                    if(await tryAccept(mdl, candidate)) break
+                    rejected.add(stamp)
+                    flash(rows.get(mdl.rawModule.id), Lang.queryJS('landing.manualMods.foundWrongFile', { file: name }))
+                }
             }
         }
         const poll = setInterval(() => { scanDownloads().catch(() => {}) }, 1500)

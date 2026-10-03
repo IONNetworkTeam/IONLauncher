@@ -45,7 +45,7 @@ test('applyRelease rewrites id, url, size and drops the stale MD5', () => {
 
 test('applyRelease keeps the module when the release is the embedded one or has no usable asset', () => {
     const raw = githubModule()
-    assert.equal(IonMods.applyRelease(raw, { tag_name: 'v1.4.0', assets: [asset('ionmod-1.4.0.jar', { browser_download_url: raw.artifact.url })] }), false)
+    assert.equal(IonMods.applyRelease(raw, { tag_name: 'v1.4.0', assets: [asset('ionmod-1.4.0.jar', { browser_download_url: raw.artifact.url, size: 4321, digest: 'sha256:def' })] }), false)
     assert.equal(raw.artifact.MD5, 'abc')
     assert.equal(IonMods.applyRelease(raw, { tag_name: 'v9', assets: [asset('ionmod-sources.jar')] }), false)
     assert.equal(raw.id, 'ion.github.IONNetworkTeam:IONMod:v1.4.0@jar')
@@ -108,4 +108,41 @@ test('fetchLatestRelease picks the newest non-draft of /releases when pre-releas
 test('fetchLatestRelease throws on other statuses', async () => {
     const request = fakeGot([{ statusCode: 403, headers: {}, body: {} }])
     await assert.rejects(IonMods.fetchLatestRelease('o/r', false, null, request), /403/)
+})
+
+test('applyRelease notices a rolling tag whose asset was re-uploaded under the same URL', () => {
+    const raw = githubModule()
+    const same = { tag_name: 'v1.4.0', assets: [asset('ionmod-1.4.0.jar', { browser_download_url: raw.artifact.url, size: 9999, digest: 'sha256:new' })] }
+    assert.equal(IonMods.applyRelease(raw, same), true)
+    assert.equal(raw.artifact.size, 9999)
+    assert.equal(raw.artifact.MD5, undefined)
+    assert.equal(raw.ion.github.sha256, 'new')
+    // Nothing changed the second time round.
+    assert.equal(IonMods.applyRelease(raw, same), false)
+})
+
+test('resolveGithubRelease falls back to the cached release when GitHub is unreachable', async () => {
+    const failing = async () => { throw new Error('ENOTFOUND api.github.com') }
+    const cache = { etag: 'W/"1"', release }
+    const result = await IonMods.resolveGithubRelease('o/r', false, cache, failing)
+    assert.equal(result.release, release)
+    assert.equal(result.cache, cache)
+    assert.equal(result.fromCache, true)
+    await assert.rejects(IonMods.resolveGithubRelease('o/r', false, null, failing), /ENOTFOUND/)
+})
+
+test('candidateDownloads accepts the browser\'s renamed duplicates, most recent names first', () => {
+    const names = ['notes.txt', 'x.jar', 'x (1).jar', 'x (2).jar', 'x-1.jar', 'xy.jar', 'X.JAR', 'other.jar']
+    assert.deepEqual(IonMods.candidateDownloads('x.jar', names), ['x (2).jar', 'x (1).jar', 'x-1.jar', 'x.jar', 'X.JAR'])
+    assert.deepEqual(IonMods.candidateDownloads('x.jar', ['nothing.jar']), [])
+})
+
+test('writeJsonAtomic leaves no partial file behind and round-trips', async () => {
+    const os = require('node:os'), fs = require('node:fs/promises'), path = require('node:path')
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'ionmods-'))
+    const file = path.join(dir, 'distribution.json')
+    await IonMods.writeJsonAtomic(file, { a: 1 })
+    assert.deepEqual(JSON.parse(await fs.readFile(file, 'utf8')), { a: 1 })
+    assert.deepEqual((await fs.readdir(dir)), ['distribution.json'])
+    await fs.rm(dir, { recursive: true })
 })

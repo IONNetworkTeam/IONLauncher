@@ -5,6 +5,8 @@
  * scripts/modsetup.js and the settings UI use them.
  */
 const got = require('got')
+const fs = require('fs/promises')
+const path = require('path')
 
 /** First `.jar` that isn't a sources / dev / javadoc / api / shadow artifact. Same as the Manager's. */
 const DEFAULT_ASSET_PATTERN = '^(?!.*(?:-sources|-dev|-javadoc|-api|-shadow)\\b).*\\.jar$'
@@ -44,12 +46,52 @@ function applyRelease(raw, release){
     if(asset == null) return false
     const [group, artifact] = raw.id.split(':')
     const id = `${group}:${artifact}:${safeTag(release.tag_name)}@jar`
-    if(raw.id === id && raw.artifact.url === asset.browser_download_url) return false
+    const sha256 = typeof asset.digest === 'string' && asset.digest.startsWith('sha256:') ? asset.digest.slice('sha256:'.length) : null
+    // Rolling tags (latest, nightly) keep id and URL but re-upload the bytes: compare size and digest too.
+    const same = raw.id === id && raw.artifact.url === asset.browser_download_url
+        && raw.artifact.size === asset.size && (raw.ion.github.sha256 ?? null) === sha256
+    if(same) return false
     raw.id = id
     raw.artifact = { size: asset.size, url: asset.browser_download_url }
     raw.ion.github.tag = release.tag_name
-    raw.ion.github.sha256 = typeof asset.digest === 'string' && asset.digest.startsWith('sha256:') ? asset.digest.slice('sha256:'.length) : null
+    raw.ion.github.sha256 = sha256
     return true
+}
+
+/**
+ * The release to launch with: GitHub's answer when reachable, otherwise the release cached from
+ * the previous launch (the jar the player already has), and only when there is no cache at all
+ * does the error propagate so the caller can fall back to the index's embedded values.
+ */
+async function resolveGithubRelease(repo, prerelease, cache, request = got){
+    try {
+        return { ...await fetchLatestRelease(repo, prerelease, cache, request), fromCache: false }
+    } catch(err) {
+        if(cache?.release) return { release: cache.release, cache, fromCache: true, error: err }
+        throw err
+    }
+}
+
+/**
+ * Files in the Downloads folder that may be `fileName`: the exact name, and the duplicates
+ * browsers create when it already exists (`x (1).jar`, `x-1.jar`), newest duplicate first.
+ */
+function candidateDownloads(fileName, names){
+    const base = fileName.replace(/\.jar$/i, '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const re = new RegExp(`^${base}(?: \\((\\d+)\\)|-(\\d+))?\\.jar$`, 'i')
+    return names
+        .map(name => { const m = re.exec(name); return m ? { name, n: Number(m[1] ?? m[2] ?? 0) } : null })
+        .filter(Boolean)
+        .sort((a, b) => b.n - a.n || a.name.localeCompare(b.name))
+        .map(c => c.name)
+}
+
+/** Write JSON through a temp file and rename, so a crash never leaves a half-written index. */
+async function writeJsonAtomic(file, data){
+    const tmp = `${file}.${process.pid}.tmp`
+    await fs.mkdir(path.dirname(file), { recursive: true })
+    await fs.writeFile(tmp, JSON.stringify(data))
+    await fs.rename(tmp, file)
 }
 
 /**
@@ -98,6 +140,9 @@ async function fetchLatestRelease(repo, prerelease, cache, request = got){
 module.exports = {
     DEFAULT_ASSET_PATTERN,
     fetchLatestRelease,
+    resolveGithubRelease,
+    candidateDownloads,
+    writeJsonAtomic,
     isGithubModule,
     isManualModule,
     safeTag,
