@@ -1,6 +1,6 @@
 /**
- * Friends in the main process: the launcher session and the client, exposed to the renderer over
- * the `friends:*` IPC surface. The renderer never
+ * Friends in the main process: the launcher session, the client and the presence heartbeat,
+ * exposed to the renderer over the `friends:*` IPC surface. The renderer never
  * holds the session token; it sends the selected account (uuid, name and the Minecraft access
  * token, which goes to Mojang only) and gets back views, answers and pushed events.
  *
@@ -11,6 +11,7 @@
  *   friends:request name · friends:accept uuid · friends:decline uuid · friends:remove uuid
  *   friends:block uuid · friends:unblock uuid · friends:settings patch
  *   friends:join uuid, inGame · friends:invite uuid · friends:dismissInvite uuid
+ *   friends:presence {state, release}                          what the launcher is doing (presence.js)
  *   friends:status                                             {account, session, live}
  *
  * Main → renderer (`friends:event`, to every window): `{event, ...payload}`: `view` {view} after a
@@ -25,6 +26,7 @@ const fs = require('fs')
 const path = require('path')
 const { createSessionStore } = require('./session')
 const { createFriendsApi } = require('./api')
+const { createPresence } = require('./presence')
 
 const SESSION_FILE = 'friends-session.bin'
 const NAME = /^[A-Za-z0-9_]{3,16}$/
@@ -107,7 +109,13 @@ function init({ app, ipcMain, BrowserWindow, safeStorage, webAuth, logger }){
         if(res.ok) broadcast('view', { view: res.data })
     }
 
+    const presence = createPresence({
+        put: p => api.putPresence(p).then(note),
+        logger
+    })
+
     function stop(){
+        presence.stop()
         setStatus({ session: false, live: false })
     }
 
@@ -115,6 +123,8 @@ function init({ app, ipcMain, BrowserWindow, safeStorage, webAuth, logger }){
         if(!account) return
         const first = await view()
         if(first.ok) broadcast('view', { view: first.data })
+        if(!account || first.code === 'NO_SESSION') return
+        presence.start()
     }
 
     function sanitizeAccount(a){
@@ -130,6 +140,7 @@ function init({ app, ipcMain, BrowserWindow, safeStorage, webAuth, logger }){
         const switched = account?.uuid !== clean?.uuid
         if(switched){
             stop()
+            if(account) presence.gone().catch(() => {})
             if(account) await session.end(account.uuid)
             lastView = null
         }
@@ -168,10 +179,18 @@ function init({ app, ipcMain, BrowserWindow, safeStorage, webAuth, logger }){
         },
         join: (_e, uuid, inGame) => guard(uuid) ? api.join(uuid, !!inGame).then(note) : badUuid(),
         invite: (_e, uuid) => guard(uuid) ? api.invite(uuid).then(note) : badUuid(),
-        dismissInvite: (_e, uuid) => guard(uuid) ? mutate(api.dismissInvite)(uuid) : badUuid()
+        dismissInvite: (_e, uuid) => guard(uuid) ? mutate(api.dismissInvite)(uuid) : badUuid(),
+        presence: (_e, p) => {
+            if(!p || !['idle', 'playing'].includes(p.state)) return false
+            presence.set(p.state, typeof p.release === 'string' ? p.release : null)
+            return true
+        }
     }
     const badUuid = () => ({ ok: false, status: 400, code: 'BAD_REQUEST', error: null })
     for(const [name, fn] of Object.entries(handlers)) ipcMain.handle(`friends:${name}`, fn)
+
+    // Best effort: the server forgets a silent launcher after 90 s anyway.
+    app.on('before-quit', () => { if(account) presence.gone().catch(() => {}) })
 
     return { setAccount, view, stop }
 }
