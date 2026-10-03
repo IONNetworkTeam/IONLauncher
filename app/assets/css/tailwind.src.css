@@ -18,6 +18,7 @@
 
 @source "../../*.ejs";
 @source "../js/scripts/shell.js";
+@source "../js/scripts/titlebar.js";
 @source "../js/scripts/modsetup.js";
 
 @theme {
@@ -38,7 +39,7 @@
 
 :root {
     /* Title bar height. launcher.css sizes #main and the overlay against it. */
-    --frame-h: 40px;
+    --frame-h: 36px;
 
     /* The launcher's accent, taken from the logo. Kept for small marks: the play button, progress,
        the current tab and notification dots. */
@@ -106,19 +107,6 @@ textarea {
     -webkit-app-region: no-drag;
 }
 
-/* Current tab marker. */
-.rail-item[aria-current='page']::before {
-    content: '';
-    position: absolute;
-    left: -8px;
-    top: 50%;
-    width: 3px;
-    height: 26px;
-    margin-top: -13px;
-    border-radius: 0 3px 3px 0;
-    background-image: linear-gradient(180deg, #5ED3F1, #8B6FE0);
-}
-
 /* Play button. */
 .play-button {
     background-image: var(--ion-signal-deep);
@@ -168,91 +156,15 @@ textarea {
         inset 0 0 0 1px rgba(255, 255, 255, 0.14),
         inset 0 2px 4px rgba(10, 12, 40, 0.3);
 }
-#launch_button:disabled {
+/* Dimmed only when there is nothing to launch; while a launch runs the button keeps its colour (slices.js). */
+#launch_button:disabled:not(.is-busy) {
     cursor: not-allowed;
     opacity: 0.45;
     filter: saturate(0.3);
     transform: none;
 }
-#launch_button:disabled::before {
+#launch_button:disabled:not(.is-busy)::before {
     display: none;
-}
-
-/*
- * The lobby slideshow. Two images take turns; the one showing zooms slowly towards a direction
- * set per picture. The outgoing picture keeps the same animation while it fades out, so it does
- * not snap back to its first frame mid-fade.
- */
-.lobby-shot {
-    position: absolute;
-    inset: -2%;
-    width: 104%;
-    height: 104%;
-    max-width: none;
-    object-fit: cover;
-    opacity: 0;
-    transition: opacity 1.8s ease;
-    will-change: opacity, transform;
-}
-.lobby-shot.is-on,
-.lobby-shot.is-leaving {
-    animation: lobby-drift var(--drift-time, 30s) ease-out forwards;
-}
-.lobby-shot.is-on {
-    opacity: 1;
-}
-@keyframes lobby-drift {
-    from {
-        transform: scale(1.02) translate(0, 0);
-    }
-    to {
-        transform: scale(1.14) translate(var(--drift-x, -2%), var(--drift-y, -1.5%));
-    }
-}
-#ionStage:not([data-tab-current='home']) #lobby {
-    visibility: hidden;
-}
-#ionStage:not([data-tab-current='home']) .lobby-shot {
-    animation-play-state: paused;
-}
-
-/* On the Play tab the play bar sits on the lobby picture. */
-#ionStage[data-tab-current='home'] #playBar {
-    background: transparent;
-    border-color: rgb(255 255 255 / 0.07);
-}
-
-/* Cards on the Play tab. No backdrop blur: it would be redrawn on every frame of the slideshow. */
-.dock-card {
-    border: 1px solid rgb(255 255 255 / 0.09);
-    border-radius: 14px;
-    background: rgb(16 17 23 / 0.82);
-    padding: 16px;
-    box-shadow: 0 18px 40px -18px rgb(0 0 0 / 0.8);
-}
-
-/*
- * Tabs. Hidden tabs stay laid out (a webview must not be display:none) and are made invisible and
- * inert. The fade uses opacity only, since a transform on a webview's ancestor can misplace it.
- */
-.ion-tab {
-    transition: opacity 0.2s ease;
-}
-.ion-tab[data-tab-hidden] {
-    visibility: hidden;
-    opacity: 0;
-    pointer-events: none;
-    z-index: 0;
-}
-.ion-tab:not([data-tab-hidden]) {
-    z-index: 1;
-}
-.ion-tab webview {
-    display: flex;
-    width: 100%;
-    height: 100%;
-    border: 0;
-    background: var(--color-ionGrayer);
 }
 
 @keyframes ion-rise {
@@ -282,47 +194,6 @@ textarea {
     background-color: var(--color-ionAqua);
 }
 
-/* Launch progress. */
-#launch_progress {
-    appearance: none;
-    -webkit-appearance: none;
-    width: 100%;
-    height: 6px;
-    border: 0;
-    border-radius: 999px;
-    overflow: hidden;
-    background: rgb(255 255 255 / 0.08);
-}
-#launch_progress::-webkit-progress-bar {
-    background: rgb(255 255 255 / 0.08);
-    border-radius: 999px;
-}
-#launch_progress::-webkit-progress-value {
-    background-image: var(--ion-signal);
-    border-radius: 999px;
-    transition: width 0.3s ease;
-}
-
-/* Mojang status tooltip, opened from the play bar. */
-#mojangStatusWrapper:hover #mojangStatusTooltip,
-#mojangStatusWrapper:focus-within #mojangStatusTooltip {
-    opacity: 1;
-    visibility: visible;
-    transform: translateY(0);
-}
-.mojangStatusContainer {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 2px 0;
-    font-size: 12px;
-    color: rgb(255 255 255 / 0.72);
-}
-.mojangStatusIcon {
-    font-size: 18px;
-    line-height: 1;
-}
-
 /* Loading screen: the logo's star inside a spinning ring, over a lobby picture. */
 #loadingContainer {
     background:
@@ -343,9 +214,7 @@ textarea {
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .ion-rise,
-    .lobby-shot.is-on,
-    .lobby-shot.is-leaving {
+    .ion-rise {
         animation: none;
     }
 }

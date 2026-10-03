@@ -22,7 +22,7 @@
     "dist:mac": "npm run dist -- -m",
     "dist:linux": "npm run dist -- -l",
     "lint": "eslint .",
-    "test": "node --test \"test/**/*.test.js\""
+    "test": "node --test"
   },
   "engines": {
     "node": "22.x.x"

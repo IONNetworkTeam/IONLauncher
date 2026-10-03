@@ -40,6 +40,12 @@ let currentView
  */
 function switchView(current, next, currentFadeTime = 500, nextFadeTime = 500, onCurrentFade = () => {}, onNextFade = () => {}){
     currentView = next
+    // The settings workspace sits on the Play view: entering or leaving it folds or unfolds the
+    // release slices instead of fading the window (workspace.js).
+    if(typeof Workspace !== 'undefined' && (next === VIEWS.settings || current === VIEWS.settings)){
+        Workspace.transition(current, next, currentFadeTime, nextFadeTime, onCurrentFade, onNextFade)
+        return
+    }
     $(`${current}`).fadeOut(currentFadeTime, async () => {
         await onCurrentFade()
         $(`${next}`).fadeIn(nextFadeTime, async () => {

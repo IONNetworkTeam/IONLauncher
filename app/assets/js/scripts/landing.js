@@ -4,7 +4,6 @@
 // Requirements
 const { URL }                 = require('url')
 const {
-    MojangRestAPI,
     getServerStatus
 }                             = require('helios-core/mojang')
 const {
@@ -32,74 +31,52 @@ const DiscordWrapper          = require('./assets/js/discordwrapper')
 const ProcessBuilder          = require('./assets/js/processbuilder')
 
 // Launch Elements
-const launch_content          = document.getElementById('launch_content')
-const launch_details          = document.getElementById('launch_details')
-const launch_progress         = document.getElementById('launch_progress')
-const launch_progress_label   = document.getElementById('launch_progress_label')
-const launch_details_text     = document.getElementById('launch_details_text')
-const server_selection_button = document.getElementById('server_selection_button')
 const user_text               = document.getElementById('user_text')
+const { createGameState }     = require('./assets/js/gamestate')
+
+/** Whether a game is being prepared, started or played; the Play view locks the other releases while it is. */
+const GameState = createGameState()
 
 const loggerLanding = LoggerUtil.getLogger('Landing')
 
 /* Launch Progress Wrapper Functions */
 
 /**
- * Show/hide the loading area.
- * 
- * @param {boolean} loading True if the loading area should be shown, otherwise false.
+ * The Play button shows progress itself (slices.js). Leaving the loading state while still
+ * preparing means the launch was abandoned — a failure, or a cancelled Java download — so the
+ * other releases unlock.
+ *
+ * @param {boolean} loading True when a launch starts, false when it ends without a game.
  */
 function toggleLaunchArea(loading){
-    if(loading){
-        launch_details.style.display = 'flex'
-        launch_content.style.display = 'none'
-    } else {
-        launch_details.style.display = 'none'
-        launch_content.style.display = 'flex'
-    }
+    if(!loading && GameState.state === 'preparing') GameState.failed()
 }
 
-/**
- * Set the details text of the loading area.
- * 
- * @param {string} details The new text for the loading details.
- */
+/** @param {string} details The step the launch is on, under the Play button's label. */
 function setLaunchDetails(details){
-    launch_details_text.innerHTML = details
+    document.getElementById('launch_details_text').innerHTML = details
 }
 
-/**
- * Set the value of the loading progress bar and display that value.
- * 
- * @param {number} percent Percentage (0-100)
- */
+/** @param {number} percent Percentage (0-100) */
 function setLaunchPercentage(percent){
-    launch_progress.setAttribute('max', 100)
-    launch_progress.setAttribute('value', percent)
-    launch_progress_label.innerHTML = percent + '%'
+    if(typeof Slices !== 'undefined') Slices.setPercent(percent)
 }
 
-/**
- * Set the value of the OS progress bar and display that on the UI.
- * 
- * @param {number} percent Percentage (0-100)
- */
+/** @param {number} percent Percentage (0-100), also shown on the taskbar. */
 function setDownloadPercentage(percent){
     remote.getCurrentWindow().setProgressBar(percent/100)
     setLaunchPercentage(percent)
 }
 
-/**
- * Enable or disable the launch button.
- * 
- * @param {boolean} val True to enable, false to disable.
- */
+/** @param {boolean} val True to enable, false to disable. */
 function setLaunchEnabled(val){
-    document.getElementById('launch_button').disabled = !val
+    document.getElementById('launch_button').disabled = !val || !GameState.canSwitch()
 }
 
 // Bind launch button
 document.getElementById('launch_button').addEventListener('click', async e => {
+    if(!GameState.canSwitch()) return
+    GameState.begin(ConfigManager.getSelectedServer())
     loggerLanding.info('Launching game..')
     try {
         const server = (await DistroAPI.getDistribution()).getServerById(ConfigManager.getSelectedServer())
@@ -127,20 +104,6 @@ document.getElementById('launch_button').addEventListener('click', async e => {
     }
 })
 
-// Bind settings button
-document.getElementById('settingsMediaButton').onclick = async e => {
-    await prepareSettings()
-    switchView(getCurrentView(), VIEWS.settings)
-}
-
-// Bind avatar overlay button.
-document.getElementById('avatarOverlay').onclick = async e => {
-    await prepareSettings()
-    switchView(getCurrentView(), VIEWS.settings, 500, 500, () => {
-        settingsNavItemListener(document.getElementById('settingsNavAccount'), false)
-    })
-}
-
 // Bind selected account
 function updateSelectedAccount(authUser){
     let username = Lang.queryJS('landing.selectedAccount.noAccountSelected')
@@ -149,7 +112,9 @@ function updateSelectedAccount(authUser){
             username = authUser.displayName
         }
         if(authUser.uuid != null){
-            document.getElementById('avatarContainer').style.backgroundImage = `url('https://mc-heads.net/avatar/${authUser.uuid}/88')`
+            const avatar = document.getElementById('avatarContainer')
+            avatar.style.backgroundImage = `url('https://mc-heads.net/avatar/${authUser.uuid}/40')`
+            avatar.style.backgroundSize = 'cover'
         }
     }
     user_text.innerHTML = username
@@ -167,7 +132,6 @@ function updateSelectedServer(serv){
     }
     ConfigManager.setSelectedServer(serv != null ? serv.rawServer.id : null)
     ConfigManager.save()
-    document.getElementById('serverName').textContent = serv != null ? serv.rawServer.name : Lang.queryJS('landing.noSelection')
     if(typeof onSelectedServerChanged === 'function'){
         onSelectedServerChanged(serv)
     }
@@ -176,135 +140,14 @@ function updateSelectedServer(serv){
     }
     setLaunchEnabled(serv != null)
 }
-// Real text is set in uibinder.js on distributionIndexDone.
-document.getElementById('serverName').textContent = Lang.queryJS('landing.selectedServer.loading')
-server_selection_button.onclick = async e => {
-    server_selection_button.blur()
-    await toggleServerSelection(true)
-}
-
-/**
- * Map a Mojang service status onto the ION state palette, so the status dots
- * match the rest of the launcher instead of helios-core's own green/yellow/red.
- *
- * @param {string} status The Mojang status color name.
- * @returns {string} A CSS color value.
- */
-function statusToIonColor(status){
-    switch(status){
-        case 'green':
-            return 'var(--ion-good)'
-        case 'yellow':
-            return 'var(--ion-warn)'
-        case 'red':
-            return 'var(--ion-critical)'
-        case 'grey':
-        default:
-            return 'var(--ion-text-dim)'
-    }
-}
-
-// Update Mojang Status Color
-const refreshMojangStatuses = async function(){
-    loggerLanding.info('Refreshing Mojang Statuses..')
-
-    let status = 'grey'
-    let tooltipEssentialHTML = ''
-    let tooltipNonEssentialHTML = ''
-
-    const response = await MojangRestAPI.status()
-    let statuses
-    if(response.responseStatus === RestResponseStatus.SUCCESS) {
-        statuses = response.data
-    } else {
-        loggerLanding.warn('Unable to refresh Mojang service status.')
-        statuses = MojangRestAPI.getDefaultStatuses()
-    }
-    
-    greenCount = 0
-    greyCount = 0
-
-    for(let i=0; i<statuses.length; i++){
-        const service = statuses[i]
-
-        const tooltipHTML = `<div class="mojangStatusContainer">
-            <span class="mojangStatusIcon" style="color: ${statusToIonColor(service.status)};">&#8226;</span>
-            <span class="mojangStatusName">${service.name}</span>
-        </div>`
-        if(service.essential){
-            tooltipEssentialHTML += tooltipHTML
-        } else {
-            tooltipNonEssentialHTML += tooltipHTML
-        }
-
-        if(service.status === 'yellow' && status !== 'red'){
-            status = 'yellow'
-        } else if(service.status === 'red'){
-            status = 'red'
-        } else {
-            if(service.status === 'grey'){
-                ++greyCount
-            }
-            ++greenCount
-        }
-
-    }
-
-    if(greenCount === statuses.length){
-        if(greyCount === statuses.length){
-            status = 'grey'
-        } else {
-            status = 'green'
-        }
-    }
-    
-    document.getElementById('mojangStatusEssentialContainer').innerHTML = tooltipEssentialHTML
-    document.getElementById('mojangStatusNonEssentialContainer').innerHTML = tooltipNonEssentialHTML
-    document.getElementById('mojang_status_icon').style.color = statusToIonColor(status)
-}
-
+// The open release's panel reads the server's status (panels.js); uibinder.js calls this after the
+// distribution is indexed, so it keeps its name and signature.
 const refreshServerStatus = async (fade = false) => {
-    loggerLanding.info('Refreshing Server Status')
-    const serv = (await DistroAPI.getDistribution()).getServerById(ConfigManager.getSelectedServer())
-
-    let pLabel = Lang.queryJS('landing.serverStatus.server')
-    let pVal = Lang.queryJS('landing.serverStatus.offline')
-    let online = false
-
-    try {
-
-        const servStat = await getServerStatus(47, serv.hostname, serv.port)
-        console.log(servStat)
-        pLabel = Lang.queryJS('landing.serverStatus.players')
-        pVal = servStat.players.online + '/' + servStat.players.max
-        online = true
-
-    } catch (err) {
-        loggerLanding.warn('Unable to refresh server status, assuming offline.')
-        loggerLanding.debug(err)
-    }
-    document.getElementById('serverStatusDot').style.background = online ? 'var(--color-ionGood)' : 'var(--color-ionCritical)'
-    if(typeof onServerStatus === 'function'){
-        onServerStatus(online, pVal)
-    }
-    if(fade){
-        $('#server_status_wrapper').fadeOut(250, () => {
-            document.getElementById('landingPlayerLabel').innerHTML = pLabel
-            document.getElementById('player_count').innerHTML = pVal
-            $('#server_status_wrapper').fadeIn(500)
-        })
-    } else {
-        document.getElementById('landingPlayerLabel').innerHTML = pLabel
-        document.getElementById('player_count').innerHTML = pVal
-    }
-    
+    if(typeof Panels !== 'undefined') Panels.refresh()
 }
 
-refreshMojangStatuses()
 // Server Status is refreshed in uibinder.js on distributionIndexDone.
 
-// Refresh statuses every hour. The status page itself refreshes every day so...
-let mojangStatusListener = setInterval(() => refreshMojangStatuses(true), 60*60*1000)
 // Set refresh rate to once every 5 minutes.
 let serverStatusListener = setInterval(() => refreshServerStatus(true), 300000)
 
@@ -315,6 +158,7 @@ let serverStatusListener = setInterval(() => refreshServerStatus(true), 300000)
  * @param {string} desc The overlay description.
  */
 function showLaunchFailure(title, desc){
+    GameState.failed()
     setOverlayContent(
         title,
         desc,
@@ -356,12 +200,12 @@ async function asyncSystemScan(effectiveJavaOptions, launchAfter = true){
             setLaunchDetails(Lang.queryJS('landing.systemScan.javaDownloadPrepare'))
             toggleOverlay(false)
             
-            try {
-                downloadJava(effectiveJavaOptions, launchAfter)
-            } catch(err) {
+            // downloadJava is async: a failure must reach showLaunchFailure (which also unlocks the
+            // other releases), not become an unhandled rejection.
+            downloadJava(effectiveJavaOptions, launchAfter).catch(err => {
                 loggerLanding.error('Unhandled error in Java Download', err)
                 showLaunchFailure(Lang.queryJS('landing.systemScan.javaDownloadFailureTitle'), Lang.queryJS('landing.systemScan.javaDownloadFailureText'))
-            }
+            })
         })
         setDismissHandler(() => {
             $('#overlayContent').fadeOut(250, () => {
@@ -504,6 +348,7 @@ async function dlAsync(login = true) {
     if(login) {
         if(ConfigManager.getSelectedAccount() == null){
             loggerLanding.error('You must be logged into an account.')
+            GameState.failed()
             return
         }
     }
@@ -618,6 +463,7 @@ async function dlAsync(login = true) {
         const SERVER_JOINED_REGEX = new RegExp(`\\[.+\\]: \\[CHAT\\] ${authUser.displayName} joined the game`)
 
         const onLoadComplete = () => {
+            GameState.windowUp()
             toggleLaunchArea(false)
             if(hasRPC){
                 DiscordWrapper.updateDetails(Lang.queryJS('landing.discord.loading'))
@@ -664,6 +510,11 @@ async function dlAsync(login = true) {
         try {
             // Build Minecraft process.
             proc = pb.build()
+            GameState.spawned()
+            proc.on('close', () => {
+                GameState.exited()
+                remote.getCurrentWindow().setProgressBar(-1)
+            })
 
             // Bind listeners to stdout.
             proc.stdout.on('data', tempListener)

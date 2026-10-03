@@ -14,6 +14,8 @@ const { AZURE_CLIENT_ID, MSFT_OPCODE, MSFT_REPLY_TYPE, MSFT_ERROR, SHELL_OPCODE 
 const LangLoader                        = require('./app/assets/js/langloader')
 const Web                               = require('./app/assets/js/weburl')
 const WebAuth                           = require('./app/assets/js/webauth')
+const { createWallStore }               = require('./app/assets/js/wallstore')
+const { LoggerUtil }                    = require('helios-core')
 
 // Setup Lang
 LangLoader.setupLanguage()
@@ -236,6 +238,44 @@ ipcMain.on(MSFT_OPCODE.OPEN_LOGOUT, (ipcEvent, uuid, isLastAccount) => {
 // be closed automatically when the JavaScript object is garbage collected.
 let win
 
+/**
+ * The wallpaper cache (wallstore.js). Created with the first window; the IPC handler is registered
+ * once here because createWindow can run again (macOS re-opens a window on activate).
+ */
+let walls = null
+let wallsReady = Promise.resolve()
+ipcMain.handle('wallpapers:list', async () => {
+    await wallsReady
+    return walls ? walls.list() : { releases: {} }
+})
+
+function startWallpapers(win){
+    if(!walls){
+        walls = createWallStore({
+            dir: path.join(app.getPath('userData'), 'wallpapers'),
+            fetchJson: async (p) => {
+                const res = await WebAuth.fetchWeb(p)
+                return res.ok ? res.json() : null
+            },
+            fetchBytes: async (p) => {
+                const res = await WebAuth.fetchWeb(p)
+                return res.ok ? Buffer.from(await res.arrayBuffer()) : null
+            },
+            onChange: (list) => {
+                for(const w of BrowserWindow.getAllWindows()){
+                    if(!w.isDestroyed()) w.webContents.send('wallpapers:changed', list)
+                }
+            },
+            logger: LoggerUtil.getLogger('WallStore')
+        })
+        wallsReady = walls.open().catch(err => LoggerUtil.getLogger('WallStore').error('Wallpaper cache unavailable.', err))
+        setInterval(() => walls.sync(), 30 * 60 * 1000)
+    }
+    win.webContents.once('did-finish-load', () => {
+        setTimeout(() => wallsReady.then(() => walls.sync()), 4000)
+    })
+}
+
 function createWindow() {
 
     win = new BrowserWindow({
@@ -256,6 +296,7 @@ function createWindow() {
     })
     remoteMain.enable(win.webContents)
     WebAuth.init(win)
+    startWallpapers(win)
 
     const data = {
         bkid: Math.floor((Math.random() * fs.readdirSync(path.join(__dirname, 'app', 'assets', 'images', 'backgrounds')).length)),
@@ -375,6 +416,19 @@ function isLocalHost(hostname){
     return hostname === 'localhost' || hostname === '127.0.0.1'
 }
 
+const MAP_PARTITION = 'persist:ionmap'
+/** Origins of the releases' live maps, handed over by the renderer when a map tab opens. */
+const mapOrigins = new Set()
+// Synchronous: the renderer attaches the map's webview right after, and the origin must be known by then.
+ipcMain.on('web:allowMap', (e, url) => {
+    try {
+        const u = new URL(url)
+        if(u.protocol === 'https:' || u.protocol === 'http:') mapOrigins.add(u.origin)
+    } catch { /* not a URL */ }
+    e.returnValue = true
+})
+const isMapUrl = url => { try { return mapOrigins.has(new URL(url).origin) } catch { return false } }
+
 function allowedInWebview(url){
     let u
     try { u = new URL(url) } catch { return false }
@@ -404,6 +458,18 @@ app.on('login', (event, _webContents, details, authInfo, callback) => {
 
 app.on('web-contents-created', (_event, contents) => {
     contents.on('will-attach-webview', (event, webPreferences, params) => {
+        // A release's live map: its own partition, no site login, no bridge, its own origin only.
+        if(params.partition === MAP_PARTITION){
+            delete webPreferences.preload
+            delete webPreferences.preloadURL
+            webPreferences.nodeIntegration = false
+            webPreferences.nodeIntegrationInSubFrames = false
+            webPreferences.contextIsolation = true
+            webPreferences.sandbox = true
+            webPreferences.webSecurity = true
+            if(!isMapUrl(params.src)) event.preventDefault()
+            return
+        }
         delete webPreferences.preloadURL
         webPreferences.preload = WEBBRIDGE_PRELOAD
         webPreferences.nodeIntegration = false
@@ -420,13 +486,14 @@ app.on('web-contents-created', (_event, contents) => {
         if(/^https?:/.test(url)) shell.openExternal(url)
         return { action: 'deny' }
     })
+    const isMapView = contents.session === session.fromPartition(MAP_PARTITION)
     contents.on('will-navigate', (event, url) => {
-        if(allowedInWebview(url)) return
+        if(isMapView ? isMapUrl(url) : allowedInWebview(url)) return
         event.preventDefault()
         if(/^https?:/.test(url)) shell.openExternal(url)
     })
     contents.on('will-redirect', (event, url) => {
-        if(!allowedInWebview(url)) event.preventDefault()
+        if(!(isMapView ? isMapUrl(url) : allowedInWebview(url))) event.preventDefault()
     })
 })
 

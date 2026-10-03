@@ -1,0 +1,312 @@
+/* Slices */
+.stage{position:absolute;top:0;bottom:0;left:0;display:flex;gap:3px;transition:width .9s cubic-bezier(.75,0,.2,1)}
+.slice{position:relative;min-width:54px;overflow:hidden;background:#0d0e13;transition:flex-grow .9s cubic-bezier(.75,0,.2,1)}
+.slice-img{position:absolute;top:0;left:50%;height:100%;width:100vw;min-width:100%;object-fit:cover;transform:translateX(-50%) scale(1.08);filter:saturate(.7) brightness(.85);transition:transform 1.8s cubic-bezier(.2,.7,.2,1),filter .8s}
+.is-open .slice-img{transform:translateX(-50%) scale(1);filter:none;animation:drift 40s ease-in-out 1.8s infinite alternate}
+@keyframes drift{from{transform:translateX(-50%) scale(1)}to{transform:translateX(-51.5%) scale(1.05)}}
+.veil-dim{position:absolute;inset:0;background:linear-gradient(0deg,rgba(7,8,11,.94),rgba(7,8,11,.55) 60%,rgba(7,8,11,.7));transition:opacity .6s}
+.slice:hover .veil-dim{opacity:.72}
+.is-open .veil-dim{opacity:0}
+.is-mini .veil-dim{opacity:1}
+.is-mini .slice:hover .veil-dim{opacity:.7}
+.veil-open{position:absolute;inset:0;opacity:0;background:linear-gradient(0deg,rgba(7,8,11,.95) 0%,rgba(7,8,11,.5) 30%,rgba(7,8,11,0) 56%),linear-gradient(180deg,rgba(7,8,11,.7) 0%,rgba(7,8,11,0) 18%);transition:opacity .8s}
+.is-open .veil-open{opacity:1}
+.is-mini .veil-open{opacity:0}
+.tag{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:44px 0 30px;width:100%;border:0;background:none;color:#fff;cursor:pointer;transition:opacity .35s .25s}
+.is-open .tag{opacity:0;pointer-events:none;transition-delay:0s}
+.is-mini .tag{opacity:1;pointer-events:auto;transition-delay:.4s}
+.tag-name{writing-mode:vertical-rl;transform:rotate(180deg);font:800 21px 'Geist',system-ui,sans-serif;letter-spacing:-.01em;white-space:nowrap;color:rgba(255,255,255,.82);transition:color .3s,letter-spacing .4s}
+.slice:hover .tag-name{color:#fff;letter-spacing:.02em}
+.tag-line{width:2px;height:0;border-radius:2px;transition:height .5s cubic-bezier(.2,.8,.2,1)}
+.slice:hover .tag-line{height:28px}
+.is-mini .is-open .tag-line{height:40px}
+.reveal{opacity:0;transform:translateY(22px);transition:opacity .5s,transform .7s cubic-bezier(.2,.8,.2,1)}
+.is-open .reveal{opacity:1;transform:none}
+.is-open .r1{transition-delay:.45s}.is-open .r2{transition-delay:.55s}.is-open .r3{transition-delay:.65s}.is-open .r4{transition-delay:.75s}
+.is-mini .reveal{opacity:0 !important;transform:translateY(22px) !important;transition-delay:0s !important;pointer-events:none}
+/* Play */
+.play{position:relative;display:flex;align-items:center;gap:16px;width:300px;height:76px;padding:0 24px 0 20px;overflow:hidden;border:0;border-radius:16px;color:#fff;text-align:left;cursor:pointer;font-family:'Geist',system-ui,sans-serif;transition:transform .15s,box-shadow .6s,background-color .6s}
+.play:hover{transform:translateY(-2px)}
+.play:active{transform:translateY(1px) scale(.985)}
+.play-fill{position:absolute;left:0;top:0;bottom:0;background:rgba(255,255,255,.16);transition:width .12s linear}
+.play-sheen{position:absolute;inset:0;background:linear-gradient(105deg,transparent 30%,rgba(255,255,255,.22) 45%,transparent 60%);transform:translateX(-100%)}
+.play:hover .play-sheen{transform:translateX(100%);transition:transform .9s ease}
+.dots-lit{transition:none}
+.pulse{animation:pulse 1s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.35}}
+.spin{animation:spin 9s linear infinite;transform-origin:50% 50%}
+@keyframes spin{to{transform:rotate(360deg)}}
+.winbtn{display:flex;align-items:center;justify-content:center;width:46px;height:40px;border:0;background:none;color:rgba(255,255,255,.75);cursor:pointer}
+.winbtn:hover{background:rgba(255,255,255,.1);color:#fff}
+.winbtn.x:hover{background:#DE4E45}
+/* Many releases: a shelf of recent ones, and the library behind the last strip */
+.is-mini .slice{min-width:40px}
+.is-new{animation:wipeIn 1s cubic-bezier(.7,0,.2,1)}
+@keyframes wipeIn{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0 0 0)}}
+.lib-strip{position:relative;flex:0 0 72px;overflow:hidden;border:0;padding:0;background:#0c0d12;color:#fff;cursor:pointer;transition:flex-basis .9s cubic-bezier(.75,0,.2,1)}
+.is-mini .lib-strip{flex-basis:44px}
+.lib-mosaic{position:absolute;inset:0;display:flex;flex-direction:column;gap:3px;padding:3px;opacity:.28;filter:saturate(.4);transition:opacity .5s,filter .5s}
+.lib-mosaic img{width:100%;flex:1 1 0;min-height:0;object-fit:cover;border-radius:3px;transition:transform .6s cubic-bezier(.2,.8,.2,1)}
+.lib-strip:hover .lib-mosaic{opacity:.6;filter:none}
+.lib-strip:hover .lib-mosaic img:nth-child(odd){transform:translateX(4px)}
+.lib-strip:hover .lib-mosaic img:nth-child(even){transform:translateX(-4px)}
+.lib-label{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:44px 0 28px;background:linear-gradient(90deg,rgba(12,13,18,.55),rgba(12,13,18,.85),rgba(12,13,18,.55))}
+.lib{position:absolute;top:0;left:0;right:0;bottom:0;background:#0f1117;transition:clip-path .85s cubic-bezier(.75,0,.2,1)}
+.lib-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:22px 18px}
+.card{display:flex;flex-direction:column;gap:11px;padding:0;border:0;background:none;color:#fff;text-align:left;cursor:pointer;font-family:'Geist',system-ui,sans-serif;animation:cardIn .6s cubic-bezier(.2,.8,.2,1) both}
+@keyframes cardIn{from{opacity:0;transform:translateY(18px) scale(.97)}to{opacity:1;transform:none}}
+.card-img{position:relative;aspect-ratio:16/9;border-radius:11px;overflow:hidden;transition:box-shadow .3s,transform .3s cubic-bezier(.2,.8,.2,1)}
+.card:hover .card-img{transform:translateY(-3px)}
+.card-img img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .9s cubic-bezier(.2,.8,.2,1)}
+.card:hover .card-img img{transform:scale(1.07)}
+.chip{height:32px;padding:0 14px;border:0;border-radius:999px;font:600 12.5px 'Geist',system-ui,sans-serif;cursor:pointer;transition:background .2s,color .2s}
+.search{display:flex;align-items:center;gap:10px;width:280px;height:38px;padding:0 14px;box-sizing:border-box;border-radius:10px;background:rgba(255,255,255,.06);box-shadow:inset 0 0 0 1px rgba(255,255,255,.1)}
+.search:focus-within{box-shadow:inset 0 0 0 1px rgba(255,255,255,.4)}
+.search input{flex:1;min-width:0;border:0;background:none;color:#fff;font:400 13.5px 'Geist',system-ui,sans-serif;outline:none}
+.search input::placeholder{color:rgba(255,255,255,.4)}
+/* Title bar: the app's own chrome, solid, above the picture rather than on it */
+.tb{position:relative;z-index:60;height:36px;display:flex;align-items:center;padding-left:8px;background:#0a0b0f;border-bottom:1px solid rgba(255,255,255,.06);font-family:'Geist',system-ui,sans-serif}
+.tb-brand{display:flex;align-items:center;gap:9px;height:28px;padding:0 10px 0 6px;border:0;border-radius:7px;background:none;color:#fff;font:600 12.5px 'Geist',system-ui,sans-serif;cursor:pointer;transition:background .2s}
+.tb-brand:hover{background:rgba(255,255,255,.07)}
+.mb{display:flex;gap:2px;margin-left:8px;padding-left:10px;border-left:1px solid rgba(255,255,255,.08)}
+.mb-item{position:relative;height:28px;padding:0 11px;border:0;border-radius:7px;background:none;font:500 12.5px 'Geist',system-ui,sans-serif;cursor:pointer;transition:color .2s,background .2s}
+.mb-item:hover{color:#fff !important;background:rgba(255,255,255,.05)}
+.tb-icon{display:flex;align-items:center;justify-content:center;width:30px;height:28px;border:0;border-radius:7px;background:none;cursor:pointer;transition:background .2s,color .2s}
+.tb-icon:hover{background:rgba(255,255,255,.07);color:#fff !important}
+.tb-icon svg{transition:transform .6s cubic-bezier(.3,1.4,.5,1)}
+.tb-icon:hover svg{transform:rotate(60deg)}
+.acct{display:flex;align-items:center;gap:8px;height:28px;margin-left:4px;padding:0 9px 0 4px;border:0;border-radius:7px;background:rgba(255,255,255,.06);color:#fff;font:500 12.5px 'Geist',system-ui,sans-serif;cursor:pointer;transition:background .2s}
+.acct:hover{background:rgba(255,255,255,.11)}
+.head{display:block;flex-shrink:0;border-radius:4px;background:linear-gradient(#5b3a22 0 37%,#c58f68 37% 100%);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}
+.tb .winbtn{height:36px}
+/* Account menu */
+.am{position:fixed;top:42px;right:146px;z-index:70;width:290px;padding:8px;box-sizing:border-box;border-radius:14px;background:rgba(18,20,26,.92);backdrop-filter:blur(20px) saturate(1.3);box-shadow:inset 0 0 0 1px rgba(255,255,255,.1),0 30px 70px -20px rgba(0,0,0,.8);transform-origin:85% 0;transition:opacity .2s,transform .35s cubic-bezier(.3,1.4,.5,1)}
+.am-item{display:flex;align-items:center;gap:12px;width:100%;height:40px;padding:0 10px;border:0;border-radius:8px;background:none;color:rgba(255,255,255,.85);font:500 13px 'Geist',system-ui,sans-serif;text-align:left;cursor:pointer}
+.am-item:hover{background:rgba(255,255,255,.07);color:#fff}
+/* Website views */
+.web{position:absolute;top:0;left:0;right:0;bottom:0;background:#1E212B;transition:transform .7s cubic-bezier(.75,0,.2,1),opacity .4s}
+/* Nav 1+ : a lit horizon under the bar, a segment that stretches between tabs, live counts, hover peeks */
+.mb{gap:0 !important;align-self:stretch;align-items:center;position:relative}
+.mb-cell{position:relative;height:36px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.mb-item{display:flex;align-items:center;gap:7px}
+.mb-badge{display:inline-flex;align-items:center;height:16px;padding:0 5px;border-radius:5px;font-size:10px;font-weight:600;transition:background .6s,color .6s}
+.horizon{position:absolute;left:0;right:0;bottom:-1px;height:1px;transition:background .8s}
+.mb-lit{position:absolute;bottom:-1px;height:2px;border-radius:2px;transition-property:left,right,background,box-shadow,opacity;transition-timing-function:cubic-bezier(.3,1.25,.5,1);transition-duration:.55s,.55s,.6s,.6s,.4s}
+.peek{position:absolute;top:44px;left:50%;width:300px;margin-left:-150px;padding:10px;box-sizing:border-box;border-radius:14px;background:rgba(16,18,24,.94);backdrop-filter:blur(20px) saturate(1.3);box-shadow:inset 0 0 0 1px rgba(255,255,255,.1),0 30px 70px -20px rgba(0,0,0,.85);transition:opacity .2s,transform .4s cubic-bezier(.3,1.4,.5,1);text-align:left;cursor:pointer;border:0;color:#fff;font-family:'Geist',system-ui,sans-serif;z-index:5}
+.peek::before{content:'';position:absolute;top:-6px;left:50%;width:12px;height:12px;margin-left:-6px;transform:rotate(45deg);border-radius:3px 0 0 0;background:rgba(16,18,24,.94);box-shadow:inset 1px 1px 0 rgba(255,255,255,.1)}
+.peek-img{display:block;width:100%;height:110px;border-radius:9px;object-fit:cover}
+.stage{transition:width .9s cubic-bezier(.75,0,.2,1),transform .8s cubic-bezier(.75,0,.2,1),filter .8s}
+.stage.away{transform:scale(.965);filter:blur(8px) brightness(.45)}
+.web{transform-origin:50% 0}
+/* Game-server releases: the ION Network gets the launcher's own signal */
+.net-edge{position:absolute;left:0;right:0;top:0;height:3px;z-index:2;background-image:linear-gradient(90deg,#5ED3F1,#6E8CF0,#8B6FE0,#5ED3F1);background-size:300% 100%;animation:flow 6s linear infinite;box-shadow:0 0 16px rgba(110,140,240,.75)}
+@keyframes flow{to{background-position:300% 0}}
+/* ION releases on the shelf: the star on top and a standing signal line instead of an edge; the line grows on hover like the others' */
+.tag-line.net{height:30px;box-shadow:0 0 12px rgba(110,140,240,.8)}
+.slice:hover .tag-line.net{height:46px}
+.is-mini .is-open .tag-line.net{height:46px}
+.frame{transition:opacity 1.6s ease,transform 1.8s cubic-bezier(.2,.7,.2,1),filter .8s}
+.netpanel{width:320px;padding:16px 18px 14px;box-sizing:border-box;border-radius:16px;background:rgba(9,10,14,.62);backdrop-filter:blur(18px) saturate(1.3);box-shadow:inset 0 0 0 1px rgba(255,255,255,.1)}
+.np-h{display:flex;align-items:center;gap:10px;font:500 10.5px 'Geist Mono',ui-monospace,monospace;letter-spacing:.2em;color:rgba(255,255,255,.6)}
+.np-h i{flex:1;height:1px;background:rgba(255,255,255,.12)}
+.ch-row{display:grid;grid-template-columns:20px minmax(0,1fr) auto;align-items:center;gap:11px;width:100%;padding:9px 0;border:0;border-bottom:1px solid rgba(255,255,255,.07);background:none;color:#fff;text-align:left;cursor:pointer;font-family:'Geist',system-ui,sans-serif;transition:padding .3s cubic-bezier(.3,1.4,.5,1)}
+.ch-row:hover{padding-left:4px}
+.ch-row img{width:20px;height:20px;image-rendering:pixelated}
+.live{flex-shrink:0;width:7px;height:7px;border-radius:50%;background:#25AB90;animation:live 2s infinite}
+@keyframes live{0%{box-shadow:0 0 0 0 rgba(37,171,144,.6)}70%{box-shadow:0 0 0 7px rgba(37,171,144,0)}100%{box-shadow:0 0 0 0 rgba(37,171,144,0)}}
+.feat{grid-column:span 2}
+.feat .card-img{aspect-ratio:2/1}
+/* Modpack and SMP releases: who is on, the pack's news, your history, the live map */
+.ann{display:flex;align-items:center;gap:12px;max-width:520px;height:40px;padding:0 16px 0 12px;border:0;border-radius:999px;background:rgba(9,10,14,.55);backdrop-filter:blur(16px) saturate(1.3);box-shadow:inset 0 0 0 1px rgba(255,255,255,.12);color:#fff;font:500 13px 'Geist',system-ui,sans-serif;cursor:pointer;transition:background .2s,transform .35s cubic-bezier(.3,1.4,.5,1)}
+.ann:hover{background:rgba(9,10,14,.75);transform:translateX(4px)}
+.ann-dot{flex-shrink:0;width:8px;height:8px;border-radius:50%;animation:annPulse 2.4s ease-in-out infinite}
+@keyframes annPulse{50%{transform:scale(1.5);opacity:.6}}
+.heads{display:flex;align-items:center;padding-left:6px}
+.hd{position:relative;display:block;width:30px;height:30px;margin-left:-6px;border-radius:7px;box-shadow:0 0 0 2px rgba(12,13,18,.95);transition:transform .3s cubic-bezier(.3,1.5,.5,1),margin .3s cubic-bezier(.3,1.5,.5,1);cursor:default}
+.heads:hover .hd{margin-left:2px}
+.hd:hover{transform:translateY(-4px)}
+.hist{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px}
+.hist b{display:block;font:500 19px 'Geist Mono',ui-monospace,monospace;letter-spacing:-.03em}
+.hist span{display:block;margin-top:3px;font-size:11px;color:rgba(255,255,255,.5)}
+.mapbtn{display:flex;align-items:center;justify-content:space-between;width:100%;margin-top:14px;padding:0 4px 0 0;border:0;background:none;color:#fff;font:600 12.5px 'Geist',system-ui,sans-serif;cursor:pointer}
+.mapthumb{position:relative;width:56px;height:32px;border-radius:6px;overflow:hidden;box-shadow:inset 0 0 0 1px rgba(255,255,255,.15)}
+.mapthumb img{width:100%;height:100%;object-fit:cover;filter:saturate(1.4) contrast(1.1);image-rendering:pixelated;transform:scale(1.6);transition:transform .8s cubic-bezier(.2,.8,.2,1)}
+.mapbtn:hover .mapthumb img{transform:scale(1.9)}
+/* While the game runs, the other releases are shut: grey, a lock, and a shake if you try */
+.is-locked .slice-img{filter:grayscale(1) brightness(.4) !important}
+.is-locked .veil-dim{opacity:1 !important}
+.is-locked .tag{cursor:not-allowed}
+.is-locked .tag-name{color:rgba(255,255,255,.3) !important;letter-spacing:-.01em !important}
+.is-locked .tag-line{height:0 !important}
+.lock{display:block;color:rgba(255,255,255,.55);transition:transform .3s cubic-bezier(.3,1.5,.5,1),color .2s}
+.slice:hover .lock,.lib-strip:hover .lock{transform:translateY(-3px);color:#fff}
+.is-wiggle{animation:wiggle .55s cubic-bezier(.3,0,.3,1)}
+@keyframes wiggle{0%{transform:translateX(0)}15%{transform:translateX(-7px)}32%{transform:translateX(6px)}48%{transform:translateX(-4px)}64%{transform:translateX(3px)}80%{transform:translateX(-1px)}100%{transform:translateX(0)}}
+.is-wiggle .lock{animation:lockJolt .55s cubic-bezier(.3,0,.3,1)}
+@keyframes lockJolt{0%,100%{transform:rotate(0) scale(1)}20%{transform:rotate(-16deg) scale(1.25);color:#fff}45%{transform:rotate(12deg) scale(1.2)}70%{transform:rotate(-6deg) scale(1.1)}}
+.lib-strip.is-locked .lib-mosaic{opacity:.12 !important;filter:grayscale(1) !important}
+.lib-strip.is-locked{cursor:not-allowed}
+/* The reason is said where the eye already is: on the strip you clicked, and over the Play button */
+.cap-flash{animation:capIn .45s cubic-bezier(.2,.8,.2,1)}
+@keyframes capIn{from{opacity:0;transform:translateY(6px);letter-spacing:.32em}to{opacity:1;transform:none}}
+.play.nudged{animation:ring .8s cubic-bezier(.2,.7,.2,1)}
+@keyframes ring{from{outline:2px solid rgba(255,255,255,.7);outline-offset:0}to{outline:2px solid rgba(255,255,255,0);outline-offset:12px}}
+.is-wiggle .tag-name{color:#fff !important;font-family:'Geist Mono',ui-monospace,monospace;font-size:12px;font-weight:500;letter-spacing:.22em !important;text-transform:uppercase}/* ---- Launcher wiring: fonts, accent variables, and the states the prototype set inline ---- */
+@font-face{font-family:'Geist';src:url('../fonts/Geist-Variable.woff2') format('woff2');font-weight:100 900;font-display:block}
+@font-face{font-family:'Geist Mono';src:url('../fonts/GeistMono-Variable.woff2') format('woff2');font-weight:100 900;font-display:block}
+:root{--acc:#7777DF;--acc-deep:#6565B8;--acc-text:#B7B5FC;--play-bg:#6565B8}
+#landingContainer{position:absolute;inset:0;overflow:hidden;background:#07080b;color:#fff;font-family:'Geist',system-ui,sans-serif}
+#landingContainer button{font-family:inherit}
+
+/* The stage fills the window; folded into the settings band it is 236px (workspace.js) */
+.stage{width:100%}
+.stage.is-mini{width:236px}
+/* [hidden] must win over the display these elements set */
+.mb-badge[hidden],.ann[hidden]{display:none}
+
+/* Slices: accent per slice, the two wallpaper layers, the tag's parts */
+.slice-img{opacity:0}
+.slice-img.on{opacity:1}
+.tag-top{display:flex;align-items:center;justify-content:center;height:20px}
+.tag-star{width:20px;height:20px}
+.tag-num{font-size:11px;color:rgba(255,255,255,.45)}
+.slice[aria-current] .tag-num,.tag[aria-current="true"] .tag-num{color:var(--acc-text)}
+.tag-mid{display:flex;flex-direction:column;align-items:center;gap:16px}
+.tag-line{background:var(--acc)}
+.tag-line.net{background:linear-gradient(180deg,#5ED3F1,#8B6FE0)}
+.tag-dot{display:block;width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.3)}
+.slice-open{position:absolute;left:48px;right:44px;bottom:44px;display:flex;align-items:flex-end;justify-content:space-between;gap:40px;pointer-events:none}
+.slice-hero{flex:1 1 auto;min-width:0;overflow:hidden;padding-bottom:4px}
+/* The open slice's lines are sized from its own width, so the title never runs under the Play button */
+.slice{container-type:inline-size}
+.slice-over{margin:0;display:flex;align-items:center;gap:12px;font-size:11px;letter-spacing:.24em;color:rgba(255,255,255,.72)}
+.over-star{width:15px;height:15px}
+.over-num{color:var(--acc-text)}
+.over-of{color:rgba(255,255,255,.4)}
+.over-rule{width:28px;height:1px;background:rgba(255,255,255,.35)}
+.slice-title{margin:16px 0 0;font-size:clamp(44px,6.6cqw,104px);font-weight:900;line-height:.86;letter-spacing:-.05em;white-space:nowrap;text-shadow:0 10px 60px rgba(0,0,0,.45)}
+.slice-title.is-net{font-size:clamp(40px,5.6cqw,84px)}
+.slice-edition{margin-left:.2em;font-size:.46em;font-weight:500;letter-spacing:-.03em;color:var(--acc-text)}
+.slice-desc{margin:18px 0 0;max-width:44ch;font-size:15.5px;line-height:1.45;color:rgba(255,255,255,.72)}
+.slice-extra{pointer-events:auto}
+.modes{margin-top:24px;display:flex;flex-wrap:wrap;gap:8px}
+.mode{display:flex;flex-direction:column;align-items:center;gap:6px;width:74px;padding:10px 0 8px;border:0;border-radius:11px;background:rgba(9,10,14,.5);backdrop-filter:blur(10px);color:#fff;font:600 10.5px 'Geist',system-ui,sans-serif;cursor:pointer;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);transition:transform .35s cubic-bezier(.3,1.5,.5,1),background .2s}
+.mode:hover{transform:translateY(-5px);background:rgba(9,10,14,.75)}
+.mode img{width:28px;height:28px;image-rendering:pixelated}
+.mode-bar{display:block;width:16px;height:2px;border-radius:2px;transition:width .35s cubic-bezier(.3,1.5,.5,1)}
+.mode:hover .mode-bar{width:30px}
+.slice-side{display:flex;flex-direction:column;align-items:stretch;gap:14px;flex-shrink:0;pointer-events:auto}
+.ann{position:absolute;top:26px;left:48px}
+.ann-dot{background:var(--acc-text)}
+.ann-date{flex-shrink:0;font-size:10.5px;letter-spacing:.18em;color:var(--acc-text)}
+.ann-text{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ann-go{flex-shrink:0;color:rgba(255,255,255,.5)}
+
+/* The launch cluster, moved into the open slice by slices.js */
+.launch{display:flex;flex-direction:column;gap:14px}
+.launch-cap{display:flex;align-items:baseline;justify-content:space-between}
+#launch_caption{font-size:10.5px;letter-spacing:.22em;color:rgba(255,255,255,.55)}
+#launch_caption.cap-flash{color:var(--acc-text)}
+#launch_side{font-size:13px;color:rgba(255,255,255,.7)}
+.play{background:var(--play-bg);box-shadow:0 18px 50px -16px var(--acc)}
+.play:disabled{cursor:default}
+.play.is-running{background:rgba(12,13,18,.75);box-shadow:inset 0 0 0 1.5px var(--acc)}
+.launch-star{position:relative;flex-shrink:0;width:40px;height:40px}
+.play-text{position:relative;display:flex;flex-direction:column;gap:3px;min-width:0}
+.launch-label{font-size:17px;font-weight:800;letter-spacing:.02em}
+.launch-label.is-word{letter-spacing:.32em}
+#launch_details_text{font-size:11px;color:rgba(255,255,255,.72);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px}
+
+/* Panels */
+.np-count{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px}
+.np-big{font-size:32px;font-weight:500;letter-spacing:-.04em;line-height:1}
+.np-unit{font-size:12.5px;color:rgba(255,255,255,.55);margin-right:auto;margin-left:8px}
+.np-gap{margin-top:18px}
+.np-note{margin:10px 0 0;font-size:12.5px;color:rgba(255,255,255,.55)}
+.np-foot{display:flex;justify-content:space-between;align-items:center;margin-top:12px;font-size:12px;color:rgba(255,255,255,.6)}
+.np-link{padding:0;border:0;background:none;color:var(--acc-text);font:600 12.5px 'Geist',system-ui,sans-serif;cursor:pointer}
+.hd{object-fit:cover;image-rendering:pixelated;background:#222}
+.heads-more{margin-left:8px;font-size:11.5px;color:rgba(255,255,255,.55)}
+.ch-text{min-width:0}
+.ch-name{display:block;font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ch-meta{display:block;margin-top:2px;font-size:10.5px;letter-spacing:.08em;color:rgba(255,255,255,.5)}
+.ch-mult{font-size:12px;color:#F2C443}
+.hist-mode{display:flex;align-items:center;gap:6px}
+.hist-mode img{width:18px;height:18px;image-rendering:pixelated}
+.live.state-restarting,.live.state-starting,.live.state-stopping{background:#C88312;animation-name:annPulse}
+.live.state-offline,.live.state-unknown{background:rgba(255,255,255,.35);animation:none}
+.mapbtn-l{display:flex;align-items:center;gap:12px}
+
+/* Library strip and library */
+.lib-label-mid{display:flex;flex-direction:column;align-items:center;gap:14px}
+.lib-label-text{font-size:15px;font-weight:700}
+.lib-total{font-size:11px;color:rgba(255,255,255,.6)}
+.lib{clip-path:inset(0 0 0 100%);pointer-events:none;z-index:20}
+.lib.is-open{clip-path:inset(0 0 0 0);pointer-events:auto}
+.lib-head{height:64px;display:flex;align-items:center;gap:22px;padding:0 36px}
+.lib-title{font-size:16px;font-weight:800}
+.lib-count{font-size:12px;color:rgba(255,255,255,.45);margin-left:10px}
+.chip[aria-pressed="true"]{background:#fff;color:#0f1117}
+.chip[aria-pressed="false"]{background:rgba(255,255,255,.07);color:rgba(255,255,255,.75)}
+.lib-body{flex:1;min-height:0;overflow-y:auto;padding:18px 36px 48px}
+.lib-h{margin:0 0 18px;display:flex;align-items:center;gap:14px;font-size:11px;letter-spacing:.22em;color:rgba(255,255,255,.55)}
+.lib-h img{width:14px;height:14px}
+.lib-h i{flex:1;height:1px;background:rgba(255,255,255,.12)}
+.lib-grid + .lib-h{margin-top:36px}
+.lib-empty{margin:40px 0 0;font-size:15px;color:rgba(255,255,255,.55)}
+.card-img{box-shadow:0 0 0 1px rgba(255,255,255,.1)}
+.card-img.is-picked{box-shadow:0 0 0 2px var(--acc),0 14px 40px -14px var(--acc)}
+.card-shade{position:absolute;inset:0;background:linear-gradient(0deg,rgba(7,8,11,.7),rgba(7,8,11,0) 50%)}
+.card-num{position:absolute;left:12px;top:12px;display:flex;align-items:center;gap:8px;font-size:11px;color:rgba(255,255,255,.85)}
+.card-num img{width:16px;height:16px}
+.card-badge{position:absolute;right:10px;top:9px;padding:3px 7px;border-radius:5px;font-size:9.5px;letter-spacing:.16em;background:rgba(7,8,11,.6);color:var(--acc-text)}
+.card-text{display:flex;flex-direction:column;gap:3px;padding:0 2px}
+.card-name{font-size:15px;font-weight:700}
+.card-meta{font-size:11.5px;color:rgba(255,255,255,.5)}
+
+/* Website tabs and the live map: hidden by visibility, which keeps a webview painting */
+.web[data-tab-hidden]{visibility:hidden;opacity:0;transform:translateY(-24px);pointer-events:none}
+.web webview{position:absolute;inset:0;width:100%;height:100%}
+
+/* Title bar */
+.tb{background:color-mix(in oklab,var(--acc) 9%,#0a0b0f);transition:background .8s;color:#fff;font-family:'Geist',system-ui,sans-serif}
+.tb-brand img{width:17px;height:17px}
+.horizon{background:linear-gradient(90deg,color-mix(in srgb,var(--acc) 13%,transparent),color-mix(in srgb,var(--acc) 67%,transparent) 18%,color-mix(in srgb,var(--acc) 33%,transparent) 55%,color-mix(in srgb,var(--acc) 7%,transparent))}
+.mb-item{color:rgba(255,255,255,.55)}
+.mb-item[aria-current="page"]{color:#fff}
+.mb-lit{background:var(--acc-text);box-shadow:0 0 10px var(--acc),0 0 22px var(--acc)}
+.mb-badge{color:var(--acc-text);background:rgba(255,255,255,.08)}
+.mb-item[aria-current="page"] .mb-badge{color:#0a0b0f;background:var(--acc-text)}
+.peek{opacity:0;transform:translateY(-8px) scale(.97);pointer-events:none}
+.peek.is-open{opacity:1;transform:none;pointer-events:auto}
+.peek-kicker{display:block;margin:12px 4px 0;font-size:10px;letter-spacing:.2em;color:var(--acc-text)}
+.peek-title{display:block;margin:6px 4px 0;font-size:15px;font-weight:700;line-height:1.3}
+.peek-foot{display:flex;justify-content:space-between;margin:10px 4px 4px;font-size:12px;color:rgba(255,255,255,.55)}
+.peek-cta{transition:color .2s}
+.peek:hover .peek-cta{color:#fff}
+.tb-drag{flex:1;align-self:stretch}
+.tb-coins{display:flex;align-items:center;gap:7px;height:28px;padding:0 9px;border-radius:7px;font:400 12px 'Geist Mono',ui-monospace,monospace;color:rgba(255,255,255,.85)}
+.tb-coins img{width:12px;height:12px}
+.tb-coins.hidden{display:none}
+.tb-gear-wrap{position:relative}
+.tb-icon{color:rgba(255,255,255,.7)}
+.tb-icon[aria-pressed="true"]{color:var(--acc-text)}
+.tb-dot{position:absolute;top:4px;right:4px;width:6px;height:6px;border-radius:50%;background:#25AB90}
+.tb-dot.hidden{display:none}
+.acct .head{width:20px;height:20px;background-size:cover;image-rendering:pixelated}
+.tb-sep{width:1px;height:18px;margin:0 6px 0 10px;background:rgba(255,255,255,.1)}
+.am{opacity:0;transform:translateY(-6px) scale(.96);pointer-events:none}
+.am.is-open{opacity:1;transform:none;pointer-events:auto}
+.am-me{display:flex;align-items:center;gap:12px;padding:8px 8px 12px}
+.am-me-head{width:44px;height:44px;border-radius:8px}
+.am-me-name{display:block;font-size:15px;font-weight:700}
+.am-me-sub{display:block;margin-top:3px;font-size:11px;color:rgba(255,255,255,.5)}
+.am-rule{height:1px;margin:6px 4px;background:rgba(255,255,255,.08)}
+.am-item .head{width:22px;height:22px}
+.am-name{flex:1}
+.am-hint{font-size:11px;color:rgba(255,255,255,.45)}
+
+/* Opening a web tab pushes the slices back */
+.stage.away{pointer-events:none}
+
+@media (prefers-reduced-motion:reduce){*{animation:none !important;transition-duration:.01s !important;transition-delay:0s !important}}
