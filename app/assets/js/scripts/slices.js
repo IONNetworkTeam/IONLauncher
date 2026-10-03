@@ -84,6 +84,14 @@ const Slices = (() => {
         return local.length ? local : BUNDLED
     }
 
+    /** One picture to stand for a release: its own first one, or a different bundled one per release. */
+    function coverFor(id){
+        const local = walls.releases[id] || []
+        if(local.length) return pathToFileURL(local[0]).href
+        const i = Math.max(0, releases.findIndex(r => r.id === id))
+        return BUNDLED[i % BUNDLED.length]
+    }
+
     function syncCycles(){
         for(const r of releases){
             const set = wallsFor(r.id)
@@ -350,6 +358,7 @@ const Slices = (() => {
         shelf: () => shelf,
         byId,
         wallsFor,
+        coverFor,
         setMode(next){ mode = next; hover = null; update() },
         setPercent(p){ percent = Math.max(0, Math.min(100, p)); renderLaunch() },
         onOpen(fn){ openListeners.push(fn) },
