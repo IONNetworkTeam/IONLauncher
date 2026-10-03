@@ -1,6 +1,6 @@
 /**
- * Friends in the main process: the launcher session, the client and the presence heartbeat,
- * exposed to the renderer over the `friends:*` IPC surface. The renderer never
+ * Friends in the main process: the launcher session, the client, the presence heartbeat and the
+ * live channel, exposed to the renderer over the `friends:*` IPC surface. The renderer never
  * holds the session token; it sends the selected account (uuid, name and the Minecraft access
  * token, which goes to Mojang only) and gets back views, answers and pushed events.
  *
@@ -12,10 +12,13 @@
  *   friends:block uuid · friends:unblock uuid · friends:settings patch
  *   friends:join uuid, inGame · friends:invite uuid · friends:dismissInvite uuid
  *   friends:presence {state, release}                          what the launcher is doing (presence.js)
+ *   friends:poll                                               the presence poll, now (a window opened)
  *   friends:status                                             {account, session, live}
  *
- * Main → renderer (`friends:event`, to every window): `{event, ...payload}`: `view` {view} after a
- * change made here, and `status` {session, live, reason}.
+ * Main → renderer (`friends:event`, to every window): `{event, ...payload}` for the pushed events
+ * of the contract (presence, request, request_resolved, friend_added, friend_removed, invite,
+ * invite_expired), `snapshot` {friends} from the presence poll, `view` {view} after a change made
+ * here, and `status` {session, live, reason}.
  *
  * Everything degrades: without a session the answers say NO_SESSION and nothing is retried in a
  * loop; a 503 keeps the last view; the Play button never waits for any of this.
@@ -27,6 +30,7 @@ const path = require('path')
 const { createSessionStore } = require('./session')
 const { createFriendsApi } = require('./api')
 const { createPresence } = require('./presence')
+const { createLiveChannel } = require('./live')
 
 const SESSION_FILE = 'friends-session.bin'
 const NAME = /^[A-Za-z0-9_]{3,16}$/
@@ -41,9 +45,10 @@ let initialised = false
  * @param {typeof Electron.BrowserWindow} deps.BrowserWindow
  * @param {Electron.SafeStorage} deps.safeStorage
  * @param {{fetchJson: Function}} deps.webAuth webauth.js
+ * @param {{url: string}} deps.web weburl.js, for the socket's address
  * @param {Object} deps.logger
  */
-function init({ app, ipcMain, BrowserWindow, safeStorage, webAuth, logger }){
+function init({ app, ipcMain, BrowserWindow, safeStorage, webAuth, web, logger }){
     if(initialised) return
     initialised = true
 
@@ -114,8 +119,19 @@ function init({ app, ipcMain, BrowserWindow, safeStorage, webAuth, logger }){
         logger
     })
 
+    const live = createLiveChannel({
+        ticket: () => api.wsTicket().then(note),
+        poll: () => api.presence().then(note),
+        url: web.url.replace(/^http/, 'ws') + '/api/launcher/friends/ws',
+        onEvent: (event, frame) => broadcast(event, frame),
+        onSnapshot: friends => broadcast('snapshot', { friends }),
+        onStatus: up => setStatus({ live: up }),
+        logger
+    })
+
     function stop(){
         presence.stop()
+        live.stop()
         setStatus({ session: false, live: false })
     }
 
@@ -125,6 +141,7 @@ function init({ app, ipcMain, BrowserWindow, safeStorage, webAuth, logger }){
         if(first.ok) broadcast('view', { view: first.data })
         if(!account || first.code === 'NO_SESSION') return
         presence.start()
+        live.start()
     }
 
     function sanitizeAccount(a){
@@ -184,7 +201,8 @@ function init({ app, ipcMain, BrowserWindow, safeStorage, webAuth, logger }){
             if(!p || !['idle', 'playing'].includes(p.state)) return false
             presence.set(p.state, typeof p.release === 'string' ? p.release : null)
             return true
-        }
+        },
+        poll: () => live.running ? live.poll() : undefined
     }
     const badUuid = () => ({ ok: false, status: 400, code: 'BAD_REQUEST', error: null })
     for(const [name, fn] of Object.entries(handlers)) ipcMain.handle(`friends:${name}`, fn)
