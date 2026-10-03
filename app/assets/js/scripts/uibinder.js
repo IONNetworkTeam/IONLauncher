@@ -9,6 +9,7 @@ const { Type }      = require('helios-distribution-types')
 const AuthManager   = require('./assets/js/authmanager')
 const ConfigManager = require('./assets/js/configmanager')
 const { DistroAPI } = require('./assets/js/distromanager')
+const SettingsSync  = require('./assets/js/settingssync')
 
 let rscShouldLoad = false
 let fatalStartupError = false
@@ -73,6 +74,8 @@ async function showMainUI(data){
     await prepareSettings(true)
     updateSelectedServer(data.getServerById(ConfigManager.getSelectedServer()))
     refreshServerStatus()
+    // Pick up settings edited outside the launcher; runs in the background.
+    SettingsSync.reconcileAll(data)
     // Let the browser paint the prepared views once before they fade in.
     setTimeout(() => {
         $('#main').show()

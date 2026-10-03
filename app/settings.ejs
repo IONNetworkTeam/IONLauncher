@@ -116,6 +116,44 @@
                     </label>
                 </div>
             </div>
+            <div class="settingsFieldContainer">
+                <div class="settingsFieldLeft">
+                    <span class="settingsFieldTitle"><%- lang('settings.settingsSyncTitle') %></span>
+                    <span class="settingsFieldDesc"><%- lang('settings.settingsSyncDesc') %></span>
+                </div>
+                <div class="settingsFieldRight">
+                    <label class="toggleSwitch">
+                        <input type="checkbox" id="settingsSyncEnabled" cValue="SettingsSyncEnabled">
+                        <span class="toggleSwitchSlider"></span>
+                    </label>
+                </div>
+            </div>
+            <div id="settingsSyncServersContainer">
+                <div class="settingsModsHeader"><%- lang('settings.settingsSyncServersHeader') %></div>
+                <div id="settingsSyncServersDesc"><%- lang('settings.settingsSyncServersDesc') %></div>
+                <div id="settingsSyncServersContent">
+
+                </div>
+                <div class="settingsFieldContainer settingsSyncPacksField">
+                    <div class="settingsFieldLeft">
+                        <span class="settingsFieldTitle"><%- lang('settings.sharePacksTitle') %></span>
+                        <span class="settingsFieldDesc"><%- lang('settings.sharePacksDesc') %></span>
+                    </div>
+                    <div class="settingsFieldRight">
+                        <label class="toggleSwitch">
+                            <input type="checkbox" id="settingsSharePacks" cValue="SharePacks">
+                            <span class="toggleSwitchSlider"></span>
+                        </label>
+                    </div>
+                </div>
+                <div id="settingsSyncPacksContainer">
+                    <div class="settingsModsHeader"><%- lang('settings.sharedPacksHeader') %></div>
+                    <div id="settingsSyncPacksDesc"><%- lang('settings.sharedPacksDesc') %></div>
+                    <div id="settingsSyncPacksContent">
+
+                    </div>
+                </div>
+            </div>
         </div>
         <div id="settingsTabMods" class="settingsTab" style="display: none;">
             <div class="settingsTabHeader">

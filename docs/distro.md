@@ -145,6 +145,22 @@ Only one server in the array should have the `mainServer` property enabled. This
 
 Whether or not the server can be autoconnected to. If false, the server will not be autoconnected to even when the user has the autoconnect setting enabled.
 
+### `Server.ion: object`
+
+**OPTIONAL**
+
+ION-specific extensions that plain Helios launchers ignore. The ION Launcher Manager writes this object after Nebula has generated the file.
+
+##### `Server.ion.settingsSync: boolean`
+
+Whether the launcher may synchronize Minecraft's settings (options.txt, OptiFine's option files) between this server's instance and the player's other instances. Defaults to `true`. Set it to `false` for modpacks whose settings must stay separate, for example packs that ship their own key binds. The player sees the server's sync toggle locked in the launcher settings.
+
+```json
+"ion": {
+    "settingsSync": false
+}
+```
+
 ### `Server.javaOptions: JavaOptions`
 
 **OPTIONAL**

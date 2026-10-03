@@ -232,6 +232,152 @@ function saveSettingsValues(){
     })
 }
 
+/**
+ * Settings Sync (Minecraft tab)
+ */
+
+const settingsSyncEnabled          = document.getElementById('settingsSyncEnabled')
+const settingsSyncServersContainer = document.getElementById('settingsSyncServersContainer')
+const settingsSyncServersContent   = document.getElementById('settingsSyncServersContent')
+
+/**
+ * Grey out the per-server list while sync is off altogether.
+ */
+function refreshSettingsSyncListState(){
+    if(settingsSyncEnabled.checked){
+        settingsSyncServersContainer.removeAttribute('disabled')
+    } else {
+        settingsSyncServersContainer.setAttribute('disabled', '')
+    }
+}
+
+/**
+ * Build one toggle per server so the player can keep a server's settings separate. Servers
+ * whose modpack disabled sync in the distribution are shown locked.
+ */
+async function prepareSettingsSyncList(){
+    let distro
+    try {
+        distro = await DistroAPI.getDistribution()
+    } catch(err) {
+        LoggerUtil.getLogger('Settings').warn('Could not list servers for settings sync.', err)
+        return
+    }
+    let html = ''
+    for(const serv of distro.servers){
+        const raw = serv.rawServer
+        const locked = SettingsSync.isLockedByDistribution(raw)
+        const checked = !locked && !ConfigManager.isSettingsSyncExcluded(raw.id)
+        html += `<div class="settingsSyncServer" ${locked ? 'locked' : ''}>
+            <div class="settingsSyncServerDetails">
+                <span class="settingsSyncServerName">${raw.name}</span>
+                <span class="settingsSyncServerVersion">${raw.minecraftVersion}</span>
+                ${locked ? `<span class="settingsSyncServerNote">${Lang.queryJS('settings.settingsSync.lockedNote')}</span>` : ''}
+            </div>
+            <label class="toggleSwitch">
+                <input type="checkbox" syncserver="${raw.id}" ${checked ? 'checked' : ''} ${locked ? 'disabled' : ''}>
+                <span class="toggleSwitchSlider"></span>
+            </label>
+        </div>`
+    }
+    settingsSyncServersContent.innerHTML = html
+    settingsSyncEnabled.onchange = refreshSettingsSyncListState
+    refreshSettingsSyncListState()
+}
+
+/**
+ * Save the per-server sync choices. The global switch is saved with the other cValue fields.
+ */
+function saveSettingsSyncValues(){
+    for(const el of settingsSyncServersContent.querySelectorAll('[syncserver]')){
+        if(!el.disabled){
+            ConfigManager.setSettingsSyncExcluded(el.getAttribute('syncserver'), !el.checked)
+        }
+    }
+    for(const row of settingsSyncPacksContent.querySelectorAll('[syncpack]')){
+        const selected = row.querySelector('.settingsSyncPackMode[selected]')
+        if(selected != null){
+            ConfigManager.setPackMode(row.getAttribute('syncpack'), selected.getAttribute('mode'))
+        }
+    }
+}
+
+const settingsSharePacks        = document.getElementById('settingsSharePacks')
+const settingsSyncPacksContainer = document.getElementById('settingsSyncPacksContainer')
+const settingsSyncPacksContent   = document.getElementById('settingsSyncPacksContent')
+
+const PACK_MODES = ['compatible', 'everywhere', 'off']
+
+function refreshSharedPacksListState(){
+    if(settingsSharePacks.checked){
+        settingsSyncPacksContainer.removeAttribute('disabled')
+    } else {
+        settingsSyncPacksContainer.setAttribute('disabled', '')
+    }
+}
+
+function describePackFormats(pack){
+    if(!pack.valid){
+        return Lang.queryJS('settings.settingsSync.packInvalid')
+    }
+    if(pack.kind === 'shader' || pack.formats == null){
+        return pack.kind === 'shader' ? '' : Lang.queryJS('settings.settingsSync.packFormatUnknown')
+    }
+    if(pack.formats.min === pack.formats.max){
+        return Lang.queryJS('settings.settingsSync.packFormat', { format: pack.formats.min })
+    }
+    return Lang.queryJS('settings.settingsSync.packFormatRange', { min: pack.formats.min, max: pack.formats.max })
+}
+
+function describePackSharing(pack){
+    if(pack.linked.length === 0){
+        return Lang.queryJS('settings.settingsSync.packNotShared')
+    }
+    if(pack.linked.length === 1){
+        return Lang.queryJS('settings.settingsSync.packSharedWithOne')
+    }
+    return Lang.queryJS('settings.settingsSync.packSharedWith', { count: pack.linked.length })
+}
+
+/**
+ * List every resource pack and shader pack the launcher knows about, with a mode control each.
+ */
+async function prepareSharedPacksList(){
+    const packs = await SettingsSync.listSharedPacks()
+    const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;')
+    if(packs.length === 0){
+        settingsSyncPacksContent.innerHTML = `<div id="settingsSyncPacksEmpty">${Lang.queryJS('settings.settingsSync.noPacks')}</div>`
+    } else {
+        let html = ''
+        for(const pack of packs){
+            const kind = Lang.queryJS(pack.kind === 'shader' ? 'settings.settingsSync.packKindShader' : 'settings.settingsSync.packKindResource')
+            const info = [kind, describePackFormats(pack), describePackSharing(pack)].filter(s => s).join(' · ')
+            const modes = PACK_MODES.map(mode => {
+                const label = Lang.queryJS(`settings.settingsSync.packMode${mode.charAt(0).toUpperCase()}${mode.slice(1)}`)
+                return `<button class="settingsSyncPackMode" mode="${mode}" ${pack.mode === mode ? 'selected' : ''}>${label}</button>`
+            }).join('')
+            html += `<div class="settingsSyncPack" syncpack="${esc(pack.name)}" ${pack.valid ? '' : 'invalid'}>
+                <div class="settingsSyncPackDetails">
+                    <span class="settingsSyncPackName" title="${esc(pack.name)}">${esc(pack.name)}</span>
+                    <span class="settingsSyncPackInfo">${esc(info)}</span>
+                </div>
+                <div class="settingsSyncPackModes">${modes}</div>
+            </div>`
+        }
+        settingsSyncPacksContent.innerHTML = html
+        for(const btn of settingsSyncPacksContent.querySelectorAll('.settingsSyncPackMode')){
+            btn.onclick = () => {
+                for(const sibling of btn.parentElement.children){
+                    sibling.removeAttribute('selected')
+                }
+                btn.setAttribute('selected', '')
+            }
+        }
+    }
+    settingsSharePacks.onchange = refreshSharedPacksListState
+    refreshSharedPacksListState()
+}
+
 let selectedSettingsTab = 'settingsTabAccount'
 
 /**
@@ -323,6 +469,7 @@ function settingsSaveDisabled(v){
 
 function fullSettingsSave() {
     saveSettingsValues()
+    saveSettingsSyncValues()
     saveModConfiguration()
     ConfigManager.save()
     saveDropinModConfiguration()
@@ -1574,6 +1721,8 @@ async function prepareSettings(first = false) {
         await prepareModsTab()
     }
     await initSettingsValues()
+    await prepareSettingsSyncList()
+    await prepareSharedPacksList()
     prepareAccountsTab()
     await prepareJavaTab()
     prepareAboutTab()

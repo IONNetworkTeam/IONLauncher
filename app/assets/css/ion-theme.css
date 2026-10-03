@@ -532,6 +532,12 @@ body {
     color: var(--ion-aquaer);
 }
 
+/* Keep tab content off the left rail's border. */
+.settingsTab {
+    padding: 0 40px 0 36px;
+    box-sizing: border-box;
+}
+
 .settingsTabHeaderText {
     letter-spacing: 0.5px;
 }
@@ -1188,4 +1194,22 @@ input:checked + .toggleSwitchSlider:before {
 .pl-c2 {
     color: #fff;
     background-color: var(--ion-critical);
+}
+
+/* Settings sync list. */
+#settingsSyncServersDesc,
+.settingsSyncServerVersion,
+.settingsSyncServerNote {
+    color: var(--ion-text-soft);
+}
+.settingsSyncServer {
+    border-bottom: 1px solid var(--ion-line-quiet);
+}
+#settingsSyncPacksDesc,
+.settingsSyncPackInfo,
+#settingsSyncPacksEmpty {
+    color: var(--ion-text-soft);
+}
+.settingsSyncPack {
+    border-bottom: 1px solid var(--ion-line-quiet);
 }

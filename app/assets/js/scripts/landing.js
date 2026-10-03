@@ -484,6 +484,9 @@ async function dlAsync(login = true) {
             }
         }
 
+        // Carry settings from the other instances into this one (never fails the launch).
+        await SettingsSync.beforeLaunch(distro, serv)
+
         try {
             // Build Minecraft process.
             proc = pb.build()
@@ -496,6 +499,11 @@ async function dlAsync(login = true) {
             // Bind listeners to stdout.
             proc.stdout.on('data', tempListener)
             proc.stderr.on('data', gameErrorListener)
+
+            // Spread the settings changed during this session to the other instances.
+            proc.on('close', () => {
+                SettingsSync.afterExit(distro, serv)
+            })
 
             setLaunchDetails(Lang.queryJS('landing.dlAsync.doneEnjoyServer'))
 

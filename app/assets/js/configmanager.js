@@ -84,6 +84,12 @@ const DEFAULT_CONFIG = {
             autoConnect: true,
             launchDetached: true
         },
+        settingsSync: {
+            enabled: true,
+            excludedServers: [],
+            sharePacks: true,
+            packModes: {}
+        },
         launcher: {
             allowPrerelease: false,
             dataDirectory: dataPath
@@ -839,6 +845,93 @@ exports.getLaunchDetached = function(def = false){
  */
 exports.setLaunchDetached = function(launchDetached){
     config.settings.game.launchDetached = launchDetached
+}
+
+// Settings Sync
+
+/**
+ * Check if Minecraft settings are synchronized between instances.
+ *
+ * @param {boolean} def Optional. If true, the default value will be returned.
+ * @returns {boolean} Whether or not Minecraft settings are synchronized between instances.
+ */
+exports.getSettingsSyncEnabled = function(def = false){
+    return !def ? config.settings.settingsSync.enabled : DEFAULT_CONFIG.settings.settingsSync.enabled
+}
+
+/**
+ * Change whether Minecraft settings are synchronized between instances.
+ *
+ * @param {boolean} enabled Whether or not Minecraft settings are synchronized between instances.
+ */
+exports.setSettingsSyncEnabled = function(enabled){
+    config.settings.settingsSync.enabled = enabled
+}
+
+/**
+ * Check if the user excluded a server from settings sync.
+ *
+ * @param {string} serverid The server id.
+ * @returns {boolean} True if the server's settings are not synchronized.
+ */
+exports.isSettingsSyncExcluded = function(serverid){
+    return config.settings.settingsSync.excludedServers.includes(serverid)
+}
+
+/**
+ * Exclude a server from settings sync, or include it again.
+ *
+ * @param {string} serverid The server id.
+ * @param {boolean} excluded True to exclude the server.
+ */
+exports.setSettingsSyncExcluded = function(serverid, excluded){
+    const list = config.settings.settingsSync.excludedServers.filter(id => id !== serverid)
+    if(excluded){
+        list.push(serverid)
+    }
+    config.settings.settingsSync.excludedServers = list
+}
+
+/**
+ * Check if resource packs and shader packs are shared between instances.
+ *
+ * @param {boolean} def Optional. If true, the default value will be returned.
+ * @returns {boolean} Whether or not packs are shared between instances.
+ */
+exports.getSharePacks = function(def = false){
+    return !def ? config.settings.settingsSync.sharePacks : DEFAULT_CONFIG.settings.settingsSync.sharePacks
+}
+
+/**
+ * Change whether resource packs and shader packs are shared between instances.
+ *
+ * @param {boolean} sharePacks Whether or not packs are shared between instances.
+ */
+exports.setSharePacks = function(sharePacks){
+    config.settings.settingsSync.sharePacks = sharePacks
+}
+
+/**
+ * Get the sharing mode of every pack the user changed from the default.
+ *
+ * @returns {Object<string, string>} Pack file name to 'everywhere' or 'off'.
+ */
+exports.getPackModes = function(){
+    return { ...config.settings.settingsSync.packModes }
+}
+
+/**
+ * Set how a pack is shared.
+ *
+ * @param {string} packName The pack's file or folder name.
+ * @param {string} mode 'compatible' (the default), 'everywhere' or 'off'.
+ */
+exports.setPackMode = function(packName, mode){
+    if(mode === 'compatible' || mode == null){
+        delete config.settings.settingsSync.packModes[packName]
+    } else {
+        config.settings.settingsSync.packModes[packName] = mode
+    }
 }
 
 // Launcher Settings

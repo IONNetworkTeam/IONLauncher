@@ -2755,3 +2755,124 @@ input:checked + .toggleSwitchSlider:before {
 .rotating {
     animation: rotating 10s linear infinite;
 }
+/* Settings sync: per-server list on the Minecraft tab. */
+#settingsSyncServersContainer {
+    width: 75%;
+    margin-top: 25px;
+}
+#settingsSyncServersContainer[disabled] {
+    opacity: 0.5;
+    pointer-events: none;
+}
+#settingsSyncServersDesc {
+    font-size: 12px;
+    color: rgba(255, 255, 255, .95);
+    margin-bottom: 10px;
+}
+.settingsSyncServer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 0px;
+}
+.settingsSyncServerDetails {
+    display: flex;
+    flex-direction: column;
+}
+.settingsSyncServerName {
+    font-size: 14px;
+    font-family: 'Avenir Medium';
+    color: rgba(255, 255, 255, 0.95);
+}
+.settingsSyncServerVersion,
+.settingsSyncServerNote {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.6);
+    margin-top: 3px;
+}
+.settingsSyncServer[locked] .settingsSyncServerNote {
+    color: rgb(255, 179, 71);
+}
+.settingsSyncServer[locked] .toggleSwitch {
+    opacity: 0.4;
+    pointer-events: none;
+}
+
+/* Settings sync: shared packs. */
+.settingsSyncPacksField {
+    width: 100%;
+    margin-top: 10px;
+}
+#settingsSyncPacksContainer {
+    margin-top: 25px;
+}
+#settingsSyncPacksContainer[disabled] {
+    opacity: 0.5;
+    pointer-events: none;
+}
+#settingsSyncPacksDesc {
+    font-size: 12px;
+    color: rgba(255, 255, 255, .95);
+    margin-bottom: 10px;
+}
+.settingsSyncPack {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 0px;
+    gap: 15px;
+}
+.settingsSyncPackDetails {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+.settingsSyncPackName {
+    font-size: 14px;
+    font-family: 'Avenir Medium';
+    color: rgba(255, 255, 255, 0.95);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.settingsSyncPackInfo {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.6);
+    margin-top: 3px;
+}
+.settingsSyncPack[invalid] .settingsSyncPackInfo {
+    color: rgb(255, 179, 71);
+}
+.settingsSyncPackModes {
+    display: flex;
+    flex-shrink: 0;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 4px;
+    overflow: hidden;
+}
+.settingsSyncPackMode {
+    background: transparent;
+    border: none;
+    border-right: 1px solid rgba(255, 255, 255, 0.3);
+    color: rgba(255, 255, 255, 0.75);
+    font-size: 11px;
+    font-family: 'Avenir Book';
+    padding: 5px 10px;
+    cursor: pointer;
+    outline: none;
+}
+.settingsSyncPackMode:last-child {
+    border-right: none;
+}
+.settingsSyncPackMode:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+.settingsSyncPackMode[selected] {
+    background: rgba(255, 255, 255, 0.85);
+    color: rgba(0, 0, 0, 0.9);
+}
+#settingsSyncPacksEmpty {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.6);
+    padding: 10px 0px;
+}
