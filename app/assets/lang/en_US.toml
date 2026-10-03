@@ -325,6 +325,17 @@ deleteFailedMessage = "Make sure the file is not in use and try again."
 failedToggleTitle = "Failed to Toggle<br>One or More Drop-in Mods"
 okButton = "Okay"
 
+[js.settings.ionMods]
+github = "GitHub · {tag}"
+githubTitle = "Downloaded from the newest release of {repo}. Click to open the repository."
+sourceTitle = "Open the mod's page."
+manual = "Manual download"
+manualTitle = "This mod's author doesn't allow launchers to download it. Click to open its download page."
+
+[js.settings.ionMods.source]
+modrinth = "Modrinth"
+curseforge = "CurseForge"
+
 [js.settings.serverListing]
 mainServer = "Main Server"
 

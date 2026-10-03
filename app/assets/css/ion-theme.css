@@ -776,6 +776,48 @@ input:checked + .toggleSwitchSlider:before {
 .settingsModVersion {
     color: var(--ion-text-dim);
 }
+
+/* Source / download badges (ION distribution extensions). */
+.settingsModBadges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 4px;
+}
+.settingsModBadge {
+    display: inline-block;
+    padding: 1px 7px;
+    border-radius: var(--ion-pill);
+    border: 1px solid var(--ion-line);
+    background: var(--ion-surface-sunken);
+    color: var(--ion-text-soft);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    text-decoration: none;
+    transition: color var(--ion-ease), border-color var(--ion-ease);
+}
+.settingsModBadge:hover,
+.settingsModBadge:focus {
+    color: #fff;
+    border-color: var(--ion-line-hover);
+}
+.settingsModBadgeGithub {
+    color: #fff;
+    border-color: transparent;
+    background: var(--ion-aqua);
+}
+.settingsModBadgeGithub:hover,
+.settingsModBadgeGithub:focus {
+    background: var(--ion-aquaer);
+    border-color: transparent;
+}
+.settingsModBadgeManual {
+    color: #fff;
+    border-color: transparent;
+    background: var(--ion-warn);
+}
 .settingsDropinRemoveButton {
     color: var(--ion-critical);
 }

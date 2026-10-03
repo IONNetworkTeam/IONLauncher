@@ -723,6 +723,30 @@ async function resolveModsForUI(){
 }
 
 /**
+ * Badges for ION's distribution extensions: where a mod comes from and how it is obtained.
+ * GitHub mods are shown prominently with a link to the repository; manual-download mods link to
+ * their download page. Links open in the browser (uicore.js handles `a[href^="http"]`).
+ *
+ * @param {Object} mdl The module.
+ * @returns {string} HTML, or an empty string for plain modules.
+ */
+function ionModBadges(mdl){
+    const ion = mdl.rawModule.ion
+    if(ion == null) return ''
+    const badges = []
+    if(ion.source === 'github' && ion.github){
+        const href = ion.projectUrl || `https://github.com/${ion.github.repo}`
+        badges.push(`<a class="settingsModBadge settingsModBadgeGithub" href="${escapeHtml(href)}" title="${escapeHtml(Lang.queryJS('settings.ionMods.githubTitle', { repo: ion.github.repo }))}">${escapeHtml(Lang.queryJS('settings.ionMods.github', { tag: ion.github.tag }))}</a>`)
+    } else if(ion.projectUrl){
+        badges.push(`<a class="settingsModBadge" href="${escapeHtml(ion.projectUrl)}" title="${escapeHtml(Lang.queryJS('settings.ionMods.sourceTitle'))}">${escapeHtml(Lang.queryJS(`settings.ionMods.source.${ion.source}`))}</a>`)
+    }
+    if(ion.download === 'manual' && ion.manual){
+        badges.push(`<a class="settingsModBadge settingsModBadgeManual" href="${escapeHtml(ion.manual.pageUrl)}" title="${escapeHtml(Lang.queryJS('settings.ionMods.manualTitle'))}">${escapeHtml(Lang.queryJS('settings.ionMods.manual'))}</a>`)
+    }
+    return badges.length > 0 ? `<span class="settingsModBadges">${badges.join('')}</span>` : ''
+}
+
+/**
  * Recursively build the mod UI elements.
  * 
  * @param {Object[]} mdls An array of modules to parse.
@@ -747,6 +771,7 @@ function parseModulesForUI(mdls, submodules, servConf){
                             <div class="settingsModDetails">
                                 <span class="settingsModName">${mdl.rawModule.name}</span>
                                 <span class="settingsModVersion">v${mdl.mavenComponents.version}</span>
+                                ${ionModBadges(mdl)}
                             </div>
                         </div>
                         <label class="toggleSwitch" reqmod>
@@ -771,6 +796,7 @@ function parseModulesForUI(mdls, submodules, servConf){
                             <div class="settingsModDetails">
                                 <span class="settingsModName">${mdl.rawModule.name}</span>
                                 <span class="settingsModVersion">v${mdl.mavenComponents.version}</span>
+                                ${ionModBadges(mdl)}
                             </div>
                         </div>
                         <label class="toggleSwitch">
