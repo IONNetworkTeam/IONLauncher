@@ -21,6 +21,8 @@
             width: 100%;
             position: absolute;
             z-index: 10;
+            /* Views slide in from beside the window (the settings workspace); never show a scrollbar for that. */
+            overflow: hidden;
         }
         #main[overlay] {
             filter: blur(3px) contrast(0.9) brightness(1.0);
