@@ -4,6 +4,7 @@
  * themselves. These helpers are pure so they can be tested with `npm test`; the launch flow in
  * scripts/modsetup.js and the settings UI use them.
  */
+const got = require('got')
 
 /** First `.jar` that isn't a sources / dev / javadoc / api / shadow artifact. Same as the Manager's. */
 const DEFAULT_ASSET_PATTERN = '^(?!.*(?:-sources|-dev|-javadoc|-api|-shadow)\\b).*\\.jar$'
@@ -63,8 +64,40 @@ function pruneUnavailableManualModules(rawDistribution, serverId, unavailableIds
     }
 }
 
+/**
+ * Newest release of `repo`. Uses a conditional request so repeated launches don't eat GitHub's
+ * 60 requests/hour for unauthenticated clients (304 responses are free). `cache` is what a
+ * previous call returned, or null. Throws when GitHub can't be reached or answers with an error;
+ * callers fall back to the release embedded in the distribution.
+ */
+async function fetchLatestRelease(repo, prerelease, cache, request = got){
+    const url = prerelease
+        ? `https://api.github.com/repos/${repo}/releases?per_page=10`
+        : `https://api.github.com/repos/${repo}/releases/latest`
+    const headers = {
+        'User-Agent': 'ION-Launcher',
+        'Accept': 'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2022-11-28'
+    }
+    if(cache?.etag) headers['If-None-Match'] = cache.etag
+
+    const res = await request(url, { headers, responseType: 'json', throwHttpErrors: false, timeout: 8000 })
+    if(res.statusCode === 304 && cache?.release) return { release: cache.release, cache }
+    if(res.statusCode !== 200) throw new Error(`GitHub answered ${res.statusCode} for ${repo}`)
+
+    const found = Array.isArray(res.body) ? res.body.find(r => !r.draft) : res.body
+    if(found == null) throw new Error(`${repo} has no releases`)
+    const release = {
+        tag_name: found.tag_name,
+        html_url: found.html_url,
+        assets: (found.assets || []).map(a => ({ name: a.name, size: a.size, browser_download_url: a.browser_download_url, digest: a.digest ?? null }))
+    }
+    return { release, cache: { etag: res.headers?.etag || null, release, fetchedAt: Date.now() } }
+}
+
 module.exports = {
     DEFAULT_ASSET_PATTERN,
+    fetchLatestRelease,
     isGithubModule,
     isManualModule,
     safeTag,

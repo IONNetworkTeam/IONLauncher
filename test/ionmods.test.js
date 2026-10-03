@@ -66,3 +66,46 @@ test('pruneUnavailableManualModules removes only the given modules of the given 
     assert.deepEqual(pruned.servers[1].modules.map(m => m.id), ['a:a:1@jar'])
     assert.equal(distro.servers[0].modules.length, 2, 'input is not mutated')
 })
+
+function fakeGot(responses){
+    const calls = []
+    const fn = async (url, options) => {
+        calls.push({ url, options })
+        const next = responses.shift()
+        return typeof next === 'function' ? next(url, options) : next
+    }
+    fn.calls = calls
+    return fn
+}
+
+const release = { tag_name: 'v2', html_url: 'https://github.com/o/r/releases/tag/v2', draft: false, assets: [asset('r-2.jar')] }
+
+test('fetchLatestRelease uses /releases/latest and slims the response', async () => {
+    const request = fakeGot([{ statusCode: 200, headers: { etag: 'W/"1"' }, body: { ...release, extra: true } }])
+    const result = await IonMods.fetchLatestRelease('o/r', false, null, request)
+    assert.equal(request.calls[0].url, 'https://api.github.com/repos/o/r/releases/latest')
+    assert.equal(result.release.tag_name, 'v2')
+    assert.equal(result.release.extra, undefined)
+    assert.deepEqual(result.release.assets[0], { name: 'r-2.jar', size: 100, browser_download_url: 'https://github.com/o/r/releases/download/v2/r-2.jar', digest: null })
+    assert.equal(result.cache.etag, 'W/"1"')
+})
+
+test('fetchLatestRelease sends If-None-Match and reuses the cached release on 304', async () => {
+    const cache = { etag: 'W/"1"', release }
+    const request = fakeGot([{ statusCode: 304, headers: {}, body: '' }])
+    const result = await IonMods.fetchLatestRelease('o/r', false, cache, request)
+    assert.equal(request.calls[0].options.headers['If-None-Match'], 'W/"1"')
+    assert.equal(result.release, release)
+})
+
+test('fetchLatestRelease picks the newest non-draft of /releases when pre-releases are allowed', async () => {
+    const request = fakeGot([{ statusCode: 200, headers: {}, body: [{ ...release, tag_name: 'v3-draft', draft: true }, { ...release, tag_name: 'v3-beta', prerelease: true }] }])
+    const result = await IonMods.fetchLatestRelease('o/r', true, null, request)
+    assert.match(request.calls[0].url, /\/releases\?per_page=10$/)
+    assert.equal(result.release.tag_name, 'v3-beta')
+})
+
+test('fetchLatestRelease throws on other statuses', async () => {
+    const request = fakeGot([{ statusCode: 403, headers: {}, body: {} }])
+    await assert.rejects(IonMods.fetchLatestRelease('o/r', false, null, request), /403/)
+})

@@ -99,7 +99,9 @@ const DEFAULT_CONFIG = {
     selectedAccount: null,
     authenticationDatabase: {},
     modConfigurations: [],
-    javaConfig: {}
+    javaConfig: {},
+    /** Per-repository GitHub release cache for custom mods: { [owner/repo]: { etag, release, fetchedAt } } */
+    githubReleases: {}
 }
 
 let config = null
@@ -173,7 +175,7 @@ function validateKeySet(srcObj, destObj){
     if(srcObj == null){
         srcObj = {}
     }
-    const validationBlacklist = ['authenticationDatabase', 'javaConfig']
+    const validationBlacklist = ['authenticationDatabase', 'javaConfig', 'githubReleases']
     const keys = Object.keys(srcObj)
     for(let i=0; i<keys.length; i++){
         if(typeof destObj[keys[i]] === 'undefined'){
@@ -501,6 +503,27 @@ exports.setModConfiguration = function(serverid, configuration){
         }
     }
     cfgs.push(configuration)
+}
+
+/**
+ * Cached GitHub release lookup for a custom mod's repository, or null.
+ *
+ * @param {string} repo `owner/repo`
+ */
+exports.getGithubReleaseCache = function(repo){
+    return config.githubReleases?.[repo] ?? null
+}
+
+/**
+ * Remember a GitHub release lookup (ETag and slimmed release) for a repository.
+ *
+ * @param {string} repo `owner/repo`
+ * @param {Object} cache As returned by ionmods.fetchLatestRelease.
+ */
+exports.setGithubReleaseCache = function(repo, cache){
+    if(config.githubReleases == null) config.githubReleases = {}
+    config.githubReleases[repo] = cache
+    exports.save()
 }
 
 // User Configurable Settings
