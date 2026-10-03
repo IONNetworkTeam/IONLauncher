@@ -9,9 +9,9 @@
 #settingsContainer{position:absolute;top:0;right:0;bottom:0;left:239px;z-index:25;display:block;overflow:hidden;background:#111319;color:#fff;font-family:'Geist',system-ui,sans-serif;opacity:0;transform:translateX(60px);transition:opacity .5s,transform .9s cubic-bezier(.75,0,.2,1)}
 #settingsContainer.is-open{opacity:1;transform:none}
 #settingsContainer:before{display:none}
-#settingsContainer .ws-ground{position:absolute;inset:-14%;width:128%;height:128%;object-fit:cover;filter:blur(60px) saturate(1.3);transition:opacity .8s;pointer-events:none}
-#settingsContainer:after{content:'';position:absolute;inset:0;background:rgba(15,17,23,.84);pointer-events:none}
-#settingsContainer > *{position:relative;z-index:1}
+#settingsContainer .ws-ground{position:absolute;inset:-14%;width:128%;height:128%;object-fit:cover;filter:blur(60px) saturate(1.3);transition:opacity .8s;pointer-events:none;z-index:0}
+#settingsContainer:after{content:'';position:absolute;inset:0;background:rgba(15,17,23,.84);pointer-events:none;z-index:0}
+#settingsContainer > :not(.ws-ground){position:relative;z-index:1}
 
 /* Section bar */
 #settingsContainer #settingsContainerLeft{width:auto;height:64px;padding:0 36px;border-bottom:1px solid rgba(255,255,255,.08);box-sizing:border-box}
@@ -19,7 +19,8 @@
 #settingsContainer #settingsNavHeader{height:auto;margin-right:20px}
 #settingsContainer #settingsNavHeaderText{font-size:16px;font-weight:800;letter-spacing:-.01em}
 #settingsContainer #settingsNavItemsContainer{height:100%;flex:1;justify-content:flex-start}
-#settingsContainer #settingsNavItemsContent{flex-direction:row;align-items:stretch;height:100%;width:100%}
+#settingsContainer #settingsNavItemsContent{flex-direction:row;align-items:stretch;height:100%;width:100%;overflow-x:auto;overflow-y:hidden;scrollbar-width:none}
+#settingsContainer #settingsNavItemsContent::-webkit-scrollbar{display:none}
 #settingsContainer .settingsNavItem{margin:0;padding:0 14px;height:64px;border:0;border-radius:0;background:none;color:rgba(255,255,255,.5);font:600 13.5px 'Geist',system-ui,sans-serif;transition:color .2s}
 #settingsContainer .settingsNavItem:hover,#settingsContainer .settingsNavItem:focus{color:#fff;background:none}
 #settingsContainer .settingsNavItem[selected]{color:#fff;background:none;box-shadow:none}

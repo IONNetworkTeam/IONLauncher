@@ -47,6 +47,8 @@ const Workspace = (() => {
         setGear(true)
         refreshGround()
         ws.style.display = 'block'
+        // Commit the closed state before opening, or the slide-in has nothing to start from.
+        void ws.offsetWidth
         requestAnimationFrame(() => {
             ws.classList.add('is-open')
             placeLine()
@@ -87,7 +89,9 @@ const Workspace = (() => {
         }
         // To another view (login): both settings and the Play view fade out.
         ws.classList.remove('is-open')
-        $(`${VIEWS.landing}, ${VIEWS.settings}`).fadeOut(currentFadeTime, async () => {
+        // One callback for both elements: jQuery calls a fadeOut callback once per element, and a
+        // login flow's onCurrentFade must run exactly once (it opens the Microsoft window).
+        $(`${VIEWS.landing}, ${VIEWS.settings}`).fadeOut(currentFadeTime).promise().done(async () => {
             Slices.setMode('play')
             setGear(false)
             await run(onCurrentFade)
