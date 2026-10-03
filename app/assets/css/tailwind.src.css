@@ -18,6 +18,7 @@
 
 @source "../../*.ejs";
 @source "../js/scripts/shell.js";
+@source "../js/scripts/titlebar.js";
 
 @theme {
     /* The website's palette, so both read as one product. */
@@ -37,7 +38,7 @@
 
 :root {
     /* Title bar height. launcher.css sizes #main and the overlay against it. */
-    --frame-h: 40px;
+    --frame-h: 36px;
 
     /* The launcher's accent, taken from the logo. Kept for small marks: the play button, progress,
        the current tab and notification dots. */
@@ -167,13 +168,14 @@ textarea {
         inset 0 0 0 1px rgba(255, 255, 255, 0.14),
         inset 0 2px 4px rgba(10, 12, 40, 0.3);
 }
-#launch_button:disabled {
+/* Dimmed only when there is nothing to launch; while a launch runs the button keeps its colour (slices.js). */
+#launch_button:disabled:not(.is-busy) {
     cursor: not-allowed;
     opacity: 0.45;
     filter: saturate(0.3);
     transform: none;
 }
-#launch_button:disabled::before {
+#launch_button:disabled:not(.is-busy)::before {
     display: none;
 }
 

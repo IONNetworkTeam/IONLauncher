@@ -48,20 +48,16 @@ function tabRoot(tab){
 function showTab(tab, path){
     const again = tab === currentTab
     currentTab = tab
-    document.getElementById('ionStage').dataset.tabCurrent = tab
-    if(tab === 'home') resumeLobby()
-    else pauseLobby()
-
-    document.querySelectorAll('#ionRail [data-tab]').forEach(el => {
-        if(el.dataset.tab === tab) el.setAttribute('aria-current', 'page')
-        else el.removeAttribute('aria-current')
-    })
+    document.getElementById('stage').classList.toggle('away', tab !== 'home')
+    if(typeof TitleBar !== 'undefined') TitleBar.setCurrent(tab)
     // Hidden by visibility rather than display:none, which can stop a webview from painting.
     document.querySelectorAll('[data-tab-panel]').forEach(el => {
         el.toggleAttribute('data-tab-hidden', el.dataset.tabPanel !== tab)
     })
-
-    if(tab === 'news') document.getElementById('newsDot').classList.add('hidden')
+    if(tab === 'news'){
+        if(typeof TitleBar !== 'undefined') TitleBar.setBadge('news', '')
+        if(window.ionNewestArticle) localStorage.setItem('ion.lastSeenArticle', window.ionNewestArticle.slug)
+    }
     if(tab === 'home') return
 
     const view = ensureWebview(tab)
@@ -165,23 +161,6 @@ function renderWebState(){
     coins.classList.toggle('flex', hasBalance)
     if(hasBalance) document.getElementById('frameCoinsValue').textContent = webState.balance.toLocaleString()
 
-    const card = document.getElementById('homeCoins')
-    const button = (label, path, primary) => `<button data-tab-link="challenges"${path ? ` data-tab-path="${escapeHtml(path)}"` : ''} class="rounded-lg px-3.5 py-1.5 text-sm font-medium text-white transition ${primary ? 'bg-white/10 hover:bg-white/20' : 'text-neutral-300 hover:bg-white/10 hover:text-white'}">${escapeHtml(label)}</button>`
-    const text = s => `<p class="text-sm leading-relaxed text-neutral-300">${s}</p>`
-
-    if(webState?.loggedIn && hasBalance){
-        const who = webState.minecraftName ? ` &middot; ${escapeHtml(webState.minecraftName)}` : ''
-        card.innerHTML = `
-            <b class="signal-bg block bg-clip-text font-mono text-[34px] font-bold leading-none tabular-nums text-transparent">${webState.balance.toLocaleString()}</b>
-            <span class="mt-1 block text-xs text-neutral-400">${escapeHtml(Lang.queryJS('shell.coins'))}${who}</span>
-            <div class="mt-3 flex flex-wrap gap-2">${button(Lang.queryJS('shell.openChallenges'), null, true)}${button(Lang.queryJS('shell.newChallenge'), '/challenges/new', false)}</div>`
-    } else if(webState && !webState.loggedIn){
-        card.innerHTML = text(escapeHtml(Lang.queryJS('shell.loginPrompt')))
-            + `<div class="mt-3">${button(Lang.queryJS('shell.loginButton'), '/auth/login?redirect=/challenges', true)}</div>`
-    } else if(webState?.loggedIn){
-        card.innerHTML = text(escapeHtml(Lang.queryJS('shell.linkPrompt', { name: webState.username ?? '' })))
-            + `<div class="mt-3">${button(Lang.queryJS('shell.linkButton'), '/account', true)}</div>`
-    }
 }
 
 function showToast(text, href){
@@ -196,173 +175,36 @@ function showToast(text, href){
     setTimeout(() => toast.remove(), 8000)
 }
 
-/* The Play tab: lobby slideshow */
-
-const LOBBY_TIME = 12000
-const LOBBY_FADE = 1800
-/** Shown for a release that has no pictures of its own on disk yet. */
-const BUNDLED_WALLS = [5, 3, 7, 2, 6, 4, 0, 1].map(n => `assets/images/backgrounds/${n}.jpg`)
-/** The direction each picture zooms towards, cycled through. */
-const DRIFTS = [['-2%', '-1.5%'], ['2%', '-1%'], ['-1.5%', '1.5%'], ['1.5%', '1.5%']]
-
-const { WallCycle } = require('./assets/js/wallcycle')
-const { pathToFileURL } = require('url')
-
-/** The local wallpaper cache's listing (wallstore.js), release id → file paths. */
-let wallList = { releases: {} }
-let wallCycle = new WallCycle(BUNDLED_WALLS, Math.floor(Math.random() * BUNDLED_WALLS.length))
-let lobbyStep = 0
-let lobbySlot = 0
-let lobbyTimer = null
-
-/** A release's own pictures from disk, or the bundled ones while it has none. */
-function wallsFor(serverId){
-    const local = (wallList.releases[serverId] || []).map(p => pathToFileURL(p).href)
-    return local.length ? local : BUNDLED_WALLS
-}
-
-/** The cache changed (a sync finished): the selected release's set takes new pictures quietly. */
-function refreshWallCycle(){
-    const set = wallsFor(ConfigManager.getSelectedServer())
-    const fromBundled = wallCycle.current != null && BUNDLED_WALLS.includes(wallCycle.current) && set !== BUNDLED_WALLS
-    if(fromBundled){
-        // The release just got pictures of its own: switch to them at once rather than finish the stand-ins.
-        wallCycle = new WallCycle(set)
-        showLobbyShot()
-    } else {
-        wallCycle.update(set)
-    }
-}
-
-ipcRenderer.invoke('wallpapers:list').then(l => { wallList = l; refreshWallCycle() }).catch(() => {})
-ipcRenderer.on('wallpapers:changed', (_e, l) => { wallList = l; refreshWallCycle() })
-
-/**
- * Fade in the given picture. Two images take turns so a picture is fully loaded before it shows,
- * and the outgoing one keeps zooming while it fades (`is-leaving` in ion.css).
- */
-function showLobbyShot(){
-    const src = wallCycle.current
-    if(!src) return
-    const shots = document.querySelectorAll('#lobby .lobby-shot')
-    const next = shots[1 - lobbySlot]
-    const prev = shots[lobbySlot]
-    const [x, y] = DRIFTS[lobbyStep++ % DRIFTS.length]
-    const reveal = () => {
-        next.classList.remove('is-leaving')
-        next.style.setProperty('--drift-x', x)
-        next.style.setProperty('--drift-y', y)
-        next.classList.add('is-on')
-        if(prev.classList.contains('is-on')){
-            prev.classList.replace('is-on', 'is-leaving')
-            setTimeout(() => prev.classList.remove('is-leaving'), LOBBY_FADE + 100)
-        }
-        lobbySlot = 1 - lobbySlot
-    }
-    if(next.getAttribute('src') === src && next.complete) reveal()
-    else {
-        next.onload = () => { next.onload = null; reveal() }
-        next.setAttribute('src', src)
-    }
-    resumeLobby()
-}
-
-function pauseLobby(){
-    clearTimeout(lobbyTimer)
-}
-
-function resumeLobby(){
-    clearTimeout(lobbyTimer)
-    if(currentTab !== 'home' || document.hidden) return
-    lobbyTimer = setTimeout(() => { wallCycle.advance(); showLobbyShot() }, LOBBY_TIME)
-}
-
-document.addEventListener('visibilitychange', () => (document.hidden ? pauseLobby() : resumeLobby()))
-
-/* The Play tab: headline and news */
-
-const heroMeta = { version: null, online: null, players: null }
+/* The Play view (slices.js) and the feed */
 
 /** Called by landing.js when the selected server changes. */
-function onSelectedServerChanged(serv){
-    const raw = serv?.rawServer
-    // Another release is another set of pictures.
-    wallCycle = new WallCycle(wallsFor(raw?.id))
-    showLobbyShot()
-    document.getElementById('heroServerName').textContent = raw?.name ?? Lang.queryEJS('app.title')
-    const desc = document.getElementById('heroServerDesc')
-    desc.textContent = raw?.description ?? ''
-    desc.classList.toggle('hidden', !raw?.description)
-    heroMeta.version = raw?.minecraftVersion ?? null
-    renderHeroMeta()
+function onSelectedServerChanged(){
+    if(typeof Slices !== 'undefined') Slices.update()
 }
 
-/** Called by landing.js when the server's status has been read. */
-function onServerStatus(online, players){
-    heroMeta.online = online
-    heroMeta.players = players
-    renderHeroMeta()
-}
-
-function renderHeroMeta(){
-    const parts = []
-    if(heroMeta.version) parts.push(`<span>${escapeHtml(Lang.queryJS('shell.minecraftVersion', { version: heroMeta.version }))}</span>`)
-    if(heroMeta.online === true){
-        parts.push(`<span class="flex items-center gap-2"><span class="h-1.5 w-1.5 rounded-full bg-ionGood shadow-[0_0_10px_#25AB90]"></span>${escapeHtml(Lang.queryJS('shell.playersOnline', { players: heroMeta.players }))}</span>`)
-    } else if(heroMeta.online === false){
-        parts.push(`<span class="flex items-center gap-2"><span class="h-1.5 w-1.5 rounded-full bg-ionCritical"></span>${escapeHtml(Lang.queryJS('shell.serverOffline'))}</span>`)
-    }
-    document.getElementById('heroServerMeta').innerHTML = parts.join('<span class="text-white/25">/</span>')
-}
-
-/** Called by landing.js when the selected Minecraft account changes. */
-function onSelectedAccountChanged(authUser){
-    document.getElementById('homeGreeting').textContent = authUser?.displayName
-        ? Lang.queryJS('shell.greeting', { name: authUser.displayName })
-        : Lang.queryJS('shell.greetingAnonymous')
-}
-
-async function loadHomeFeed(){
-    const list = document.getElementById('homeNews')
-    const note = html => { list.innerHTML = `<li class="py-2.5 text-sm text-neutral-400">${html}</li>` }
+/** The newest blog posts: the game servers' announcement, the News badge and the News peek. */
+async function loadFeed(){
     try {
         // Fetched by the main process, which handles the website's basic auth (webauth.js).
         const res = await ipcRenderer.invoke('web:fetchJson', '/api/launcher/feed')
-        if(res.status === 404){
-            note(`${escapeHtml(Lang.queryJS('shell.newsUnsupported', { host: Web.host }))} <button data-tab-link="news" class="underline hover:text-white">${escapeHtml(Lang.queryJS('shell.readBlog'))}</button>`)
-            return
-        }
         if(!res.ok) throw new Error(`HTTP ${res.status}`)
         const articles = res.data?.articles ?? []
-        if(articles.length === 0){
-            note(escapeHtml(Lang.queryJS('shell.newsNone')))
-            return
-        }
-        list.innerHTML = articles.map(a => {
-            const date = a.publishedAt ? new Date(a.publishedAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) : ''
-            const cover = a.cover
-                ? `<img src="${escapeHtml(a.cover)}" alt="" class="h-11 w-16 shrink-0 rounded-md object-cover ring-1 ring-white/10" style="max-width:none">`
-                : '<span class="h-11 w-16 shrink-0 rounded-md bg-white/[0.06]"></span>'
-            return `<li>
-                <button data-tab-link="news" data-tab-path="/blog/${encodeURIComponent(a.slug)}" class="group flex w-full items-center gap-3 py-2.5 text-left">
-                    ${cover}
-                    <span class="min-w-0 flex-1">
-                        <span class="block truncate text-sm font-semibold text-white group-hover:underline">${escapeHtml(a.title)}</span>
-                        <span class="mt-0.5 block font-mono text-[11px] uppercase tracking-wider text-neutral-500">${escapeHtml(date)}</span>
-                    </span>
-                </button>
-            </li>`
-        }).join('')
-
-        // Mark the News tab when the newest article has not been shown before.
-        const newest = articles[0].slug
-        if(localStorage.getItem('ion.lastSeenArticle') !== newest){
-            document.getElementById('newsDot').classList.remove('hidden')
-            localStorage.setItem('ion.lastSeenArticle', newest)
-        }
+        window.ionNewestArticle = articles[0] ?? null
+        if(typeof Slices !== 'undefined') Slices.refill()
+        if(articles.length === 0) return
+        const seen = localStorage.getItem('ion.lastSeenArticle')
+        const unread = seen ? articles.findIndex(a => a.slug === seen) : articles.length
+        const n = unread < 0 ? articles.length : unread
+        TitleBar.setBadge('news', n > 0 ? Lang.queryJS('shell.newCount', { n }) : '')
+        const a = articles[0]
+        TitleBar.setPeek('news', {
+            img: a.cover || Slices.wallsFor(Slices.releases()[0]?.id)[0],
+            kicker: Lang.queryJS('shell.newsKicker', { date: a.publishedAt ? new Date(a.publishedAt).toLocaleDateString(undefined, { day: '2-digit', month: 'short' }).toUpperCase() : '' }),
+            title: a.title,
+            meta: n > 0 ? Lang.queryJS('shell.unreadCount', { n }) : ''
+        })
     } catch(err) {
         loggerShell.warn('Could not load the launcher feed.', err)
-        note(`${escapeHtml(Lang.queryJS('shell.newsFailed'))} <button data-retry-feed class="underline hover:text-white">${escapeHtml(Lang.queryJS('shell.retry'))}</button>`)
     }
 }
 
@@ -419,7 +261,7 @@ ipcRenderer.on('web:authRequest', (_e, request) => showAuthDialog(request))
 ipcRenderer.on('web:authAccepted', () => {
     hideAuthDialog()
     webLocked = false
-    loadHomeFeed()
+    loadFeed()
 })
 ipcRenderer.on('web:authCancelled', () => {
     hideAuthDialog()
@@ -429,18 +271,8 @@ ipcRenderer.on('web:authCancelled', () => {
 
 /* Wiring */
 
-document.getElementById('ionRail').addEventListener('click', e => {
-    const item = e.target.closest('[data-tab]')
-    if(item) showTab(item.dataset.tab)
-})
-
 // Any element can open a tab, optionally at a path: <button data-tab-link="news" data-tab-path="/blog/x">.
 document.addEventListener('click', e => {
-    if(e.target.closest('[data-retry-feed]')){
-        ipcRenderer.send('web:authRetry')
-        loadHomeFeed()
-        return
-    }
     const link = e.target.closest('[data-tab-link]')
     if(!link) return
     e.preventDefault()
@@ -467,8 +299,6 @@ document.addEventListener('keydown', e => {
     }
 })
 
-onSelectedAccountChanged(ConfigManager.getSelectedAccount())
-showLobbyShot()
-loadHomeFeed()
+loadFeed()
 // Open the Challenges tab in the background so the coin balance shows from the start.
 setTimeout(() => ensureWebview('challenges'), 1500)

@@ -1,167 +1,64 @@
 <%#
-    The main view: a rail of tabs, the current tab, and the play bar.
+    The Play view (slices.js): the releases on the shelf as full-height slices of their wallpapers,
+    the library strip, the library, the website tabs and the live map (shell.js), and the launch
+    cluster that slices.js moves into the open slice.
 
-    The Play tab is drawn here: a slideshow of the lobby (shell.js), the selected server as the
-    headline, and a dock with the challenges and news cards. The Challenges, Stats and News tabs
-    show the configured website in webviews that shell.js creates on first use. The play bar stays
-    under every tab, so the game can be launched from anywhere.
-
-    landing.js, uicore.js and uibinder.js rely on these ids: launch_*, server_selection_button,
-    player_count, mojang_*, avatarContainer, avatarOverlay, user_text, settingsMediaButton and
-    image_seal_container.
+    landing.js relies on: launch_button, launch_details_text. shell.js on: [data-tab-panel],
+    ionToasts. The title bar (frame.ejs) holds the navigation and the account.
 %>
-<%
-    // The launcher's seal as its 81 dots on a 13x13 grid (assets/images/ion/star.svg in white).
-    const star = 'M6.08 0.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M5.08 1.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M6.08 1.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M7.08 1.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M4.08 2.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M5.08 2.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M6.08 2.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M7.08 2.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M8.08 2.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M4.08 3.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M5.08 3.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M6.08 3.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M7.08 3.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M8.08 3.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M2.08 4.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M3.08 4.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M4.08 4.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M5.08 4.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M6.08 4.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M7.08 4.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M8.08 4.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M9.08 4.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M10.08 4.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M1.08 5.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M2.08 5.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M3.08 5.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M4.08 5.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M5.08 5.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M6.08 5.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M7.08 5.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M8.08 5.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M9.08 5.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M10.08 5.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M11.08 5.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M0.08 6.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M1.08 6.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M2.08 6.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M3.08 6.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M4.08 6.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M5.08 6.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M6.08 6.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M7.08 6.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M8.08 6.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M9.08 6.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M10.08 6.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M11.08 6.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M12.08 6.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M1.08 7.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M2.08 7.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M3.08 7.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M4.08 7.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M5.08 7.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M6.08 7.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M7.08 7.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M8.08 7.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M9.08 7.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M10.08 7.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M11.08 7.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M2.08 8.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M3.08 8.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M4.08 8.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M5.08 8.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M6.08 8.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M7.08 8.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M8.08 8.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M9.08 8.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M10.08 8.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M4.08 9.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M5.08 9.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M6.08 9.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M7.08 9.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M8.08 9.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M4.08 10.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M5.08 10.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M6.08 10.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M7.08 10.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M8.08 10.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M5.08 11.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M6.08 11.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M7.08 11.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M6.08 12.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0'
-    const railItem = 'rail-item group relative flex w-[60px] flex-col items-center gap-1 rounded-lg py-2 text-white/45 transition-colors hover:bg-white/[0.05] hover:text-white aria-[current=page]:text-white'
-    const ghostButton = 'flex items-center gap-2 rounded-full border border-white/15 bg-black/30 px-4 py-2 text-sm font-medium text-white transition hover:border-white/40 hover:bg-black/50'
-%>
-<div id="landingContainer" class="ion-shell absolute inset-0 bg-ionChrome text-white" style="display: none;">
-    <div class="flex h-full">
-
-        <nav id="ionRail" aria-label="Launcher" class="relative z-20 flex w-[76px] shrink-0 flex-col items-center gap-1 bg-ionChrome py-3">
-            <button class="<%= railItem %>" data-tab="home" aria-current="page">
-                <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M7 4.5v15l12-7.5z"/></svg>
-                <span class="text-[10.5px] font-medium"><%= lang('landing.tabPlay') %></span>
-            </button>
-            <button class="<%= railItem %>" data-tab="challenges">
-                <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M7 6H4.5v1.5A3.5 3.5 0 0 0 8 11M17 6h2.5v1.5A3.5 3.5 0 0 1 16 11"/><path d="M12 14v3.5M8.5 20.5h7M9.5 17.5h5l.5 3h-6z"/></svg>
-                <span class="text-[10.5px] font-medium"><%= lang('landing.tabChallenges') %></span>
-            </button>
-            <button class="<%= railItem %>" data-tab="stats">
-                <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 20h16M7 16v-5M12 16V6M17 16v-8"/></svg>
-                <span class="text-[10.5px] font-medium"><%= lang('landing.tabStats') %></span>
-            </button>
-            <button class="<%= railItem %>" data-tab="news">
-                <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round"><path d="M5 4h11v15a1 1 0 0 0 1 1H6a1 1 0 0 1-1-1zM16 8h3v11a1 1 0 0 1-2 0M8 8h5M8 11.5h5M8 15h3"/></svg>
-                <span class="text-[10.5px] font-medium"><%= lang('landing.tabNews') %></span>
-                <span id="newsDot" class="signal-bg absolute right-3 top-1.5 hidden h-2 w-2 rounded-full"></span>
-            </button>
-
-            <div class="flex-1"></div>
-
-            <div id="image_seal_container" class="relative">
-                <button id="settingsMediaButton" class="<%= railItem %>">
-                    <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M10.3 3.6a1.7 1.7 0 0 1 3.4 0l.2 1a1.7 1.7 0 0 0 2.5 1l.9-.5a1.7 1.7 0 0 1 2.4 2.4l-.5.9a1.7 1.7 0 0 0 1 2.5l1 .2a1.7 1.7 0 0 1 0 3.4l-1 .2a1.7 1.7 0 0 0-1 2.5l.5.9a1.7 1.7 0 0 1-2.4 2.4l-.9-.5a1.7 1.7 0 0 0-2.5 1l-.2 1a1.7 1.7 0 0 1-3.4 0l-.2-1a1.7 1.7 0 0 0-2.5-1l-.9.5a1.7 1.7 0 0 1-2.4-2.4l.5-.9a1.7 1.7 0 0 0-1-2.5l-1-.2a1.7 1.7 0 0 1 0-3.4l1-.2a1.7 1.7 0 0 0 1-2.5l-.5-.9a1.7 1.7 0 0 1 2.4-2.4l.9.5a1.7 1.7 0 0 0 2.5-1z"/><circle cx="12" cy="12" r="3"/></svg>
-                    <span class="text-[10.5px] font-medium"><%- lang('landing.settingsTooltip') %></span>
-                </button>
-                <span id="updateDot" title="<%- lang('landing.updateAvailableTooltip') %>" class="pointer-events-none absolute right-3 top-1.5 hidden h-2 w-2 rounded-full bg-ionGood"></span>
-            </div>
-
-            <div id="avatarContainer" class="group relative mt-1 h-11 w-11 overflow-hidden rounded-lg bg-white/[0.06] bg-cover bg-center ring-1 ring-white/10 transition hover:ring-[#6E8CF0] [image-rendering:pixelated]">
-                <button id="avatarOverlay" class="absolute inset-0" aria-label="<%= lang('landing.accountButton') %>" title="<%= lang('landing.accountButton') %>"></button>
-            </div>
-            <span id="user_text" class="mt-1 max-w-[68px] truncate text-[10.5px] text-white/55"><%- lang('landing.usernamePlaceholder') %></span>
-        </nav>
-
-        <div id="ionStage" class="relative flex min-w-0 flex-1 flex-col overflow-hidden rounded-tl-xl bg-ionGrayer" data-tab-current="home">
-
-            <!-- The Play tab's backdrop, under the play bar too. -->
-            <div id="lobby" class="absolute inset-0 overflow-hidden bg-[#0d0e13]" aria-hidden="true">
-                <img class="lobby-shot" alt="">
-                <img class="lobby-shot" alt="">
-                <div class="absolute inset-0 bg-[linear-gradient(90deg,rgba(13,14,19,0.78)_0%,rgba(13,14,19,0.35)_34%,rgba(13,14,19,0)_58%)]"></div>
-                <div class="absolute inset-0 bg-[linear-gradient(0deg,rgba(13,14,19,0.92)_0%,rgba(13,14,19,0.45)_15%,rgba(13,14,19,0)_36%)]"></div>
-                <div class="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-black/25 to-transparent"></div>
-            </div>
-
-            <main class="relative z-10 min-h-0 flex-1">
-
-                <section id="tab-home" class="ion-tab absolute inset-0 flex" data-tab-panel="home">
-                    <div class="flex min-w-0 flex-1 flex-col justify-end px-10 pb-9">
-                        <p class="flex items-center gap-2.5 font-mono text-[11px] uppercase tracking-[0.24em] text-white/70">
-                            <img src="assets/images/ion/star.svg" alt="" class="h-[22px] w-[22px]">
-                            <span id="homeGreeting"><%= lang('landing.welcome') %></span>
-                        </p>
-                        <h1 id="heroServerName" class="mt-4 max-w-[16ch] text-[clamp(2.75rem,5.4vw,4.75rem)] font-black leading-[0.95] tracking-[-0.02em] [text-shadow:0_6px_40px_rgba(0,0,0,0.55)]"><%= lang('app.title') %></h1>
-                        <p id="heroServerMeta" class="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[13px] text-white/75"></p>
-                        <p id="heroServerDesc" class="mt-3 hidden max-w-lg text-sm leading-relaxed text-white/65"></p>
-                        <div class="mt-7 flex flex-wrap gap-2.5">
-                            <button data-tab-link="challenges" class="<%= ghostButton %>"><%= lang('landing.heroChallenges') %> <span aria-hidden="true" class="text-white/50">&rarr;</span></button>
-                            <button data-tab-link="stats" class="<%= ghostButton %>"><%= lang('landing.heroStats') %> <span aria-hidden="true" class="text-white/50">&rarr;</span></button>
-                        </div>
-                    </div>
-
-                    <aside class="flex w-[340px] shrink-0 flex-col gap-3 overflow-y-auto py-6 pr-6">
-                        <section class="dock-card">
-                            <header class="flex items-center justify-between gap-3">
-                                <h2 class="text-[13px] font-bold uppercase tracking-[0.14em] text-white/90"><%= lang('landing.dockChallengesTitle') %></h2>
-                                <img src="assets/images/ion/coin.svg" alt="" class="h-4 w-4">
-                            </header>
-                            <div id="homeCoins" class="pt-3">
-                                <p class="text-sm leading-relaxed text-neutral-300"><%= lang('landing.dockChallengesText') %></p>
-                                <button data-tab-link="challenges" class="mt-3 rounded-lg bg-white/10 px-3.5 py-1.5 text-sm font-medium text-white transition hover:bg-white/20"><%= lang('landing.dockChallengesButton') %></button>
-                            </div>
-                        </section>
-
-                        <section class="dock-card">
-                            <header class="flex items-center justify-between gap-3">
-                                <h2 class="text-[13px] font-bold uppercase tracking-[0.14em] text-white/90"><%= lang('landing.dockNewsTitle') %></h2>
-                                <button data-tab-link="news" class="text-xs text-neutral-400 underline hover:text-white"><%= lang('landing.dockNewsAll') %></button>
-                            </header>
-                            <ul id="homeNews" class="mt-2 divide-y divide-white/[0.07]">
-                                <li class="py-2.5 text-sm text-neutral-400"><%= lang('landing.dockNewsLoading') %></li>
-                            </ul>
-                        </section>
-                    </aside>
-                </section>
-
-                <section id="tab-challenges" class="ion-tab absolute inset-0 bg-ionGrayer" data-tab-hidden data-tab-panel="challenges" data-web-path="/challenges"></section>
-                <section id="tab-stats" class="ion-tab absolute inset-0 bg-ionGrayer" data-tab-hidden data-tab-panel="stats" data-web-path="/stats"></section>
-                <section id="tab-news" class="ion-tab absolute inset-0 bg-ionGrayer" data-tab-hidden data-tab-panel="news" data-web-path="/blog"></section>
-            </main>
-
-            <footer id="playBar" class="relative z-10 flex h-[84px] shrink-0 items-center gap-6 border-t border-white/[0.06] bg-ionChrome px-7">
-                <div class="min-w-0 flex-1">
-                    <button id="server_selection_button" class="group flex max-w-full items-center gap-2 text-left">
-                        <span class="font-mono text-[10px] uppercase tracking-[0.22em] text-white/45"><%= lang('landing.serverLabel') %></span>
-                        <span id="serverName" class="truncate text-[15px] font-semibold"><%- lang('landing.launchButtonPlaceholder') %></span>
-                        <svg class="h-4 w-4 shrink-0 text-white/40 transition group-hover:text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 10 5 5 5-5"/></svg>
-                    </button>
-                    <div class="mt-1.5 flex items-center gap-5 text-xs text-neutral-400">
-                        <span id="server_status_wrapper" class="flex items-center gap-1.5">
-                            <span id="serverStatusDot" class="h-1.5 w-1.5 rounded-full bg-white/30"></span>
-                            <span id="landingPlayerLabel"><%- lang('landing.serverStatus') %></span>
-                            <span id="player_count" class="font-mono tabular-nums text-white"><%- lang('landing.serverStatusPlaceholder') %></span>
-                        </span>
-                        <span id="mojangStatusWrapper" class="relative flex cursor-default items-center gap-1.5" tabindex="0">
-                            <span id="mojang_status_icon" class="text-base leading-none">&#8226;</span>
-                            <span><%- lang('landing.mojangStatus') %></span>
-                            <div id="mojangStatusTooltip" class="invisible absolute bottom-[calc(100%+12px)] left-0 z-50 w-60 translate-y-1 rounded-lg border border-white/10 bg-ionGray p-3 opacity-0 shadow-2xl transition">
-                                <div id="mojangStatusTooltipTitle" class="mb-1 text-[11px] font-semibold uppercase tracking-wider text-white/50"><%- lang('landing.mojangStatusTooltipTitle') %></div>
-                                <div id="mojangStatusEssentialContainer"></div>
-                                <div id="mojangStatusNEContainer" class="my-2 flex items-center gap-2">
-                                    <div class="h-px flex-1 bg-white/10"></div>
-                                    <div id="mojangStatusNETitle" class="text-[10px] uppercase tracking-wider text-white/40"><%- lang('landing.mojangStatusNETitle') %></div>
-                                    <div class="h-px flex-1 bg-white/10"></div>
-                                </div>
-                                <div id="mojangStatusNonEssentialContainer"></div>
-                            </div>
-                        </span>
-                    </div>
-                </div>
-
-                <div id="launch_content" class="flex items-center">
-                    <button id="launch_button" class="play-button group relative flex h-[60px] min-w-[232px] items-center justify-center gap-3.5 overflow-hidden rounded-xl px-9 text-[16px] font-extrabold uppercase tracking-[0.28em] text-white transition">
-                        <svg class="relative -my-1 h-9 w-9 drop-shadow-[0_1px_2px_rgba(20,22,60,0.45)]" viewBox="0 0 13 13" aria-hidden="true"><path fill="currentColor" d="<%= star %>"/></svg>
-                        <span class="relative"><%- lang('landing.launchButton') %></span>
-                    </button>
-                </div>
-                <div id="launch_details" class="w-[360px] flex-col gap-2" style="display: none;">
-                    <div class="flex items-baseline justify-between gap-3">
-                        <span id="launch_details_text" class="truncate text-xs text-neutral-300"><%- lang('landing.launchDetails') %></span>
-                        <span id="launch_progress_label" class="font-mono text-sm tabular-nums">0%</span>
-                    </div>
-                    <div id="launch_details_right">
-                        <progress id="launch_progress" value="0" max="100"></progress>
-                    </div>
-                </div>
-            </footer>
-        </div>
+<div id="landingContainer" class="ion-shell" style="display: none;">
+    <div id="stage" class="stage" aria-label="<%= lang('slices.stageLabel') %>">
+        <button id="libStrip" class="lib-strip" aria-label="<%= lang('slices.allReleases') %>">
+            <span id="libMosaic" class="lib-mosaic"></span>
+            <span class="lib-label">
+                <span class="mono lib-total"></span>
+                <span class="lib-label-mid">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg>
+                    <span class="tag-name lib-label-text"><%= lang('slices.allReleases') %></span>
+                </span>
+            </span>
+        </button>
     </div>
 
-    <div id="ionToasts" aria-live="polite" class="pointer-events-none absolute bottom-[100px] right-6 z-50 flex flex-col items-end gap-2"></div>
+    <section id="library" class="lib" aria-hidden="true">
+        <div class="flex h-full flex-col">
+            <header class="lib-head">
+                <span><span class="lib-title"><%= lang('library.title') %></span><span class="mono lib-count"></span></span>
+                <label class="search lib-search">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="color: rgba(255,255,255,.5)"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+                    <input type="text" placeholder="<%= lang('library.search') %>" aria-label="<%= lang('library.search') %>">
+                </label>
+                <div class="flex gap-1">
+                    <button class="chip" data-filter="all" aria-pressed="true"><%= lang('library.filterAll') %></button>
+                    <button class="chip" data-filter="gameserver" aria-pressed="false"><%= lang('library.filterGameServers') %></button>
+                    <button class="chip" data-filter="modpack" aria-pressed="false"><%= lang('library.filterModpacks') %></button>
+                </div>
+                <div class="flex-1"></div>
+                <button class="chip" data-close aria-pressed="false"><%= lang('library.close') %></button>
+            </header>
+            <div class="lib-body"></div>
+        </div>
+    </section>
+
+    <section class="web" data-tab-panel="challenges" data-tab-hidden data-web-path="/challenges"></section>
+    <section class="web" data-tab-panel="stats" data-tab-hidden data-web-path="/stats"></section>
+    <section class="web" data-tab-panel="news" data-tab-hidden data-web-path="/blog"></section>
+    <section class="web" data-tab-panel="map" data-tab-hidden data-web-path=""></section>
+
+    <div id="launchCluster" class="launch">
+        <div class="launch-cap"><span id="launch_caption" class="mono"></span><span id="launch_side" class="mono"></span></div>
+        <button id="launch_button" class="play">
+            <span class="play-fill"></span>
+            <span class="play-sheen"></span>
+            <svg class="launch-star" viewBox="0 0 13 13" aria-hidden="true"><path class="dots-dim" fill="currentColor" opacity=".22"/><path class="dots-lit" fill="currentColor"/></svg>
+            <span class="play-text"><span class="launch-label is-word"></span><span id="launch_details_text" class="mono"></span></span>
+        </button>
+    </div>
+
+    <div id="ionToasts" aria-live="polite" class="pointer-events-none absolute bottom-6 right-6 z-50 flex flex-col items-end gap-2"></div>
 
     <script src="./assets/js/scripts/landing.js"></script>
     <script src="./assets/js/scripts/shell.js"></script>
+    <script src="./assets/js/scripts/slices.js"></script>
+    <script src="./assets/js/scripts/titlebar.js"></script>
 </div>

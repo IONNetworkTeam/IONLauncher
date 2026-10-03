@@ -34,6 +34,11 @@ dockNewsLoading = "Loading the news…"
 serverLabel = "Server"
 
 [ejs.frame]
+navLabel = "Launcher"
+peekOpen = "Open →"
+signedIn = "Microsoft · signed in"
+addAccount = "Add account"
+manageAccounts = "Manage accounts"
 coinsTitle = "Your coins"
 minimize = "Minimize"
 maximize = "Maximize"
@@ -237,6 +242,9 @@ joining = "Sailing to Westeros!"
 joined = "Exploring the Realm!"
 
 [js.shell]
+newCount = "{n} new"
+newsKicker = "NEWS · {date}"
+unreadCount = "{n} unread"
 loading = "Loading {host}…"
 unreachable = "Could not reach {host}. Check your connection."
 retry = "Try again"
@@ -396,3 +404,78 @@ gameNotPurchasedTitle = "Error During Login:<br>Game Not Purchased"
 gameNotPurchasedDesc = "The account you are trying to login with has not purchased a copy of Minecraft. You may purchase a copy on <a href=\"https://minecraft.net/\">Minecraft.net</a>"
 unknownErrorTitle = "Unknown Error During Login"
 unknownErrorDesc = "An unknown error has occurred. Please see the console for details."
+
+[ejs.frame.tab]
+home = "Play"
+challenges = "Challenges"
+stats = "Stats"
+news = "News"
+
+[ejs.slices]
+stageLabel = "Releases"
+allReleases = "All releases"
+
+[ejs.library]
+title = "Releases"
+search = "Find a release"
+filterAll = "All"
+filterGameServers = "Game servers"
+filterModpacks = "Modpacks"
+close = "Close"
+
+[js.slices]
+gameServer = "GAME SERVER · ION NETWORK"
+locked = "Locked while you play"
+allReleases = "All releases"
+play = "PLAY"
+starting = "Starting"
+inGame = "In game"
+closeToSwitch = "CLOSE THE GAME TO SWITCH"
+switchAfter = "SWITCH AFTER THE GAME CLOSES"
+joinLobby = "Join from the lobby"
+
+[js.slices.caption]
+idle = "READY"
+preparing = "PREPARING"
+starting = "LAUNCHING"
+running = "PLAYING"
+
+[js.panels]
+network = "NETWORK"
+online = "online"
+youOnNetwork = "YOU ON THE NETWORK"
+played = "played"
+games = "games"
+mostPlayed = "most played"
+todaysChallenges = "TODAY'S CHALLENGES"
+openChallenges = "{n} open"
+allChallenges = "All challenges →"
+youHere = "YOU HERE"
+playedOnServer = "played on the server"
+lastSession = "last session"
+installed = "installed"
+nobody = "Nobody on right now. Be the first."
+openMap = "Open the live map"
+peekChallenge = "TODAY'S CHALLENGE"
+peekChallengeMeta = "×{mult} · {n} open"
+peekStats = "{time} played · {games} games"
+
+[js.panels.state]
+running = "ONLINE"
+starting = "STARTING"
+stopping = "RESTARTING"
+restarting = "RESTARTING"
+offline = "OFFLINE"
+unknown = "STATUS UNKNOWN"
+
+[js.library]
+selected = "SELECTED"
+onShelf = "ON SHELF"
+kindGameServer = "Game server"
+kindModpack = "Modpack"
+networkHeading = "ION NETWORK · GAME SERVERS"
+otherHeading = "MODPACKS"
+noMatch = "No release matches “{q}”."
+
+[js.titlebar]
+switch = "SWITCH"
