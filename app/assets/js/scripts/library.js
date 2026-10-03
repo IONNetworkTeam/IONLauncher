@@ -16,7 +16,7 @@ const Library = (() => {
         const onShelf = Slices.shelf().includes(r.id)
         const wall = Slices.coverFor(r.id)
         const num = String(Slices.releases().indexOf(r) + 1).padStart(2, '0')
-        return `<button class="card${r.net ? ' feat' : ''}" data-pick="${escapeHtml(r.id)}" style="animation-delay:${(0.12 + n * 0.045).toFixed(3)}s;--acc:${r.accent.base};--acc-text:${r.accent.text}">
+        return `<button class="card${r.net ? ' feat' : ''}" data-pick="${escapeHtml(r.id)}" style="animation-delay:${(0.12 + n * 0.045).toFixed(3)}s;--acc:${escapeHtml(r.accent.base)};--acc-text:${escapeHtml(r.accent.text)}">
             <span class="card-img${picked ? ' is-picked' : ''}">
                 <img src="${escapeHtml(wall)}" alt="">
                 ${r.net ? '<span class="net-edge"></span>' : ''}

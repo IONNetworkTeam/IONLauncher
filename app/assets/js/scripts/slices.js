@@ -7,7 +7,7 @@
  */
 /* global ConfigManager, DistroAPI, GameState, updateSelectedServer, ipcRenderer, shell, Lang, LoggerUtil, escapeHtml, showTab, Library */
 const { WallCycle } = require('./assets/js/wallcycle')
-const { mergeReleases, shelfAfterPick, initialShelf } = require('./assets/js/releasemodel')
+const { mergeReleases, sanitizePresentation, shelfAfterPick, initialShelf } = require('./assets/js/releasemodel')
 const { pathToFileURL } = require('url')
 
 const Slices = (() => {
@@ -56,7 +56,7 @@ const Slices = (() => {
             id: s.rawServer.id, name: s.rawServer.name, description: s.rawServer.description,
             minecraftVersion: s.rawServer.minecraftVersion, address: s.rawServer.address, mainServer: s.rawServer.mainServer
         }))
-        try { presentation = JSON.parse(localStorage.getItem('ion.releases.v1')) || [] } catch { presentation = [] }
+        try { presentation = sanitizePresentation(JSON.parse(localStorage.getItem('ion.releases.v1'))) } catch { presentation = [] }
         releases = mergeReleases(servers, presentation)
         let saved = null
         try { saved = JSON.parse(localStorage.getItem('ion.shelf.v1')) } catch { saved = null }
@@ -70,7 +70,7 @@ const Slices = (() => {
         try {
             const res = await ipcRenderer.invoke('web:fetchJson', '/api/launcher/releases')
             if(!res.ok || !Array.isArray(res.data?.releases)) return
-            presentation = res.data.releases
+            presentation = sanitizePresentation(res.data.releases)
             localStorage.setItem('ion.releases.v1', JSON.stringify(presentation))
             releases = mergeReleases(servers, presentation)
             build()
@@ -247,7 +247,9 @@ const Slices = (() => {
 
     async function pick(id){
         if(id === picked()) return
-        if(busy() && mode === 'play') return nudge(id)
+        // While a game runs the selection stays put, in the settings band too: the lock and the
+        // open slice belong to the release that is running.
+        if(busy()) return nudge(id)
         const serv = (await DistroAPI.getDistribution()).getServerById(id)
         updateSelectedServer(serv)
     }
@@ -335,7 +337,7 @@ const Slices = (() => {
         if(r.net){
             const newest = window.ionNewestArticle
             showTab('news', newest ? `/blog/${encodeURIComponent(newest.slug)}` : undefined)
-        } else if(r.announcement?.url){
+        } else if(r.announcement?.url && /^https?:\/\//.test(r.announcement.url)){
             // A pack's announcement may link anywhere; it opens in the browser, not in a web tab.
             shell.openExternal(r.announcement.url)
         }

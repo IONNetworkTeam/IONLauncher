@@ -6,7 +6,7 @@
 /* global ConfigManager, DistroAPI, ipcRenderer, Lang, LoggerUtil, escapeHtml, getServerStatus, Slices, GameState, TitleBar, showTab */
 const fsp = require('fs/promises')
 const pathMod = require('path')
-const { playtime, since, size } = require('./assets/js/panelformat')
+const { playtime, since, size, count } = require('./assets/js/panelformat')
 
 const Panels = (() => {
     const log = LoggerUtil.getLogger('Panels')
@@ -29,8 +29,8 @@ const Panels = (() => {
     const host = r => (r.address || '').split(':')[0].toUpperCase()
 
     function heads(ping){
-        const shown = (ping?.sample || []).slice(0, 6)
-        const more = (ping?.online ?? 0) - shown.length
+        const shown = (Array.isArray(ping?.sample) ? ping.sample : []).filter(p => typeof p?.id === 'string' && typeof p?.name === 'string').slice(0, 6)
+        const more = (Number(ping?.online) || 0) - shown.length
         return `<span class="heads">${shown.map(p => `<img class="hd" src="https://mc-heads.net/avatar/${encodeURIComponent(p.id)}/30" alt="" title="${escapeHtml(p.name)}">`).join('')}${more > 0 ? `<span class="mono heads-more">+${more}</span>` : ''}</span>`
     }
 
@@ -39,34 +39,35 @@ const Panels = (() => {
         const net = l?.network
         const you = l?.you
         const top = you?.topMode ? MODES.find(m => m.name === you.topMode) : null
-        const rows = (l?.challenges?.today || []).slice(0, 2).map(c => `
+        const rows = (l?.challenges?.today || []).filter(c => MODES.some(m => m.id === c.game) && Number.isFinite(Number(c.multiplier))).slice(0, 2).map(c => `
             <button class="ch-row" data-tab-link="challenges">
                 <img src="${modeIcon(c.game)}" alt="">
                 <span class="ch-text"><span class="ch-name">${escapeHtml(c.name)}</span><span class="mono ch-meta">${escapeHtml((MODES.find(m => m.id === c.game)?.name ?? c.game).toUpperCase())}</span></span>
-                <span class="mono ch-mult">×${c.multiplier.toFixed(1)}</span>
+                <span class="mono ch-mult">×${Number(c.multiplier).toFixed(1)}</span>
             </button>`).join('')
         return `<div class="netpanel">
             <div class="np-h"><span class="live"></span><span>${t('network')}</span><i></i><span>${escapeHtml(host(r))}</span></div>
-            <div class="np-count"><span class="mono np-big">${net ? net.players : '—'}</span><span class="np-unit">${t('online')}</span>${heads(pings.get(r.id))}</div>
+            <div class="np-count"><span class="mono np-big">${count(net?.players)}</span><span class="np-unit">${t('online')}</span>${heads(pings.get(r.id))}</div>
             <div class="np-h np-gap"><span>${t('youOnNetwork')}</span><i></i></div>
             <div class="hist">
                 <div><b>${playtime(you?.playtimeSeconds)}</b><span>${t('played')}</span></div>
-                <div><b>${you ? you.games : '—'}</b><span>${t('games')}</span></div>
+                <div><b>${count(you?.games)}</b><span>${t('games')}</span></div>
                 <div><b class="hist-mode">${top ? `<img src="${modeIcon(top.id)}" alt="">` : ''}${escapeHtml(you?.topMode ?? '—')}</b><span>${t('mostPlayed')}</span></div>
             </div>
             ${rows ? `<div class="np-h np-gap"><span>${t('todaysChallenges')}</span><i></i></div>${rows}` : ''}
-            <div class="np-foot"><span class="mono">${l?.challenges ? t('openChallenges', { n: l.challenges.open }) : ''}</span><button data-tab-link="challenges" class="np-link">${t('allChallenges')}</button></div>
+            <div class="np-foot"><span class="mono">${l?.challenges ? t('openChallenges', { n: count(l.challenges.open) }) : ''}</span><button data-tab-link="challenges" class="np-link">${t('allChallenges')}</button></div>
         </div>`
     }
 
     function packPanel(r){
         const l = live.get(r.id)
         const ping = pings.get(r.id)
-        const state = l?.state ?? 'unknown'
+        const STATES = ['running', 'starting', 'stopping', 'restarting', 'offline', 'unknown']
+        const state = STATES.includes(l?.state) ? l.state : 'unknown'
         const shown = ping && ping.online > 0
         return `<div class="netpanel">
             <div class="np-h"><span class="live state-${state}"></span><span>${t(`state.${state}`)}</span><i></i><span>${escapeHtml(host(r))}</span></div>
-            <div class="np-count"><span class="mono np-big">${ping ? ping.online : '—'}</span><span class="mono np-unit">/ ${ping ? ping.max : '—'}</span>${shown ? heads(ping) : ''}</div>
+            <div class="np-count"><span class="mono np-big">${count(ping?.online)}</span><span class="mono np-unit">/ ${count(ping?.max)}</span>${shown ? heads(ping) : ''}</div>
             ${ping && ping.online === 0 ? `<p class="np-note">${t('nobody')}</p>` : ''}
             <div class="np-h np-gap"><span>${t('youHere')}</span><i></i></div>
             <div class="hist">
@@ -178,7 +179,7 @@ const Panels = (() => {
 
     document.addEventListener('click', e => {
         const map = e.target.closest('[data-map]')
-        if(map) showTab('map', map.dataset.map)
+        if(map && getCurrentView() === VIEWS.landing) showTab('map', map.dataset.map)
     })
 
     Slices.onOpen(open)

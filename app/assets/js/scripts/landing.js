@@ -200,12 +200,12 @@ async function asyncSystemScan(effectiveJavaOptions, launchAfter = true){
             setLaunchDetails(Lang.queryJS('landing.systemScan.javaDownloadPrepare'))
             toggleOverlay(false)
             
-            try {
-                downloadJava(effectiveJavaOptions, launchAfter)
-            } catch(err) {
+            // downloadJava is async: a failure must reach showLaunchFailure (which also unlocks the
+            // other releases), not become an unhandled rejection.
+            downloadJava(effectiveJavaOptions, launchAfter).catch(err => {
                 loggerLanding.error('Unhandled error in Java Download', err)
                 showLaunchFailure(Lang.queryJS('landing.systemScan.javaDownloadFailureTitle'), Lang.queryJS('landing.systemScan.javaDownloadFailureText'))
-            }
+            })
         })
         setDismissHandler(() => {
             $('#overlayContent').fadeOut(250, () => {
@@ -348,6 +348,7 @@ async function dlAsync(login = true) {
     if(login) {
         if(ConfigManager.getSelectedAccount() == null){
             loggerLanding.error('You must be logged into an account.')
+            GameState.failed()
             return
         }
     }

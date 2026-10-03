@@ -29,3 +29,14 @@ test('size', () => {
     assert.equal(size(10), '1 MB')
     assert.equal(size(null), '—')
 })
+
+const { count } = require('../app/assets/js/panelformat')
+
+test('count only ever gives a number or a dash', () => {
+    assert.equal(count(48), '48')
+    assert.equal(count('48'), '48')
+    assert.equal(count('<img src=x onerror=alert(1)>'), '—')
+    assert.equal(count(null), '—')
+    assert.equal(count(-3), '—')
+    assert.equal(count(2.7), '2')
+})

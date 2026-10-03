@@ -48,6 +48,30 @@ function mergeReleases(servers, presentation){
     })
 }
 
+const HEX = /^#[0-9A-Fa-f]{6}$/
+const httpUrl = v => {
+    if(typeof v !== 'string') return null
+    try { const u = new URL(v); return u.protocol === 'https:' || u.protocol === 'http:' ? v : null } catch { return null }
+}
+
+/**
+ * The site's presentation, reduced to what the Play view may use. It reaches innerHTML and
+ * attributes in a renderer with node access, and it is cached across starts, so anything that is
+ * not exactly the expected shape is dropped here, once, on the way in.
+ */
+function sanitizePresentation(list){
+    if(!Array.isArray(list)) return []
+    return list.filter(p => p && typeof p === 'object' && typeof p.id === 'string').map(p => {
+        const a = p.accent
+        const accent = a && HEX.test(a.base) && HEX.test(a.deep) && HEX.test(a.text) ? { base: a.base, deep: a.deep, text: a.text } : null
+        const n = p.announcement
+        const announcement = n && typeof n.text === 'string' && n.text.trim()
+            ? { text: n.text.trim(), date: typeof n.date === 'string' ? n.date : null, url: httpUrl(n.url) }
+            : null
+        return { id: p.id, kind: p.kind === 'gameserver' ? 'gameserver' : 'modpack', accent, mapUrl: httpUrl(p.mapUrl), announcement }
+    })
+}
+
 /** The shelf after a release is picked: it moves to the front unless it is already on the shelf. */
 function shelfAfterPick(shelf, id, max = 4){
     if(shelf.includes(id)) return shelf.slice()
@@ -67,4 +91,4 @@ function initialShelf(saved, ids, mainId, max = 4){
     return out.slice(0, max)
 }
 
-module.exports = { HOUSE, NETWORK, SIGNAL_PLAY, splitTitle, mergeReleases, shelfAfterPick, initialShelf }
+module.exports = { HOUSE, NETWORK, SIGNAL_PLAY, splitTitle, mergeReleases, sanitizePresentation, shelfAfterPick, initialShelf }

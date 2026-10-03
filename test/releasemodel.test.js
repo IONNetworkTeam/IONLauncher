@@ -50,3 +50,29 @@ test('initialShelf drops vanished releases and tops up from the main one', () =>
     assert.deepEqual(initialShelf(null, ['a', 'b'], 'b'), ['b', 'a'])
     assert.deepEqual(initialShelf([], [], null), [])
 })
+
+const { sanitizePresentation } = require('../app/assets/js/releasemodel')
+
+test('sanitizePresentation drops what the site should never have sent', () => {
+    const out = sanitizePresentation([
+        null, 7, { kind: 'gameserver' },
+        { id: 'a', kind: 'gameserver', accent: { base: '#6E8CF0', deep: '#4F6EE0', text: '#A9B9FA' }, mapUrl: 'https://map.example', announcement: { text: 'Hi', date: '2026-10-02', url: 'https://x.example' } },
+        { id: 'b', kind: 'evil', accent: { base: '"><img src=x onerror=alert(1)>', deep: '#000000', text: '#ffffff' }, mapUrl: 'javascript:alert(1)', announcement: { text: 42, url: 'file:///etc/passwd' } },
+        { id: 'c', accent: { base: '#C86900' }, announcement: { text: 'No link', url: 'smb://host/share' } }
+    ])
+    assert.deepEqual(out.map(r => r.id), ['a', 'b', 'c'])
+    assert.deepEqual(out[0].accent, { base: '#6E8CF0', deep: '#4F6EE0', text: '#A9B9FA' })
+    assert.equal(out[0].mapUrl, 'https://map.example')
+    assert.deepEqual(out[0].announcement, { text: 'Hi', date: '2026-10-02', url: 'https://x.example' })
+    assert.equal(out[1].kind, 'modpack')
+    assert.equal(out[1].accent, null)
+    assert.equal(out[1].mapUrl, null)
+    assert.equal(out[1].announcement, null)
+    assert.equal(out[2].accent, null, 'half a palette is no palette')
+    assert.deepEqual(out[2].announcement, { text: 'No link', date: null, url: null })
+})
+
+test('sanitizePresentation of something that is not a list is an empty list', () => {
+    assert.deepEqual(sanitizePresentation(null), [])
+    assert.deepEqual(sanitizePresentation({ releases: [] }), [])
+})

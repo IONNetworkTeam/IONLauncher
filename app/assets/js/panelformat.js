@@ -33,4 +33,11 @@ function size(bytes){
     return `${Math.max(1, Math.round(bytes / 1e6))} MB`
 }
 
-module.exports = { playtime, since, size }
+/** A count from the site or a ping: a whole number, or a dash. Never the value as given. */
+function count(v){
+    if(v == null || v === '') return '—'
+    const n = Number(v)
+    return Number.isFinite(n) && n >= 0 ? String(Math.floor(n)) : '—'
+}
+
+module.exports = { playtime, since, size, count }

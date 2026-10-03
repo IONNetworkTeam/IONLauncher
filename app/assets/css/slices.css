@@ -189,7 +189,7 @@
 .slice-edition{margin-left:.2em;font-size:.46em;font-weight:500;letter-spacing:-.03em;color:var(--acc-text)}
 .slice-desc{margin:18px 0 0;max-width:44ch;font-size:15.5px;line-height:1.45;color:rgba(255,255,255,.72)}
 .slice-extra{pointer-events:auto}
-.modes{margin-top:24px;display:flex;gap:8px}
+.modes{margin-top:24px;display:flex;flex-wrap:wrap;gap:8px}
 .mode{display:flex;flex-direction:column;align-items:center;gap:6px;width:74px;padding:10px 0 8px;border:0;border-radius:11px;background:rgba(9,10,14,.5);backdrop-filter:blur(10px);color:#fff;font:600 10.5px 'Geist',system-ui,sans-serif;cursor:pointer;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);transition:transform .35s cubic-bezier(.3,1.5,.5,1),background .2s}
 .mode:hover{transform:translateY(-5px);background:rgba(9,10,14,.75)}
 .mode img{width:28px;height:28px;image-rendering:pixelated}
