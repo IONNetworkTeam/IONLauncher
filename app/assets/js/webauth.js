@@ -183,4 +183,4 @@ function init(win){
     ipcMain.on('web:authRetry', () => { declined = false })
 }
 
-module.exports = { init, onLogin }
+module.exports = { init, onLogin, fetchWeb }
