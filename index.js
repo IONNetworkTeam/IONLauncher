@@ -2,7 +2,7 @@ const remoteMain = require('@electron/remote/main')
 remoteMain.initialize()
 
 // Requirements
-const { app, BrowserWindow, ipcMain, Menu, session, shell } = require('electron')
+const { app, BrowserWindow, ipcMain, Menu, safeStorage, session, shell } = require('electron')
 const autoUpdater                       = require('electron-updater').autoUpdater
 const ejse                              = require('ejs-electron')
 const fs                                = require('fs')
@@ -14,6 +14,7 @@ const { AZURE_CLIENT_ID, MSFT_OPCODE, MSFT_REPLY_TYPE, MSFT_ERROR, SHELL_OPCODE 
 const LangLoader                        = require('./app/assets/js/langloader')
 const Web                               = require('./app/assets/js/weburl')
 const WebAuth                           = require('./app/assets/js/webauth')
+const Friends                           = require('./app/assets/js/friends')
 const { createWallStore }               = require('./app/assets/js/wallstore')
 const { LoggerUtil }                    = require('helios-core')
 
@@ -296,6 +297,8 @@ function createWindow() {
     })
     remoteMain.enable(win.webContents)
     WebAuth.init(win)
+    // The friends system (app/assets/js/friends): registers its IPC handlers once.
+    Friends.init({ app, ipcMain, BrowserWindow, safeStorage, webAuth: WebAuth, web: Web, logger: LoggerUtil.getLogger('Friends') })
     startWallpapers(win)
 
     const data = {
