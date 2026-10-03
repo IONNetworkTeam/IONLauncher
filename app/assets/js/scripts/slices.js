@@ -285,6 +285,21 @@ const Slices = (() => {
         nudge.timer = setTimeout(() => { nudged = null; update() }, 2600)
     }
 
+    /**
+     * The open slice's resting width, for its content (slices.css: .slice-open). Measured when a
+     * width animation ends and on resize, so during the next switch the opening slice's title,
+     * panel and Play button already have their final width and do not reflow on every frame.
+     */
+    function measureOpenWidth(){
+        const open = nodes.get(picked())
+        if(open && mode === 'play') stage.style.setProperty('--open-w', `${open.getBoundingClientRect().width}px`)
+    }
+    stage.addEventListener('transitionend', e => {
+        if(e.propertyName === 'flex-grow' && e.target.classList.contains('is-open')) measureOpenWidth()
+    })
+    window.addEventListener('resize', () => requestAnimationFrame(measureOpenWidth))
+    setTimeout(measureOpenWidth, 1500)
+
     stage.addEventListener('wheel', e => {
         if(Math.abs(e.deltaY) < 8 || mode !== 'play') return
         const now = Date.now()

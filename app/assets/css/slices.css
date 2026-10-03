@@ -4,12 +4,12 @@
 .slice-img{position:absolute;top:0;left:50%;height:100%;width:100vw;min-width:100%;object-fit:cover;transform:translateX(-50%) scale(1.08);filter:saturate(.7) brightness(.85);transition:transform 1.8s cubic-bezier(.2,.7,.2,1),filter .8s}
 .is-open .slice-img{transform:translateX(-50%) scale(1);filter:none;animation:drift 40s ease-in-out 1.8s infinite alternate}
 @keyframes drift{from{transform:translateX(-50%) scale(1)}to{transform:translateX(-51.5%) scale(1.05)}}
-.veil-dim{position:absolute;inset:0;background:linear-gradient(0deg,rgba(7,8,11,.94),rgba(7,8,11,.55) 60%,rgba(7,8,11,.7));transition:opacity .6s}
+.veil-dim{position:absolute;top:0;bottom:0;left:50%;width:100vw;min-width:100%;transform:translateX(-50%);background:linear-gradient(0deg,rgba(7,8,11,.94),rgba(7,8,11,.55) 60%,rgba(7,8,11,.7));transition:opacity .6s}
 .slice:hover .veil-dim{opacity:.72}
 .is-open .veil-dim{opacity:0}
 .is-mini .veil-dim{opacity:1}
 .is-mini .slice:hover .veil-dim{opacity:.7}
-.veil-open{position:absolute;inset:0;opacity:0;background:linear-gradient(0deg,rgba(7,8,11,.95) 0%,rgba(7,8,11,.5) 30%,rgba(7,8,11,0) 56%),linear-gradient(180deg,rgba(7,8,11,.7) 0%,rgba(7,8,11,0) 18%);transition:opacity .8s}
+.veil-open{position:absolute;top:0;bottom:0;left:50%;width:100vw;min-width:100%;transform:translateX(-50%);opacity:0;background:linear-gradient(0deg,rgba(7,8,11,.95) 0%,rgba(7,8,11,.5) 30%,rgba(7,8,11,0) 56%),linear-gradient(180deg,rgba(7,8,11,.7) 0%,rgba(7,8,11,0) 18%);transition:opacity .8s}
 .is-open .veil-open{opacity:1}
 .is-mini .veil-open{opacity:0}
 .tag{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:44px 0 30px;width:100%;border:0;background:none;color:#fff;cursor:pointer;transition:opacity .35s .25s}
@@ -177,15 +177,22 @@
 .tag-dot{display:block;width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.3)}
 .slice-open{position:absolute;left:48px;right:44px;bottom:44px;display:flex;align-items:flex-end;justify-content:space-between;gap:40px;pointer-events:none}
 .slice-hero{flex:1 1 auto;min-width:0;overflow:hidden;padding-bottom:4px}
-/* The open slice's lines are sized from its own width, so the title never runs under the Play button */
-.slice{container-type:inline-size}
+/*
+ * A switch animates the slices' widths. Everything inside a slice is window-sized and centred, so a
+ * width change only moves the clip: the pictures and overlays are their own layers and are never
+ * redrawn, the title is sized from the window rather than the slice, and the open slice's content
+ * keeps the open slice's resting width (--open-w, measured by slices.js) instead of reflowing on
+ * every frame.
+ */
+.slice-img,.veil-dim,.veil-open{will-change:transform,opacity}
+.slice-open{right:auto;width:calc(var(--open-w,100%) - 92px)}
 .slice-over{margin:0;display:flex;align-items:center;gap:12px;font-size:11px;letter-spacing:.24em;color:rgba(255,255,255,.72)}
 .over-star{width:15px;height:15px}
 .over-num{color:var(--acc-text)}
 .over-of{color:rgba(255,255,255,.4)}
 .over-rule{width:28px;height:1px;background:rgba(255,255,255,.35)}
-.slice-title{margin:16px 0 0;font-size:clamp(44px,6.6cqw,104px);font-weight:900;line-height:.86;letter-spacing:-.05em;white-space:nowrap;text-shadow:0 10px 60px rgba(0,0,0,.45)}
-.slice-title.is-net{font-size:clamp(40px,5.6cqw,84px)}
+.slice-title{margin:16px 0 0;font-size:clamp(44px,4.8vw,104px);font-weight:900;line-height:.86;letter-spacing:-.05em;white-space:nowrap;text-shadow:0 10px 60px rgba(0,0,0,.45)}
+.slice-title.is-net{font-size:clamp(40px,4.1vw,84px)}
 .slice-edition{margin-left:.2em;font-size:.46em;font-weight:500;letter-spacing:-.03em;color:var(--acc-text)}
 .slice-desc{margin:18px 0 0;max-width:44ch;font-size:15.5px;line-height:1.45;color:rgba(255,255,255,.72)}
 .slice-extra{pointer-events:auto}
