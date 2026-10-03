@@ -7,3 +7,6 @@
 /.idea/
 # Compiled from app/assets/css/tailwind.src.css by `npm run build:css`.
 /app/assets/css/ion.css
+
+# Git worktrees for isolated feature work.
+/.worktrees/
