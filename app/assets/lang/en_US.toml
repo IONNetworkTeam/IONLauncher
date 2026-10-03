@@ -451,7 +451,9 @@ close = "Close"
 
 [js.slices]
 gameServer = "GAME SERVER · ION NETWORK"
-locked = "Locked while you play"
+waitingOne = "+1 RELEASE"
+waitingMany = "+{count} RELEASES"
+waitingSub = "AFTER THIS SESSION"
 allReleases = "All releases"
 play = "PLAY"
 starting = "Starting"

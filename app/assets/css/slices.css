@@ -1,11 +1,11 @@
 /* Slices */
 .stage{position:absolute;top:0;bottom:0;left:0;display:flex;gap:3px;transition:width .9s cubic-bezier(.75,0,.2,1)}
-.slice{position:relative;min-width:54px;overflow:hidden;background:#0d0e13;transition:flex-grow .9s cubic-bezier(.75,0,.2,1)}
+.slice{position:relative;min-width:54px;overflow:hidden;background:#0d0e13;transition:flex-grow .9s cubic-bezier(.75,0,.2,1),min-width .9s cubic-bezier(.75,0,.2,1)}
 .slice-img{position:absolute;top:0;left:50%;height:100%;width:100vw;min-width:100%;object-fit:cover;transform:translateX(-50%) scale(1.08);filter:saturate(.7) brightness(.85);transition:transform 1.8s cubic-bezier(.2,.7,.2,1),filter .8s}
 .is-open .slice-img{transform:translateX(-50%) scale(1);filter:none;animation:drift 40s ease-in-out 1.8s infinite alternate}
 @keyframes drift{from{transform:translateX(-50%) scale(1)}to{transform:translateX(-51.5%) scale(1.05)}}
 .veil-dim{position:absolute;top:0;bottom:0;left:50%;width:100vw;min-width:100%;transform:translateX(-50%);background:linear-gradient(0deg,rgba(7,8,11,.94),rgba(7,8,11,.55) 60%,rgba(7,8,11,.7));transition:opacity .6s}
-.slice:hover .veil-dim{opacity:.72}
+.slice:not(.is-open):hover .veil-dim{opacity:.72}
 .is-open .veil-dim{opacity:0}
 .is-mini .veil-dim{opacity:1}
 .is-mini .slice:hover .veil-dim{opacity:.7}
@@ -44,7 +44,7 @@
 .is-new{animation:wipeIn 1s cubic-bezier(.7,0,.2,1)}
 @keyframes wipeIn{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0 0 0)}}
 .lib-strip{position:relative;flex:0 0 72px;overflow:hidden;border:0;padding:0;background:#0c0d12;color:#fff;cursor:pointer;transition:flex-basis .9s cubic-bezier(.75,0,.2,1)}
-.is-mini .lib-strip{flex-basis:44px}
+.is-mini .lib-strip{flex-basis:44px;pointer-events:none}
 .lib-mosaic{position:absolute;inset:0;display:flex;flex-direction:column;gap:3px;padding:3px;opacity:.28;filter:saturate(.4);transition:opacity .5s,filter .5s}
 .lib-mosaic img{width:100%;flex:1 1 0;min-height:0;object-fit:cover;border-radius:3px;transition:transform .6s cubic-bezier(.2,.8,.2,1)}
 .lib-strip:hover .lib-mosaic{opacity:.6;filter:none}
@@ -95,7 +95,7 @@
 .peek{position:absolute;top:44px;left:50%;width:300px;margin-left:-150px;padding:10px;box-sizing:border-box;border-radius:14px;background:rgba(16,18,24,.94);backdrop-filter:blur(20px) saturate(1.3);box-shadow:inset 0 0 0 1px rgba(255,255,255,.1),0 30px 70px -20px rgba(0,0,0,.85);transition:opacity .2s,transform .4s cubic-bezier(.3,1.4,.5,1);text-align:left;cursor:pointer;border:0;color:#fff;font-family:'Geist',system-ui,sans-serif;z-index:5}
 .peek::before{content:'';position:absolute;top:-6px;left:50%;width:12px;height:12px;margin-left:-6px;transform:rotate(45deg);border-radius:3px 0 0 0;background:rgba(16,18,24,.94);box-shadow:inset 1px 1px 0 rgba(255,255,255,.1)}
 .peek-img{display:block;width:100%;height:110px;border-radius:9px;object-fit:cover}
-.stage{transition:width .9s cubic-bezier(.75,0,.2,1),transform .8s cubic-bezier(.75,0,.2,1),filter .8s}
+.stage{transition:width .9s cubic-bezier(.75,0,.2,1),transform .8s cubic-bezier(.75,0,.2,1),filter .8s,gap .9s cubic-bezier(.75,0,.2,1)}
 .stage.away{transform:scale(.965);filter:blur(8px) brightness(.45)}
 .web{transform-origin:50% 0}
 /* Game-server releases: the ION Network gets the launcher's own signal */
@@ -132,26 +132,34 @@
 .mapthumb{position:relative;width:56px;height:32px;border-radius:6px;overflow:hidden;box-shadow:inset 0 0 0 1px rgba(255,255,255,.15)}
 .mapthumb img{width:100%;height:100%;object-fit:cover;filter:saturate(1.4) contrast(1.1);image-rendering:pixelated;transform:scale(1.6);transition:transform .8s cubic-bezier(.2,.8,.2,1)}
 .mapbtn:hover .mapthumb img{transform:scale(1.9)}
-/* While the game runs, the other releases are shut: grey, a lock, and a shake if you try */
-.is-locked .slice-img{filter:grayscale(1) brightness(.4) !important}
-.is-locked .veil-dim{opacity:1 !important}
-.is-locked .tag{cursor:not-allowed}
-.is-locked .tag-name{color:rgba(255,255,255,.3) !important;letter-spacing:-.01em !important}
-.is-locked .tag-line{height:0 !important}
-.lock{display:block;color:rgba(255,255,255,.55);transition:transform .3s cubic-bezier(.3,1.5,.5,1),color .2s}
-.slice:hover .lock,.lib-strip:hover .lock{transform:translateY(-3px);color:#fff}
-.is-wiggle{animation:wiggle .55s cubic-bezier(.3,0,.3,1)}
-@keyframes wiggle{0%{transform:translateX(0)}15%{transform:translateX(-7px)}32%{transform:translateX(6px)}48%{transform:translateX(-4px)}64%{transform:translateX(3px)}80%{transform:translateX(-1px)}100%{transform:translateX(0)}}
-.is-wiggle .lock{animation:lockJolt .55s cubic-bezier(.3,0,.3,1)}
-@keyframes lockJolt{0%,100%{transform:rotate(0) scale(1)}20%{transform:rotate(-16deg) scale(1.25);color:#fff}45%{transform:rotate(12deg) scale(1.2)}70%{transform:rotate(-6deg) scale(1.1)}}
-.lib-strip.is-locked .lib-mosaic{opacity:.12 !important;filter:grayscale(1) !important}
-.lib-strip.is-locked{cursor:not-allowed}
+/*
+ * While a game runs its release takes the whole view and the others fold away completely. A quiet
+ * line down the right edge, where they were, says they are only waiting: their covers, how many,
+ * and that they come back after this session. Set like the release's "03 / 03" line, but upright
+ * like the slices' names.
+ */
+.is-focused{gap:0}
+.is-focused .slice.is-folded{min-width:0}
+.is-folded .tag{opacity:0;pointer-events:none;transition-delay:0s}
+.is-focused .lib-strip{flex-basis:0}
+.is-refit .slice-open{transition:width .9s cubic-bezier(.75,0,.2,1)}
+.waiting{position:absolute;top:32px;right:22px;z-index:6;display:flex;flex-direction:column;align-items:center;gap:11px;font:500 11px 'Geist Mono',ui-monospace,monospace;letter-spacing:.2em;color:rgba(255,255,255,.6);text-shadow:0 1px 10px rgba(0,0,0,.7);white-space:nowrap;pointer-events:none;opacity:0;transform:translateX(8px);transition:opacity .3s,transform .4s cubic-bezier(.5,0,.75,0)}
+.waiting.on{opacity:1;transform:none;transition:opacity .6s .8s,transform .8s cubic-bezier(.2,.8,.2,1) .8s}
+.waiting-covers{display:flex;flex-direction:column}
+.waiting-covers img{width:22px;height:22px;border-radius:50%;object-fit:cover;box-shadow:0 0 0 2px rgba(7,8,11,.9)}
+.waiting-covers img+img{margin-top:-7px}
+.waiting-title,.waiting-sub{writing-mode:vertical-rl}
+.waiting-title{color:#fff}
+.waiting-rule{width:1px;height:20px;background:rgba(255,255,255,.35)}
+.waiting-sub{color:var(--acc-text)}
+.waiting.is-nudged .waiting-sub,.waiting.is-nudged .waiting-title{animation:waitFlash .9s cubic-bezier(.2,.8,.2,1)}
+@keyframes waitFlash{0%{opacity:0;letter-spacing:.34em}100%{opacity:1}}
 /* The reason is said where the eye already is: on the strip you clicked, and over the Play button */
 .cap-flash{animation:capIn .45s cubic-bezier(.2,.8,.2,1)}
 @keyframes capIn{from{opacity:0;transform:translateY(6px);letter-spacing:.32em}to{opacity:1;transform:none}}
 .play.nudged{animation:ring .8s cubic-bezier(.2,.7,.2,1)}
 @keyframes ring{from{outline:2px solid rgba(255,255,255,.7);outline-offset:0}to{outline:2px solid rgba(255,255,255,0);outline-offset:12px}}
-.is-wiggle .tag-name{color:#fff !important;font-family:'Geist Mono',ui-monospace,monospace;font-size:12px;font-weight:500;letter-spacing:.22em !important;text-transform:uppercase}/* ---- Launcher wiring: fonts, accent variables, and the states the prototype set inline ---- */
+/* ---- Launcher wiring: fonts, accent variables, and the states the prototype set inline ---- */
 @font-face{font-family:'Geist';src:url('../fonts/Geist-Variable.woff2') format('woff2');font-weight:100 900;font-display:block}
 @font-face{font-family:'Geist Mono';src:url('../fonts/GeistMono-Variable.woff2') format('woff2');font-weight:100 900;font-display:block}
 :root{--acc:#7777DF;--acc-deep:#6565B8;--acc-text:#B7B5FC;--play-bg:#6565B8}
@@ -181,7 +189,7 @@
  * A switch animates the slices' widths. Everything inside a slice is window-sized and centred, so a
  * width change only moves the clip: the pictures and overlays are their own layers and are never
  * redrawn, the title is sized from the window rather than the slice, and the open slice's content
- * keeps the open slice's resting width (--open-w, measured by slices.js) instead of reflowing on
+ * keeps its resting width as the open slice (--open-w, worked out by slices.js) instead of reflowing on
  * every frame.
  */
 .slice-img,.veil-dim,.veil-open{will-change:transform,opacity}

@@ -1,6 +1,7 @@
 /**
  * The Play view: every release on the shelf is a full-height slice of its own wallpaper, the
- * selected one open. Also owns the Play button's look and the lock while a game is busy.
+ * selected one open. Also owns the Play button's look, and folds the other releases away while a
+ * game is busy.
  *
  * Loaded after landing.js (GameState, updateSelectedServer, launch functions) and shell.js
  * (showTab). Library and panels hook in through Slices.onOpen / Slices.libraryPick.
@@ -14,9 +15,10 @@ const Slices = (() => {
     const log = LoggerUtil.getLogger('Slices')
     const SHELF_MAX = 4
     const CYCLE_MS = 12000
+    const LIB_STRIP_W = 72     // slices.css: .lib-strip's flex-basis
+    const SLICE_MIN_W = 54     // slices.css: .slice's min-width
     const BUNDLED = [5, 3, 7, 2, 6, 4, 0, 1].map(n => `assets/images/backgrounds/${n}.jpg`)
     const STAR_IMG = 'assets/images/ion/star.svg'
-    const LOCK_SVG = '<svg class="lock" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>'
 
     // The seal's 81 dots, ordered from the centre out, so progress fills it like a charge.
     const DOTS = (() => {
@@ -29,6 +31,11 @@ const Slices = (() => {
     const stage = document.getElementById('stage')
     const cluster = document.getElementById('launchCluster')
     const libStrip = document.getElementById('libStrip')
+    const waiting = document.createElement('div')
+    waiting.className = 'waiting'
+    waiting.setAttribute('role', 'status')
+    waiting.innerHTML = '<span class="waiting-covers"></span><span class="waiting-title"></span><span class="waiting-rule"></span><span class="waiting-sub"></span>'
+    stage.appendChild(waiting)
 
     let releases = []          // releasemodel view models, distribution order
     let presentation = []      // last /api/launcher/releases answer
@@ -47,6 +54,8 @@ const Slices = (() => {
     const byId = id => releases.find(r => r.id === id)
     const picked = () => ConfigManager.getSelectedServer()
     const busy = () => !GameState.canSwitch()
+    // While a game is busy its release fills the Play view and the others fold away.
+    const focused = () => busy() && mode === 'play'
 
     /* Data */
 
@@ -192,28 +201,36 @@ const Slices = (() => {
 
     function update(){
         const sel = picked()
+        const focus = focused()
         stage.classList.toggle('is-mini', mode === 'settings')
+        if(stage.classList.contains('is-focused') !== focus){
+            stage.classList.toggle('is-focused', focus)
+            // The open slice's content follows its width only while it unfolds or folds back.
+            stage.classList.add('is-refit')
+            clearTimeout(update.refit)
+            update.refit = setTimeout(() => stage.classList.remove('is-refit'), 950)
+        }
         for(const [id, el] of nodes){
             const r = byId(id)
             const open = id === sel && !intro
-            const locked = busy() && mode === 'play' && id !== sel
-            let grow = 1
+            const folded = focus && id !== sel
+            let grow = restingGrow(id, open)
             if(mode === 'settings') grow = id === sel ? 1.4 : 1
-            else if(open) grow = 9
-            else if(id === hover && !locked) grow = 1.6
-            else if(r?.net) grow = 1.3
+            else if(folded) grow = 0
+            else if(!open && id === hover) grow = 1.6
             el.style.flexGrow = grow
             el.classList.toggle('is-open', open)
-            el.classList.toggle('is-locked', locked)
+            el.classList.toggle('is-folded', folded)
             const tag = el.querySelector('.tag')
-            tag.setAttribute('aria-disabled', String(locked))
+            tag.setAttribute('aria-disabled', String(folded))
             tag.setAttribute('aria-current', id === sel ? 'true' : 'false')
-            el.querySelector('.tag-name').textContent = nudged?.id === id ? Lang.queryJS('slices.locked') : (r?.name ?? id)
-            el.querySelector('.tag-end').innerHTML = locked ? LOCK_SVG : '<span class="tag-dot"></span>'
+            el.querySelector('.tag-name').textContent = r?.name ?? id
         }
-        libStrip.classList.toggle('is-locked', busy() && mode === 'play')
-        libStrip.querySelector('.lib-label-text').textContent = nudged?.id === 'lib' ? Lang.queryJS('slices.locked') : Lang.queryJS('slices.allReleases')
+        // The settings band keeps the strip as a sliver; the library opens from Play only.
+        libStrip.disabled = mode === 'settings'
+        renderWaiting(focus)
 
+        setOpenWidths()
         const openEl = nodes.get(sel)
         if(openEl && cluster.parentElement !== openEl.querySelector('.slice-side')){
             openEl.querySelector('.slice-side').appendChild(cluster)
@@ -229,6 +246,18 @@ const Slices = (() => {
         }
         renderLaunch()
         scheduleCycle()
+    }
+
+    /** While a game is busy: the line down the right edge that says the folded releases come back when it closes. */
+    function renderWaiting(focus){
+        if(focus){
+            const others = releases.filter(r => r.id !== picked())
+            const covers = [...shelf.filter(id => id !== picked()), ...others.map(r => r.id).filter(id => !shelf.includes(id))].slice(0, 3)
+            waiting.querySelector('.waiting-covers').innerHTML = covers.map(id => `<img src="${escapeHtml(coverFor(id))}" alt="">`).join('')
+            waiting.querySelector('.waiting-title').textContent = Lang.queryJS(others.length === 1 ? 'slices.waitingOne' : 'slices.waitingMany', { count: others.length })
+            waiting.querySelector('.waiting-sub').textContent = Lang.queryJS('slices.waitingSub')
+        }
+        waiting.classList.toggle('on', focus && releases.length > 1)
     }
 
     function scheduleCycle(){
@@ -247,8 +276,8 @@ const Slices = (() => {
 
     async function pick(id){
         if(id === picked()) return
-        // While a game runs the selection stays put, in the settings band too: the lock and the
-        // open slice belong to the release that is running.
+        // While a game runs the selection stays put, in the settings band too: the open slice
+        // belongs to the release that is running.
         if(busy()) return nudge(id)
         const serv = (await DistroAPI.getDistribution()).getServerById(id)
         updateSelectedServer(serv)
@@ -271,12 +300,10 @@ const Slices = (() => {
 
     function nudge(target){
         nudged = { id: target, at: Date.now() }
-        const el = target === 'lib' ? libStrip : nodes.get(target)
-        if(el){
-            el.classList.remove('is-wiggle')
-            void el.offsetWidth  // restart the animation
-            el.classList.add('is-wiggle')
-            setTimeout(() => el.classList.remove('is-wiggle'), 600)
+        if(focused()){
+            waiting.classList.remove('is-nudged'); void waiting.offsetWidth  // restart the flash
+            waiting.classList.add('is-nudged')
+            setTimeout(() => waiting.classList.remove('is-nudged'), 950)
         }
         const button = document.getElementById('launch_button')
         button.classList.remove('nudged'); void button.offsetWidth; button.classList.add('nudged')
@@ -285,20 +312,52 @@ const Slices = (() => {
         nudge.timer = setTimeout(() => { nudged = null; update() }, 2600)
     }
 
+    /** A slice's flex-grow in the Play view when nothing is hovered. */
+    function restingGrow(id, open){
+        if(open) return 9
+        return byId(id)?.net ? 1.3 : 1
+    }
+
     /**
-     * The open slice's resting width, for its content (slices.css: .slice-open). Measured when a
-     * width animation ends and on resize, so during the next switch the opening slice's title,
-     * panel and Play button already have their final width and do not reflow on every frame.
+     * Each slice's width when it is the open one and nothing is hovered, for its content
+     * (slices.css: .slice-open). Worked out from the grows rather than measured, because that width
+     * depends on which slice is open (the network release's strip is wider than the others): during
+     * a switch the opening slice's title, panel and Play button already have their final width and
+     * neither reflow on every frame nor jump when the animation ends.
      */
-    function measureOpenWidth(){
-        const open = nodes.get(picked())
-        if(open && mode === 'play') stage.style.setProperty('--open-w', `${open.getBoundingClientRect().width}px`)
+    function setOpenWidths(){
+        if(mode !== 'play') return
+        const ids = [...nodes.keys()]
+        const css = getComputedStyle(stage)
+        if(focused()){
+            // Folded: the running release takes the whole view.
+            const full = stage.parentElement.clientWidth
+            if(full > 0) nodes.get(picked())?.style.setProperty('--open-w', `${full}px`)
+            return
+        }
+        const gaps = parseFloat(css.columnGap || 0) * ids.length
+        // The stage's Play width (it animates there from the settings band)
+        const free = stage.parentElement.clientWidth - LIB_STRIP_W - gaps
+        if(free <= 0) return  // the Play view is hidden; measured again on the next update or resize
+        for(const id of ids){
+            // Flex layout with the slices' min-width: strips that would get less are frozen at it.
+            const frozen = new Set()
+            let room, total
+            for(;;){
+                room = free - frozen.size * SLICE_MIN_W
+                total = ids.filter(o => !frozen.has(o)).reduce((t, o) => t + restingGrow(o, o === id), 0)
+                const tight = ids.filter(o => o !== id && !frozen.has(o) && room * restingGrow(o, false) / total < SLICE_MIN_W)
+                if(!tight.length) break
+                tight.forEach(o => frozen.add(o))
+            }
+            nodes.get(id).style.setProperty('--open-w', `${room * restingGrow(id, true) / total}px`)
+        }
     }
     stage.addEventListener('transitionend', e => {
-        if(e.propertyName === 'flex-grow' && e.target.classList.contains('is-open')) measureOpenWidth()
+        // Also catches the first layout after the Play view was hidden
+        if(e.propertyName === 'flex-grow') setOpenWidths()
     })
-    window.addEventListener('resize', () => requestAnimationFrame(measureOpenWidth))
-    setTimeout(measureOpenWidth, 1500)
+    window.addEventListener('resize', () => requestAnimationFrame(setOpenWidths))
 
     stage.addEventListener('wheel', e => {
         if(Math.abs(e.deltaY) < 8 || mode !== 'play') return
@@ -310,8 +369,11 @@ const Slices = (() => {
         if(next !== at) pick(shelf[next])
     }, { passive: true })
 
+    libStrip.addEventListener('mouseenter', () => { hover = 'lib'; update() })
+    libStrip.addEventListener('mouseleave', () => { hover = null; update() })
     libStrip.addEventListener('click', () => {
-        if(busy() && mode === 'play') return nudge('lib')
+        if(mode !== 'play') return
+        if(busy()) return nudge('lib')
         if(typeof Library !== 'undefined') Library.open()
     })
 
@@ -376,7 +438,11 @@ const Slices = (() => {
         byId,
         wallsFor,
         coverFor,
-        setMode(next){ mode = next; hover = null; update() },
+        setMode(next){
+            mode = next; hover = null
+            if(mode !== 'play' && typeof Library !== 'undefined' && document.getElementById('library').classList.contains('is-open')) Library.close()
+            update()
+        },
         setPercent(p){ percent = Math.max(0, Math.min(100, p)); renderLaunch() },
         onOpen(fn){ openListeners.push(fn) },
         nudge
