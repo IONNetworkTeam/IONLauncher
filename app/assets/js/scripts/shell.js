@@ -188,6 +188,7 @@ function showToast(text, href){
 /** Called by landing.js when the selected server changes. */
 function onSelectedServerChanged(){
     if(typeof Slices !== 'undefined') Slices.update()
+    if(typeof Workspace !== 'undefined') Workspace.refreshGround()
 }
 
 /** The newest blog posts: the game servers' announcement, the News badge and the News peek. */
