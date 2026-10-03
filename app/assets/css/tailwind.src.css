@@ -1,0 +1,350 @@
+/*
+ * Launcher shell styles (Tailwind CSS v4 source).
+ *
+ * Compiled to ion.css by `npm run build:css`, which also runs before `npm start` and
+ * `npm run dist`. Edit this file, not ion.css.
+ *
+ * The shell (title bar, rail, tabs, play bar) uses Tailwind utilities. The views inherited from
+ * Helios (welcome, login, settings, overlay) still use launcher.css and ion-theme.css, so
+ * Tailwind's preflight reset is not included.
+ *
+ * The utilities are imported without a cascade layer on purpose: launcher.css is unlayered and
+ * starts with `body, html, div { margin: 0; padding: 0 }`, and unlayered rules beat layered ones
+ * regardless of specificity. The shell's own base rules below use :where() so utilities win.
+ */
+
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css";
+
+@source "../../*.ejs";
+@source "../js/scripts/shell.js";
+
+@theme {
+    /* The website's palette, so both read as one product. */
+    --color-ionGrayer: #1E212B;
+    --color-ionGray: #262934;
+    --color-ionAqua: #7777DF;
+    --color-ionAquaer: #6565B8;
+
+    /* The frame around the tabs: title bar, rail and play bar. */
+    --color-ionChrome: #14161D;
+
+    /* State colours. */
+    --color-ionGood: #25AB90;
+    --color-ionWarn: #C88312;
+    --color-ionCritical: #DE4E45;
+}
+
+:root {
+    /* Title bar height. launcher.css sizes #main and the overlay against it. */
+    --frame-h: 40px;
+
+    /* The launcher's accent, taken from the logo. Kept for small marks: the play button, progress,
+       the current tab and notification dots. */
+    --ion-signal: linear-gradient(100deg, #5ED3F1 0%, #6E8CF0 48%, #8B6FE0 100%);
+    /* A darker version for fills that carry white text. */
+    --ion-signal-deep: linear-gradient(100deg, #1E9CCB 0%, #4F6EE0 52%, #7150CF 100%);
+}
+
+.signal-bg {
+    background-image: var(--ion-signal);
+}
+
+body,
+button,
+input,
+select,
+textarea {
+    font-family: var(--font-sans);
+}
+
+/* Base rules for the shell, standing in for the omitted preflight. */
+:where(.ion-shell, #frameBar),
+:where(.ion-shell, #frameBar) *,
+:where(.ion-shell, #frameBar) *::before,
+:where(.ion-shell, #frameBar) *::after {
+    box-sizing: border-box;
+    border-width: 0;
+    border-style: solid;
+}
+:where(.ion-shell, #frameBar) button {
+    background: none;
+    border: 0;
+    padding: 0;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+}
+:where(.ion-shell, #frameBar) a {
+    color: inherit;
+    text-decoration: none;
+}
+:where(.ion-shell) :is(ul, ol) {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+:where(.ion-shell) :is(h1, h2, h3, p) {
+    margin: 0;
+    font-size: inherit;
+    font-weight: inherit;
+}
+:where(.ion-shell) img {
+    display: block;
+    max-width: 100%;
+}
+/* See the dragstart guard in shell.js. */
+:where(.ion-shell, #frameBar) :is(img, a) {
+    -webkit-user-drag: none;
+}
+
+.app-drag {
+    -webkit-app-region: drag;
+}
+.app-no-drag {
+    -webkit-app-region: no-drag;
+}
+
+/* Current tab marker. */
+.rail-item[aria-current='page']::before {
+    content: '';
+    position: absolute;
+    left: -8px;
+    top: 50%;
+    width: 3px;
+    height: 26px;
+    margin-top: -13px;
+    border-radius: 0 3px 3px 0;
+    background-image: linear-gradient(180deg, #5ED3F1, #8B6FE0);
+}
+
+/* Play button. */
+.play-button {
+    background-image: var(--ion-signal-deep);
+    box-shadow:
+        0 14px 34px -12px rgba(79, 110, 224, 0.9),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.16),
+        inset 0 1px 0 rgba(255, 255, 255, 0.4),
+        inset 0 -3px 0 rgba(10, 12, 40, 0.22);
+    text-shadow: 0 1px 2px rgba(20, 22, 60, 0.4);
+    transition: transform 0.15s ease, box-shadow 0.2s ease;
+}
+/* Gloss on the upper half. */
+.play-button::after {
+    content: '';
+    position: absolute;
+    inset: 0 0 50% 0;
+    border-radius: inherit;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.04));
+    pointer-events: none;
+}
+/* A sheen that crosses the button on hover. */
+.play-button::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    width: 45%;
+    background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+    transform: translateX(-160%) skewX(-18deg);
+    transition: transform 0.7s ease;
+    pointer-events: none;
+}
+.play-button:hover {
+    transform: translateY(-1px);
+    box-shadow:
+        0 18px 40px -12px rgba(79, 110, 224, 1),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.22),
+        inset 0 1px 0 rgba(255, 255, 255, 0.45),
+        inset 0 -3px 0 rgba(10, 12, 40, 0.22);
+}
+.play-button:hover::before {
+    transform: translateX(330%) skewX(-18deg);
+}
+.play-button:active {
+    transform: translateY(1px);
+    box-shadow:
+        0 8px 20px -10px rgba(79, 110, 224, 0.9),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.14),
+        inset 0 2px 4px rgba(10, 12, 40, 0.3);
+}
+#launch_button:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+    filter: saturate(0.3);
+    transform: none;
+}
+#launch_button:disabled::before {
+    display: none;
+}
+
+/*
+ * The lobby slideshow. Two images take turns; the one showing zooms slowly towards a direction
+ * set per picture. The outgoing picture keeps the same animation while it fades out, so it does
+ * not snap back to its first frame mid-fade.
+ */
+.lobby-shot {
+    position: absolute;
+    inset: -2%;
+    width: 104%;
+    height: 104%;
+    max-width: none;
+    object-fit: cover;
+    opacity: 0;
+    transition: opacity 1.8s ease;
+    will-change: opacity, transform;
+}
+.lobby-shot.is-on,
+.lobby-shot.is-leaving {
+    animation: lobby-drift var(--drift-time, 30s) ease-out forwards;
+}
+.lobby-shot.is-on {
+    opacity: 1;
+}
+@keyframes lobby-drift {
+    from {
+        transform: scale(1.02) translate(0, 0);
+    }
+    to {
+        transform: scale(1.14) translate(var(--drift-x, -2%), var(--drift-y, -1.5%));
+    }
+}
+#ionStage:not([data-tab-current='home']) #lobby {
+    visibility: hidden;
+}
+#ionStage:not([data-tab-current='home']) .lobby-shot {
+    animation-play-state: paused;
+}
+
+/* On the Play tab the play bar sits on the lobby picture. */
+#ionStage[data-tab-current='home'] #playBar {
+    background: transparent;
+    border-color: rgb(255 255 255 / 0.07);
+}
+
+/* Cards on the Play tab. No backdrop blur: it would be redrawn on every frame of the slideshow. */
+.dock-card {
+    border: 1px solid rgb(255 255 255 / 0.09);
+    border-radius: 14px;
+    background: rgb(16 17 23 / 0.82);
+    padding: 16px;
+    box-shadow: 0 18px 40px -18px rgb(0 0 0 / 0.8);
+}
+
+/*
+ * Tabs. Hidden tabs stay laid out (a webview must not be display:none) and are made invisible and
+ * inert. The fade uses opacity only, since a transform on a webview's ancestor can misplace it.
+ */
+.ion-tab {
+    transition: opacity 0.2s ease;
+}
+.ion-tab[data-tab-hidden] {
+    visibility: hidden;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 0;
+}
+.ion-tab:not([data-tab-hidden]) {
+    z-index: 1;
+}
+.ion-tab webview {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    background: var(--color-ionGrayer);
+}
+
+@keyframes ion-rise {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+.ion-rise {
+    animation: ion-rise 0.28s ease both;
+}
+
+.ion-shell ::-webkit-scrollbar {
+    width: 10px;
+}
+.ion-shell ::-webkit-scrollbar-thumb {
+    background: rgb(255 255 255 / 0.18);
+    border: 3px solid transparent;
+    background-clip: padding-box;
+    border-radius: 999px;
+}
+.ion-shell ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--color-ionAqua);
+}
+
+/* Launch progress. */
+#launch_progress {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 100%;
+    height: 6px;
+    border: 0;
+    border-radius: 999px;
+    overflow: hidden;
+    background: rgb(255 255 255 / 0.08);
+}
+#launch_progress::-webkit-progress-bar {
+    background: rgb(255 255 255 / 0.08);
+    border-radius: 999px;
+}
+#launch_progress::-webkit-progress-value {
+    background-image: var(--ion-signal);
+    border-radius: 999px;
+    transition: width 0.3s ease;
+}
+
+/* Mojang status tooltip, opened from the play bar. */
+#mojangStatusWrapper:hover #mojangStatusTooltip,
+#mojangStatusWrapper:focus-within #mojangStatusTooltip {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+.mojangStatusContainer {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 2px 0;
+    font-size: 12px;
+    color: rgb(255 255 255 / 0.72);
+}
+.mojangStatusIcon {
+    font-size: 18px;
+    line-height: 1;
+}
+
+/* Loading screen: the logo's star inside a spinning ring, over a lobby picture. */
+#loadingContainer {
+    background:
+        radial-gradient(40% 45% at 50% 50%, rgba(13, 14, 19, 0.35), rgba(13, 14, 19, 0.92) 100%),
+        url('../images/backgrounds/5.jpg') center / cover no-repeat,
+        #0d0e13;
+}
+#loadCenterImage {
+    width: 72px;
+    filter: drop-shadow(0 0 18px rgba(94, 211, 241, 0.45));
+}
+#loadSpinnerImage {
+    width: 150px;
+    filter: none;
+}
+#loadSpinnerImage.rotating {
+    animation-duration: 1.4s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ion-rise,
+    .lobby-shot.is-on,
+    .lobby-shot.is-leaving {
+        animation: none;
+    }
+}

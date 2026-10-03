@@ -23,7 +23,10 @@
 * ☕ **Automatic Java validation.**
   * If you have an incompatible version of Java installed, we'll install the right one *for you*.
   * You do not need to have Java installed to run the launcher.
-* 📰 News feed natively built into the launcher.
+* 🌐 The community website built in.
+  * Challenges, stats and news open in their own tabs, signed in once and remembered.
+  * Your coin balance and payout notifications show wherever you are in the launcher.
+  * See [Website integration](docs/website-integration.md).
 * ⚙️ Intuitive settings management, including a Java control panel.
 * Supports all of our servers.
   * Switch between server configurations with ease.
@@ -103,6 +106,27 @@ This section details the setup of a basic developmentment environment.
 ```console
 > npm start
 ```
+
+---
+
+**Styles**
+
+The launcher shell is styled with [Tailwind CSS][tailwind]. `npm start` and `npm run dist` compile `app/assets/css/tailwind.src.css` to `app/assets/css/ion.css` first. While working on styles, keep the compiler running:
+
+```console
+> npm run watch:css
+```
+
+---
+
+**Configuration**
+
+| Setting | Where | Purpose |
+| ------- | ----- | ------- |
+| Website address | `[js.web] url` in `app/assets/lang/_custom.toml` | The site shown in the web tabs. |
+| `ION_WEB_URL` | Environment | Overrides the website address, e.g. `http://localhost:5173`. |
+| `ION_WEB_AUTH` | Environment | `user:password` for a website behind HTTP basic auth. |
+| `ION_DISABLE_GPU` | Environment | `1` turns off hardware acceleration. |
 
 ---
 
@@ -199,3 +223,4 @@ The best way to contact the developers is on Discord.
 [wiki]: https://github.com/dscalzi/HeliosLauncher/wiki 'wiki'
 [nebula]: https://github.com/dscalzi/Nebula 'dscalzi/Nebula'
 [v2branch]: https://github.com/dscalzi/HeliosLauncher/tree/ts-refactor 'v2 branch'
+[tailwind]: https://tailwindcss.com 'Tailwind CSS'

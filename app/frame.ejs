@@ -1,33 +1,38 @@
-<div id="frameBar">
-    <div id="frameResizableTop" class="frameDragPadder"></div>
-    <div id="frameMain">
-        <div class="frameResizableVert frameDragPadder"></div>
-        <%if (process.platform === 'darwin') { %>
-            <div id="frameContentDarwin">
-                <div id="frameButtonDockDarwin">
-                    <button class="frameButtonDarwin fCb" id="frameButtonDarwin_close" tabIndex="-1"></button>
-                    <button class="frameButtonDarwin fMb" id="frameButtonDarwin_minimize" tabIndex="-1"></button>
-                    <button class="frameButtonDarwin fRb" id="frameButtonDarwin_restoredown" tabIndex="-1"></button>
-                </div>
-            </div>
-        <% } else{ %>  
-            <div id="frameContentWin">
-                <div id="frameTitleDock">
-                    <span id="frameTitleText"><%= lang('app.title') %></span>
-                </div>
-                <div id="frameButtonDockWin">
-                    <button class="frameButton fMb" id="frameButton_minimize" tabIndex="-1">
-                        <svg name="TitleBarMinimize" width="10" height="10" viewBox="0 0 12 12"><rect stroke="#ffffff" fill="#ffffff" width="10" height="1" x="1" y="6"></rect></svg>
-                    </button>
-                    <button class="frameButton fRb" id="frameButton_restoredown" tabIndex="-1">
-                        <svg name="TitleBarMaximize" width="10" height="10" viewBox="0 0 12 12"><rect width="9" height="9" x="1.5" y="1.5" fill="none" stroke="#ffffff" stroke-width="1.4px"></rect></svg>
-                    </button>
-                    <button class="frameButton fCb" id="frameButton_close" tabIndex="-1">
-                        <svg name="TitleBarClose" width="10" height="10" viewBox="0 0 12 12"><polygon stroke="#ffffff" fill="#ffffff" fill-rule="evenodd" points="11 1.576 6.583 6 11 10.424 10.424 11 6 6.583 1.576 11 1 10.424 5.417 6 1 1.576 1.576 1 6 5.417 10.424 1"></polygon></svg>
-                    </button>
-                </div>
-            </div>
-        <% } %>
-        <div class="frameResizableVert frameDragPadder"></div>
+<%#
+    The title bar (40px, --frame-h): the window's drag handle, the coin balance reported by the
+    website (filled in by shell.js), and the window controls.
+%>
+<%
+    const winButton = 'frameButton flex h-full w-[46px] items-center justify-center text-white/70 transition-colors hover:text-white'
+%>
+<div id="frameBar" class="app-drag relative z-[60] flex h-[var(--frame-h)] items-center bg-ionChrome text-white select-none">
+    <%if (process.platform === 'darwin') { %>
+        <div id="frameButtonDockDarwin" class="app-no-drag flex items-center gap-2 pl-4 pr-3">
+            <button class="fCb h-3 w-3 rounded-full !bg-[#ff5f57] hover:brightness-110" id="frameButtonDarwin_close" tabIndex="-1" aria-label="<%= lang('frame.close') %>"></button>
+            <button class="fMb h-3 w-3 rounded-full !bg-[#febc2e] hover:brightness-110" id="frameButtonDarwin_minimize" tabIndex="-1" aria-label="<%= lang('frame.minimize') %>"></button>
+            <button class="fRb h-3 w-3 rounded-full !bg-[#28c840] hover:brightness-110" id="frameButtonDarwin_restoredown" tabIndex="-1" aria-label="<%= lang('frame.maximize') %>"></button>
+        </div>
+    <% } %>
+    <div id="frameTitleDock" class="flex items-center gap-2.5 pl-4">
+        <img src="assets/images/ion/star.svg" alt="" class="h-6 w-6">
+        <span id="frameTitleText" class="text-[13px] font-semibold tracking-wide"><%= lang('app.title') %></span>
     </div>
+    <div class="flex-1"></div>
+    <a id="frameCoins" href="#" data-tab-link="challenges" title="<%= lang('frame.coinsTitle') %>" class="app-no-drag mr-3 hidden items-center gap-1.5 rounded-md px-2 py-1 font-mono text-[13px] tabular-nums text-white transition-colors hover:bg-white/[0.06] hover:text-[#8FA6F5]">
+        <img src="assets/images/ion/coin.svg" alt="" class="h-4 w-4">
+        <span id="frameCoinsValue">0</span>
+    </a>
+    <%if (process.platform !== 'darwin') { %>
+        <div id="frameButtonDockWin" class="app-no-drag flex h-full">
+            <button class="<%= winButton %> fMb hover:bg-white/[0.08]" id="frameButton_minimize" tabIndex="-1" aria-label="<%= lang('frame.minimize') %>">
+                <svg width="10" height="10" viewBox="0 0 12 12"><rect fill="currentColor" width="10" height="1" x="1" y="6"></rect></svg>
+            </button>
+            <button class="<%= winButton %> fRb hover:bg-white/[0.08]" id="frameButton_restoredown" tabIndex="-1" aria-label="<%= lang('frame.maximize') %>">
+                <svg width="10" height="10" viewBox="0 0 12 12"><rect width="9" height="9" x="1.5" y="1.5" fill="none" stroke="currentColor" stroke-width="1.2"></rect></svg>
+            </button>
+            <button class="<%= winButton %> fCb hover:!bg-ionCritical" id="frameButton_close" tabIndex="-1" aria-label="<%= lang('frame.close') %>">
+                <svg width="10" height="10" viewBox="0 0 12 12"><polygon fill="currentColor" fill-rule="evenodd" points="11 1.576 6.583 6 11 10.424 10.424 11 6 6.583 1.576 11 1 10.424 5.417 6 1 1.576 1.576 1 6 5.417 10.424 1"></polygon></svg>
+            </button>
+        </div>
+    <% } %>
 </div>

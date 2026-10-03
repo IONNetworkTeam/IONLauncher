@@ -2,7 +2,7 @@ const remoteMain = require('@electron/remote/main')
 remoteMain.initialize()
 
 // Requirements
-const { app, BrowserWindow, ipcMain, Menu, shell } = require('electron')
+const { app, BrowserWindow, ipcMain, Menu, session, shell } = require('electron')
 const autoUpdater                       = require('electron-updater').autoUpdater
 const ejse                              = require('ejs-electron')
 const fs                                = require('fs')
@@ -12,6 +12,8 @@ const semver                            = require('semver')
 const { pathToFileURL }                 = require('url')
 const { AZURE_CLIENT_ID, MSFT_OPCODE, MSFT_REPLY_TYPE, MSFT_ERROR, SHELL_OPCODE } = require('./app/assets/js/ipcconstants')
 const LangLoader                        = require('./app/assets/js/langloader')
+const Web                               = require('./app/assets/js/weburl')
+const WebAuth                           = require('./app/assets/js/webauth')
 
 // Setup Lang
 LangLoader.setupLanguage()
@@ -113,9 +115,12 @@ ipcMain.handle(SHELL_OPCODE.TRASH_ITEM, async (event, ...args) => {
     }
 })
 
-// Disable hardware acceleration.
-// https://electronjs.org/docs/tutorial/offscreen-rendering
-app.disableHardwareAcceleration()
+// Hardware acceleration stays on: the web tabs are far too expensive to draw in software.
+// Chromium falls back to software rendering by itself if the GPU process fails; set
+// ION_DISABLE_GPU=1 to force it on a machine whose driver misdraws instead of crashing.
+if(process.env.ION_DISABLE_GPU === '1'){
+    app.disableHardwareAcceleration()
+}
 
 
 const REDIRECT_URI_PREFIX = 'https://login.microsoftonline.com/common/oauth2/nativeclient?'
@@ -234,18 +239,23 @@ let win
 function createWindow() {
 
     win = new BrowserWindow({
-        width: 980,
-        height: 552,
+        width: 1180,
+        height: 740,
+        minWidth: 980,
+        minHeight: 620,
         icon: getPlatformIcon('SealCircle'),
         frame: false,
         webPreferences: {
             preload: path.join(__dirname, 'app', 'assets', 'js', 'preloader.js'),
             nodeIntegration: true,
-            contextIsolation: false
+            contextIsolation: false,
+            // The web tabs; see "Web tabs" below.
+            webviewTag: true
         },
-        backgroundColor: '#171614'
+        backgroundColor: '#1E212B'
     })
     remoteMain.enable(win.webContents)
+    WebAuth.init(win)
 
     const data = {
         bkid: Math.floor((Math.random() * fs.readdirSync(path.join(__dirname, 'app', 'assets', 'images', 'backgrounds')).length)),
@@ -347,6 +357,78 @@ function getPlatformIcon(filename){
 
     return path.join(__dirname, 'app', 'assets', 'images', `${filename}.${ext}`)
 }
+
+/*
+ * Web tabs.
+ *
+ * Some tabs show the configured website (see weburl.js) in <webview>s. Whatever a page asks for,
+ * a webview gets only our preload and no Node.js, may only load the website and the sign-in
+ * providers it redirects through, and sends every other link and new window to the system
+ * browser. The website recognises the launcher by the `IONLauncher/<version>` token in the user
+ * agent. See docs/website-integration.md.
+ */
+const WEBBRIDGE_PRELOAD = path.join(__dirname, 'app', 'assets', 'js', 'webbridge.js')
+/** OAuth providers whose sign-in pages may open inside a web tab. */
+const SIGN_IN_HOSTS = ['discord.com']
+
+function isLocalHost(hostname){
+    return hostname === 'localhost' || hostname === '127.0.0.1'
+}
+
+function allowedInWebview(url){
+    let u
+    try { u = new URL(url) } catch { return false }
+    if(u.origin === Web.origin) return true
+    if(u.protocol === 'https:' && SIGN_IN_HOSTS.some(h => u.hostname === h || u.hostname.endsWith('.' + h))) return true
+    // The site's own subdomains (an API host, for example), or any local port in development.
+    const site = new URL(Web.url).hostname
+    if(isLocalHost(site)) return isLocalHost(u.hostname)
+    const base = site.split('.').slice(-2).join('.')
+    return u.hostname === base || u.hostname.endsWith('.' + base)
+}
+
+app.on('ready', () => {
+    const web = session.fromPartition(Web.partition)
+    web.setUserAgent(`${web.getUserAgent()} IONLauncher/${app.getVersion()}`)
+})
+
+// Basic auth challenges from the website are answered by webauth.js.
+app.on('login', (event, _webContents, details, authInfo, callback) => {
+    if(authInfo.isProxy || authInfo.scheme.toLowerCase() !== 'basic') return
+    let origin
+    try { origin = new URL(details.url).origin } catch { return }
+    if(origin !== Web.origin) return
+    event.preventDefault()
+    WebAuth.onLogin(details, callback)
+})
+
+app.on('web-contents-created', (_event, contents) => {
+    contents.on('will-attach-webview', (event, webPreferences, params) => {
+        delete webPreferences.preloadURL
+        webPreferences.preload = WEBBRIDGE_PRELOAD
+        webPreferences.nodeIntegration = false
+        webPreferences.nodeIntegrationInSubFrames = false
+        webPreferences.contextIsolation = true
+        webPreferences.sandbox = true
+        webPreferences.webSecurity = true
+        if(params.partition !== Web.partition || !params.src.startsWith(Web.origin + '/')){
+            event.preventDefault()
+        }
+    })
+    if(contents.getType() !== 'webview') return
+    contents.setWindowOpenHandler(({ url }) => {
+        if(/^https?:/.test(url)) shell.openExternal(url)
+        return { action: 'deny' }
+    })
+    contents.on('will-navigate', (event, url) => {
+        if(allowedInWebview(url)) return
+        event.preventDefault()
+        if(/^https?:/.test(url)) shell.openExternal(url)
+    })
+    contents.on('will-redirect', (event, url) => {
+        if(!allowedInWebview(url)) event.preventDefault()
+    })
+})
 
 app.on('ready', createWindow)
 app.on('ready', createMenu)

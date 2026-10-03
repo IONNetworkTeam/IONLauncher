@@ -1,211 +1,167 @@
-<div id="landingContainer" style="display: none;">
-    <div id="upper">
-        <div id="left">
-            <div id="image_seal_container">
-                <img id="image_seal" src="assets/images/SealCircle.png"/>
-                <div id="updateAvailableTooltip"><%- lang('landing.updateAvailableTooltip') %></div>
+<%#
+    The main view: a rail of tabs, the current tab, and the play bar.
+
+    The Play tab is drawn here: a slideshow of the lobby (shell.js), the selected server as the
+    headline, and a dock with the challenges and news cards. The Challenges, Stats and News tabs
+    show the configured website in webviews that shell.js creates on first use. The play bar stays
+    under every tab, so the game can be launched from anywhere.
+
+    landing.js, uicore.js and uibinder.js rely on these ids: launch_*, server_selection_button,
+    player_count, mojang_*, avatarContainer, avatarOverlay, user_text, settingsMediaButton and
+    image_seal_container.
+%>
+<%
+    // The launcher's seal as its 81 dots on a 13x13 grid (assets/images/ion/star.svg in white).
+    const star = 'M6.08 0.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M5.08 1.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M6.08 1.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M7.08 1.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M4.08 2.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M5.08 2.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M6.08 2.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M7.08 2.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M8.08 2.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M4.08 3.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M5.08 3.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M6.08 3.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M7.08 3.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M8.08 3.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M2.08 4.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M3.08 4.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M4.08 4.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M5.08 4.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M6.08 4.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M7.08 4.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M8.08 4.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M9.08 4.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M10.08 4.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M1.08 5.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M2.08 5.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M3.08 5.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M4.08 5.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M5.08 5.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M6.08 5.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M7.08 5.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M8.08 5.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M9.08 5.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M10.08 5.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M11.08 5.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M0.08 6.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M1.08 6.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M2.08 6.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M3.08 6.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M4.08 6.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M5.08 6.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M6.08 6.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M7.08 6.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M8.08 6.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M9.08 6.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M10.08 6.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M11.08 6.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M12.08 6.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M1.08 7.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M2.08 7.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M3.08 7.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M4.08 7.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M5.08 7.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M6.08 7.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M7.08 7.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M8.08 7.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M9.08 7.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M10.08 7.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M11.08 7.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M2.08 8.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M3.08 8.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M4.08 8.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M5.08 8.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M6.08 8.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M7.08 8.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M8.08 8.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M9.08 8.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M10.08 8.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M4.08 9.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M5.08 9.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M6.08 9.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M7.08 9.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M8.08 9.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M4.08 10.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M5.08 10.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M6.08 10.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M7.08 10.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M8.08 10.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M5.08 11.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M6.08 11.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M7.08 11.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0M6.08 12.5a0.42 0.42 0 1 0 0.84 0a0.42 0.42 0 1 0 -0.84 0'
+    const railItem = 'rail-item group relative flex w-[60px] flex-col items-center gap-1 rounded-lg py-2 text-white/45 transition-colors hover:bg-white/[0.05] hover:text-white aria-[current=page]:text-white'
+    const ghostButton = 'flex items-center gap-2 rounded-full border border-white/15 bg-black/30 px-4 py-2 text-sm font-medium text-white transition hover:border-white/40 hover:bg-black/50'
+%>
+<div id="landingContainer" class="ion-shell absolute inset-0 bg-ionChrome text-white" style="display: none;">
+    <div class="flex h-full">
+
+        <nav id="ionRail" aria-label="Launcher" class="relative z-20 flex w-[76px] shrink-0 flex-col items-center gap-1 bg-ionChrome py-3">
+            <button class="<%= railItem %>" data-tab="home" aria-current="page">
+                <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M7 4.5v15l12-7.5z"/></svg>
+                <span class="text-[10.5px] font-medium"><%= lang('landing.tabPlay') %></span>
+            </button>
+            <button class="<%= railItem %>" data-tab="challenges">
+                <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M7 6H4.5v1.5A3.5 3.5 0 0 0 8 11M17 6h2.5v1.5A3.5 3.5 0 0 1 16 11"/><path d="M12 14v3.5M8.5 20.5h7M9.5 17.5h5l.5 3h-6z"/></svg>
+                <span class="text-[10.5px] font-medium"><%= lang('landing.tabChallenges') %></span>
+            </button>
+            <button class="<%= railItem %>" data-tab="stats">
+                <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 20h16M7 16v-5M12 16V6M17 16v-8"/></svg>
+                <span class="text-[10.5px] font-medium"><%= lang('landing.tabStats') %></span>
+            </button>
+            <button class="<%= railItem %>" data-tab="news">
+                <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round"><path d="M5 4h11v15a1 1 0 0 0 1 1H6a1 1 0 0 1-1-1zM16 8h3v11a1 1 0 0 1-2 0M8 8h5M8 11.5h5M8 15h3"/></svg>
+                <span class="text-[10.5px] font-medium"><%= lang('landing.tabNews') %></span>
+                <span id="newsDot" class="signal-bg absolute right-3 top-1.5 hidden h-2 w-2 rounded-full"></span>
+            </button>
+
+            <div class="flex-1"></div>
+
+            <div id="image_seal_container" class="relative">
+                <button id="settingsMediaButton" class="<%= railItem %>">
+                    <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M10.3 3.6a1.7 1.7 0 0 1 3.4 0l.2 1a1.7 1.7 0 0 0 2.5 1l.9-.5a1.7 1.7 0 0 1 2.4 2.4l-.5.9a1.7 1.7 0 0 0 1 2.5l1 .2a1.7 1.7 0 0 1 0 3.4l-1 .2a1.7 1.7 0 0 0-1 2.5l.5.9a1.7 1.7 0 0 1-2.4 2.4l-.9-.5a1.7 1.7 0 0 0-2.5 1l-.2 1a1.7 1.7 0 0 1-3.4 0l-.2-1a1.7 1.7 0 0 0-2.5-1l-.9.5a1.7 1.7 0 0 1-2.4-2.4l.5-.9a1.7 1.7 0 0 0-1-2.5l-1-.2a1.7 1.7 0 0 1 0-3.4l1-.2a1.7 1.7 0 0 0 1-2.5l-.5-.9a1.7 1.7 0 0 1 2.4-2.4l.9.5a1.7 1.7 0 0 0 2.5-1z"/><circle cx="12" cy="12" r="3"/></svg>
+                    <span class="text-[10.5px] font-medium"><%- lang('landing.settingsTooltip') %></span>
+                </button>
+                <span id="updateDot" title="<%- lang('landing.updateAvailableTooltip') %>" class="pointer-events-none absolute right-3 top-1.5 hidden h-2 w-2 rounded-full bg-ionGood"></span>
             </div>
-        </div>
-        <div id="content">
-        </div>
-        <div id="right">
-            <div id="rightContainer">
-                <div id="user_content">
-                    <span id="user_text"><%- lang('landing.usernamePlaceholder') %></span>
-                    <div id="avatarContainer">
-                        <button id="avatarOverlay"><%- lang('landing.usernameEditButton') %></button>
+
+            <div id="avatarContainer" class="group relative mt-1 h-11 w-11 overflow-hidden rounded-lg bg-white/[0.06] bg-cover bg-center ring-1 ring-white/10 transition hover:ring-[#6E8CF0] [image-rendering:pixelated]">
+                <button id="avatarOverlay" class="absolute inset-0" aria-label="<%= lang('landing.accountButton') %>" title="<%= lang('landing.accountButton') %>"></button>
+            </div>
+            <span id="user_text" class="mt-1 max-w-[68px] truncate text-[10.5px] text-white/55"><%- lang('landing.usernamePlaceholder') %></span>
+        </nav>
+
+        <div id="ionStage" class="relative flex min-w-0 flex-1 flex-col overflow-hidden rounded-tl-xl bg-ionGrayer" data-tab-current="home">
+
+            <!-- The Play tab's backdrop, under the play bar too. -->
+            <div id="lobby" class="absolute inset-0 overflow-hidden bg-[#0d0e13]" aria-hidden="true">
+                <img class="lobby-shot" alt="">
+                <img class="lobby-shot" alt="">
+                <div class="absolute inset-0 bg-[linear-gradient(90deg,rgba(13,14,19,0.78)_0%,rgba(13,14,19,0.35)_34%,rgba(13,14,19,0)_58%)]"></div>
+                <div class="absolute inset-0 bg-[linear-gradient(0deg,rgba(13,14,19,0.92)_0%,rgba(13,14,19,0.45)_15%,rgba(13,14,19,0)_36%)]"></div>
+                <div class="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-black/25 to-transparent"></div>
+            </div>
+
+            <main class="relative z-10 min-h-0 flex-1">
+
+                <section id="tab-home" class="ion-tab absolute inset-0 flex" data-tab-panel="home">
+                    <div class="flex min-w-0 flex-1 flex-col justify-end px-10 pb-9">
+                        <p class="flex items-center gap-2.5 font-mono text-[11px] uppercase tracking-[0.24em] text-white/70">
+                            <img src="assets/images/ion/star.svg" alt="" class="h-[22px] w-[22px]">
+                            <span id="homeGreeting"><%= lang('landing.welcome') %></span>
+                        </p>
+                        <h1 id="heroServerName" class="mt-4 max-w-[16ch] text-[clamp(2.75rem,5.4vw,4.75rem)] font-black leading-[0.95] tracking-[-0.02em] [text-shadow:0_6px_40px_rgba(0,0,0,0.55)]"><%= lang('app.title') %></h1>
+                        <p id="heroServerMeta" class="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[13px] text-white/75"></p>
+                        <p id="heroServerDesc" class="mt-3 hidden max-w-lg text-sm leading-relaxed text-white/65"></p>
+                        <div class="mt-7 flex flex-wrap gap-2.5">
+                            <button data-tab-link="challenges" class="<%= ghostButton %>"><%= lang('landing.heroChallenges') %> <span aria-hidden="true" class="text-white/50">&rarr;</span></button>
+                            <button data-tab-link="stats" class="<%= ghostButton %>"><%= lang('landing.heroStats') %> <span aria-hidden="true" class="text-white/50">&rarr;</span></button>
+                        </div>
+                    </div>
+
+                    <aside class="flex w-[340px] shrink-0 flex-col gap-3 overflow-y-auto py-6 pr-6">
+                        <section class="dock-card">
+                            <header class="flex items-center justify-between gap-3">
+                                <h2 class="text-[13px] font-bold uppercase tracking-[0.14em] text-white/90"><%= lang('landing.dockChallengesTitle') %></h2>
+                                <img src="assets/images/ion/coin.svg" alt="" class="h-4 w-4">
+                            </header>
+                            <div id="homeCoins" class="pt-3">
+                                <p class="text-sm leading-relaxed text-neutral-300"><%= lang('landing.dockChallengesText') %></p>
+                                <button data-tab-link="challenges" class="mt-3 rounded-lg bg-white/10 px-3.5 py-1.5 text-sm font-medium text-white transition hover:bg-white/20"><%= lang('landing.dockChallengesButton') %></button>
+                            </div>
+                        </section>
+
+                        <section class="dock-card">
+                            <header class="flex items-center justify-between gap-3">
+                                <h2 class="text-[13px] font-bold uppercase tracking-[0.14em] text-white/90"><%= lang('landing.dockNewsTitle') %></h2>
+                                <button data-tab-link="news" class="text-xs text-neutral-400 underline hover:text-white"><%= lang('landing.dockNewsAll') %></button>
+                            </header>
+                            <ul id="homeNews" class="mt-2 divide-y divide-white/[0.07]">
+                                <li class="py-2.5 text-sm text-neutral-400"><%= lang('landing.dockNewsLoading') %></li>
+                            </ul>
+                        </section>
+                    </aside>
+                </section>
+
+                <section id="tab-challenges" class="ion-tab absolute inset-0 bg-ionGrayer" data-tab-hidden data-tab-panel="challenges" data-web-path="/challenges"></section>
+                <section id="tab-stats" class="ion-tab absolute inset-0 bg-ionGrayer" data-tab-hidden data-tab-panel="stats" data-web-path="/stats"></section>
+                <section id="tab-news" class="ion-tab absolute inset-0 bg-ionGrayer" data-tab-hidden data-tab-panel="news" data-web-path="/blog"></section>
+            </main>
+
+            <footer id="playBar" class="relative z-10 flex h-[84px] shrink-0 items-center gap-6 border-t border-white/[0.06] bg-ionChrome px-7">
+                <div class="min-w-0 flex-1">
+                    <button id="server_selection_button" class="group flex max-w-full items-center gap-2 text-left">
+                        <span class="font-mono text-[10px] uppercase tracking-[0.22em] text-white/45"><%= lang('landing.serverLabel') %></span>
+                        <span id="serverName" class="truncate text-[15px] font-semibold"><%- lang('landing.launchButtonPlaceholder') %></span>
+                        <svg class="h-4 w-4 shrink-0 text-white/40 transition group-hover:text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 10 5 5 5-5"/></svg>
+                    </button>
+                    <div class="mt-1.5 flex items-center gap-5 text-xs text-neutral-400">
+                        <span id="server_status_wrapper" class="flex items-center gap-1.5">
+                            <span id="serverStatusDot" class="h-1.5 w-1.5 rounded-full bg-white/30"></span>
+                            <span id="landingPlayerLabel"><%- lang('landing.serverStatus') %></span>
+                            <span id="player_count" class="font-mono tabular-nums text-white"><%- lang('landing.serverStatusPlaceholder') %></span>
+                        </span>
+                        <span id="mojangStatusWrapper" class="relative flex cursor-default items-center gap-1.5" tabindex="0">
+                            <span id="mojang_status_icon" class="text-base leading-none">&#8226;</span>
+                            <span><%- lang('landing.mojangStatus') %></span>
+                            <div id="mojangStatusTooltip" class="invisible absolute bottom-[calc(100%+12px)] left-0 z-50 w-60 translate-y-1 rounded-lg border border-white/10 bg-ionGray p-3 opacity-0 shadow-2xl transition">
+                                <div id="mojangStatusTooltipTitle" class="mb-1 text-[11px] font-semibold uppercase tracking-wider text-white/50"><%- lang('landing.mojangStatusTooltipTitle') %></div>
+                                <div id="mojangStatusEssentialContainer"></div>
+                                <div id="mojangStatusNEContainer" class="my-2 flex items-center gap-2">
+                                    <div class="h-px flex-1 bg-white/10"></div>
+                                    <div id="mojangStatusNETitle" class="text-[10px] uppercase tracking-wider text-white/40"><%- lang('landing.mojangStatusNETitle') %></div>
+                                    <div class="h-px flex-1 bg-white/10"></div>
+                                </div>
+                                <div id="mojangStatusNonEssentialContainer"></div>
+                            </div>
+                        </span>
                     </div>
                 </div>
-                <div id="mediaContent">
-                    <div id="internalMedia">
-                        <div class="mediaContainer" id="settingsMediaContainer">
-                            <button class="mediaButton" id="settingsMediaButton">
-                                <svg id="settingsSVG" class="mediaSVG" viewBox="0 0 141.36 137.43">
-                                    <path d="M70.70475616319865,83.36934004916053 a15.320781354859122,15.320781354859122 0 1 1 14.454501310561755,-15.296030496450625 A14.850515045097694,14.850515045097694 0 0 1 70.70475616319865,83.36934004916053 M123.25082856443602,55.425620905968366 h-12.375429204248078 A45.54157947163293,45.54157947163293 0 0 0 107.21227231573047,46.243052436416285 l8.613298726156664,-9.108315894326587 a9.727087354538993,9.727087354538993 0 0 0 0,-13.167456673319956 l-3.465120177189462,-3.6631270444574313 a8.489544434114185,8.489544434114185 0 0 0 -12.375429204248078,0 l-8.613298726156664,9.108315894326587 A40.442902639482725,40.442902639482725 0 0 0 81.99114759747292,25.427580514871032 V12.532383284044531 a9.108315894326587,9.108315894326587 0 0 0 -8.811305593424633,-9.306322761594556 h-4.950171681699231 a9.108315894326587,9.108315894326587 0 0 0 -8.811305593424633,9.306322761594556 v12.895197230826497 a40.17064319698927,40.17064319698927 0 0 0 -9.331073620003052,4.0591407789933704 l-8.613298726156664,-9.108315894326587 a8.489544434114185,8.489544434114185 0 0 0 -12.375429204248078,0 L25.58394128451018,23.967279868769744 a9.727087354538993,9.727087354538993 0 0 0 0,13.167456673319956 L34.19724001066683,46.243052436416285 a45.07131316187151,45.07131316187151 0 0 0 -3.6631270444574313,9.083565035918088 h-12.375429204248078 a9.083565035918088,9.083565035918088 0 0 0 -8.811305593424633,9.306322761594556 v5.197680265784193 a9.108315894326587,9.108315894326587 0 0 0 8.811305593424633,9.306322761594556 h11.979415469712139 a45.69008462208391,45.69008462208391 0 0 0 4.0591407789933704,10.642869115653347 l-8.613298726156664,9.108315894326587 a9.727087354538993,9.727087354538993 0 0 0 0,13.167456673319956 l3.465120177189462,3.6631270444574313 a8.489544434114185,8.489544434114185 0 0 0 12.375429204248078,0 l8.613298726156664,-9.108315894326587 a40.49240435629971,40.49240435629971 0 0 0 9.331073620003052,4.0591407789933704 v12.895197230826497 a9.083565035918088,9.083565035918088 0 0 0 8.811305593424633,9.306322761594556 h4.950171681699231 A9.083565035918088,9.083565035918088 0 0 0 81.99114759747292,123.68848839660077 V110.79329116577425 a40.78941465720167,40.78941465720167 0 0 0 9.331073620003052,-4.0591407789933704 l8.613298726156664,9.108315894326587 a8.489544434114185,8.489544434114185 0 0 0 12.375429204248078,0 l3.465120177189462,-3.6631270444574313 a9.727087354538993,9.727087354538993 0 0 0 0,-13.167456673319956 l-8.613298726156664,-9.108315894326587 a45.665333763675406,45.665333763675406 0 0 0 4.034389920584874,-10.642869115653347 h12.004166328120636 a9.108315894326587,9.108315894326587 0 0 0 8.811305593424633,-9.306322761594556 v-5.197680265784193 a9.083565035918088,9.083565035918088 0 0 0 -8.811305593424633,-9.306322761594556 " id="svg_3" class=""/>
-                                </svg>
-                                <div id="settingsTooltip"><%- lang('landing.settingsTooltip') %></div>
-                            </button>
-                        </div>
-                    </div>
-                    <div class="mediaDivider"></div>
-                    <div id="externalMedia">
-                        <div class="mediaContainer">
-                            <a href="<%- lang('landing.mediaGitHubURL') %>" class="mediaURL" id="linkURL">
-                                <svg id="linkSVG" class="mediaSVG" viewBox="35.34 34.3575 70.68 68.71500">
-                                    <g>
-                                        <path d="M75.37,65.51a3.85,3.85,0,0,0-1.73.42,8.22,8.22,0,0,1,.94,3.76A8.36,8.36,0,0,1,66.23,78H46.37a8.35,8.35,0,1,1,0-16.7h9.18a21.51,21.51,0,0,1,6.65-8.72H46.37a17.07,17.07,0,1,0,0,34.15H66.23A17,17,0,0,0,82.77,65.51Z"/>
-                                        <path d="M66,73.88a3.85,3.85,0,0,0,1.73-.42,8.22,8.22,0,0,1-.94-3.76,8.36,8.36,0,0,1,8.35-8.35H95A8.35,8.35,0,1,1,95,78H85.8a21.51,21.51,0,0,1-6.65,8.72H95a17.07,17.07,0,0,0,0-34.15H75.13A17,17,0,0,0,58.59,73.88Z"/>
-                                    </g>
-                                </svg>
-                            </a>
-                        </div>
-                        <div class="mediaContainer">
-                            <a href="<%- lang('landing.mediaInstagramURL') %>" class="mediaURL" id="instagramURL">
-                                <svg id="instagramSVG" class="mediaSVG" viewBox="0 0 5040 5040">
-                                    <defs>
-                                        <radialGradient id="instaFill" cx="30%" cy="107%" r="150%">
-                                            <stop offset="0%" stop-color="#fdf497"/>
-                                            <stop offset="5%" stop-color="#fdf497"/>
-                                            <stop offset="45%" stop-color="#fd5949"/>
-                                            <stop offset="60%" stop-color="#d6249f"/>
-                                            <stop offset="90%" stop-color="#285AEB"/>
-                                        </radialGradient>
-                                    </defs>
-                                    <g>
-                                        <path d="M1390 5024 c-163 -9 -239 -19 -315 -38 -281 -70 -477 -177 -660 -361 -184 -184 -292 -380 -361 -660 -43 -171 -53 -456 -53 -1445 0 -989 10 -1274 53 -1445 69 -280 177 -476 361 -660 184 -184 380 -292 660 -361 171 -43 456 -53 1445 -53 989 0 1274 10 1445 53 280 69 476 177 660 361 184 184 292 380 361 660 43 171 53 456 53 1445 0 989 -10 1274 -53 1445 -69 280 -177 476 -361 660 -184 184 -380 292 -660 361 -174 44 -454 53 -1470 52 -599 0 -960 -5 -1105 -14z m2230 -473 c58 -6 141 -18 185 -27 397 -78 638 -318 719 -714 37 -183 41 -309 41 -1290 0 -981 -4 -1107 -41 -1290 -81 -395 -319 -633 -714 -714 -183 -37 -309 -41 -1290 -41 -981 0 -1107 4 -1290 41 -397 81 -636 322 -714 719 -33 166 -38 296 -43 1100 -5 796 3 1203 27 1380 67 489 338 758 830 825 47 7 162 15 255 20 250 12 1907 4 2035 -9z"/>
-                                        <path d="M2355 3819 c-307 -42 -561 -172 -780 -400 -244 -253 -359 -543 -359 -899 0 -361 116 -648 367 -907 262 -269 563 -397 937 -397 374 0 675 128 937 397 251 259 367 546 367 907 0 361 -116 648 -367 907 -197 203 -422 326 -690 378 -101 20 -317 27 -412 14z m400 -509 c275 -88 470 -284 557 -560 20 -65 23 -95 23 -230 0 -135 -3 -165 -23 -230 -88 -278 -284 -474 -562 -562 -65 -20 -95 -23 -230 -23 -135 0 -165 3 -230 23 -278 88 -474 284 -562 562 -20 65 -23 95 -23 230 0 135 3 165 23 230 73 230 219 403 427 507 134 67 212 83 390 79 111 -3 155 -8 210 -26z"/>
-                                        <path d="M3750 1473 c-29 -11 -66 -38 -106 -77 -70 -71 -94 -126 -94 -221 0 -95 24 -150 94 -221 72 -71 126 -94 225 -94 168 0 311 143 311 311 0 99 -23 154 -94 225 -43 42 -76 66 -110 77 -61 21 -166 21 -226 0z"/>
-                                    </g>
-                                </svg>
-                            </a>
-                        </div>
-                        <div class="mediaContainer">
-                            <a href="<%- lang('landing.mediaYouTubeURL') %>" class="mediaURL" id="youtubeURL">
-                                <svg id="youtubeSVG" class="mediaSVG" viewBox="35.34 34.3575 70.68 68.71500">
-                                    <g>
-                                        <path d="M84.8,69.52,65.88,79.76V59.27Zm23.65.59c0-5.14-.79-17.63-3.94-20.57S99,45.86,73.37,45.86s-28,.73-31.14,3.68S38.29,65,38.29,70.11s.79,17.63,3.94,20.57,5.52,3.68,31.14,3.68,28-.74,31.14-3.68,3.94-15.42,3.94-20.57"/>
-                                    </g>
-                                </svg>
-                            </a>
-                        </div>
-                        <div class="mediaContainer">
-                            <a href="<%- lang('landing.mediaDiscordURL') %>" class="mediaURL" id="discordURL">
-                                <svg id="discordSVG" class="mediaSVG" viewBox="35.34 34.3575 70.68 68.71500">
-                                    <g>
-                                        <path d="M81.23,78.48a6.14,6.14,0,1,1,6.14-6.14,6.14,6.14,0,0,1-6.14,6.14M60,78.48a6.14,6.14,0,1,1,6.14-6.14A6.14,6.14,0,0,1,60,78.48M104.41,73c-.92-7.7-8.24-22.9-8.24-22.9A43,43,0,0,0,88,45.59a17.88,17.88,0,0,0-8.38-1.27l-.13,1.06a23.52,23.52,0,0,1,5.8,1.95,87.59,87.59,0,0,1,8.17,4.87s-10.32-5.63-22.27-5.63a51.32,51.32,0,0,0-23.2,5.63,87.84,87.84,0,0,1,8.17-4.87,23.57,23.57,0,0,1,5.8-1.95l-.13-1.06a17.88,17.88,0,0,0-8.38,1.27,42.84,42.84,0,0,0-8.21,4.56S37.87,65.35,37,73s-.37,11.54-.37,11.54,4.22,5.68,9.9,7.14,7.7,1.47,7.7,1.47l3.75-4.68a21.22,21.22,0,0,1-4.65-2A24.47,24.47,0,0,1,47.93,82S61.16,88.4,70.68,88.4c10,0,22.75-6.44,22.75-6.44a24.56,24.56,0,0,1-5.35,4.56,21.22,21.22,0,0,1-4.65,2l3.75,4.68s2,0,7.7-1.47,9.89-7.14,9.89-7.14.55-3.85-.37-11.54"/>
-                                    </g>
-                                </svg>
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div id="lower">
-        <div id="left">
-            <div class="bot_wrapper">
-                <div id="content">
-                    <div id="server_status_wrapper">
-                        <span class="bot_label" id="landingPlayerLabel"><%- lang('landing.serverStatus') %></span>
-                        <span id="player_count"><%- lang('landing.serverStatusPlaceholder') %></span>
-                    </div>
-                    <div class="bot_divider"></div>
-                    <div id="mojangStatusWrapper">
-                        <span class="bot_label"><%- lang('landing.mojangStatus') %></span>
-                        <span id="mojang_status_icon">&#8226;</span>
-                        <div id="mojangStatusTooltip">
-                            <div id="mojangStatusTooltipTitle"><%- lang('landing.mojangStatusTooltipTitle') %></div>
-                            <div id="mojangStatusEssentialContainer">
-                                <!-- Essential Mojang services are populated here. -->
-                            </div>
-                            <div id="mojangStatusNEContainer">
-                                <div class="mojangStatusNEBar"></div>
-                                <div id="mojangStatusNETitle"><%- lang('landing.mojangStatusNETitle') %></div>
-                                <div class="mojangStatusNEBar"></div>
-                            </div>
-                            <div id="mojangStatusNonEssentialContainer">
-                                <!-- Non Essential Mojang services are populated here. -->
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div id="center">
-            <div class="bot_wrapper">
-                <div id="content">
-                    <button id="newsButton">
-                        <!--<img src="assets/images/icons/arrow.svg" id="newsButtonSVG"/>-->
-                        <div id="newsButtonAlert" style="display: none;"></div>
-                        <svg id="newsButtonSVG" viewBox="0 0 24.87 13.97">
-                            <defs>
-                                <style>.arrowLine{fill:none;stroke:#FFF;stroke-width:2px;}</style>
-                            </defs>
-                            <polyline class="arrowLine" points="0.71 13.26 12.56 1.41 24.16 13.02"/>
-                        </svg>
-                        &#10;<span id="newsButtonText"><%- lang('landing.newsButton') %></span>
+
+                <div id="launch_content" class="flex items-center">
+                    <button id="launch_button" class="play-button group relative flex h-[60px] min-w-[232px] items-center justify-center gap-3.5 overflow-hidden rounded-xl px-9 text-[16px] font-extrabold uppercase tracking-[0.28em] text-white transition">
+                        <svg class="relative -my-1 h-9 w-9 drop-shadow-[0_1px_2px_rgba(20,22,60,0.45)]" viewBox="0 0 13 13" aria-hidden="true"><path fill="currentColor" d="<%= star %>"/></svg>
+                        <span class="relative"><%- lang('landing.launchButton') %></span>
                     </button>
                 </div>
-            </div>
-        </div>
-        <div id="right">
-            <div class="bot_wrapper">
-                <div id="launch_content">
-                    <button id="launch_button"><%- lang('landing.launchButton') %></button>
-                    <div class="bot_divider"></div>
-                    <button id="server_selection_button" class="bot_label"><%- lang('landing.launchButtonPlaceholder') %></button>
-                </div>
-                <div id="launch_details">
-                    <div id="launch_details_left">
-                        <span id="launch_progress_label">0%</span>
-                        <div class="bot_divider"></div>
+                <div id="launch_details" class="w-[360px] flex-col gap-2" style="display: none;">
+                    <div class="flex items-baseline justify-between gap-3">
+                        <span id="launch_details_text" class="truncate text-xs text-neutral-300"><%- lang('landing.launchDetails') %></span>
+                        <span id="launch_progress_label" class="font-mono text-sm tabular-nums">0%</span>
                     </div>
                     <div id="launch_details_right">
-                        <progress id="launch_progress" value="22" max="100"></progress>
-                        <span id="launch_details_text" class="bot_label"><%- lang('landing.launchDetails') %></span>
+                        <progress id="launch_progress" value="0" max="100"></progress>
                     </div>
                 </div>
-            </div>
+            </footer>
         </div>
     </div>
-    <div id="newsContainer">
-        <div id="newsContent" article="-1" style="display: none;">
-            <div id="newsStatusContainer">
-                <div id="newsStatusContent">
-                    <div id="newsTitleContainer">
-                        <a id="newsArticleTitle" href="#">Lorem Ipsum</a>
-                    </div>
-                    <div id="newsMetaContainer">
-                        <div id="newsArticleDateWrapper">
-                            <span id="newsArticleDate">Mar 15, 44 BC, 9:14 AM</span>
-                        </div>
-                        <div id="newsArticleAuthorWrapper">
-                            <span id="newsArticleAuthor">by Cicero</span>
-                        </div>
-                        <a href="#" id="newsArticleComments">0 Comments</a>
-                    </div>
-                </div>
-                <div id="newsNavigationContainer">
-                    <button id="newsNavigateLeft">
-                        <svg id="newsNavigationLeftSVG" viewBox="0 0 24.87 13.97">
-                            <defs>
-                                <style>.arrowLine{fill:none;stroke:#FFF;stroke-width:2px;transition: 0.25s ease;}</style>
-                            </defs>
-                            <polyline class="arrowLine" points="0.71 13.26 12.56 1.41 24.16 13.02"/>
-                        </svg>
-                    </button>
-                    <span id="newsNavigationStatus"><%- lang('landing.newsNavigationStatus', { currentPage: 1, totalPages: 1 }) %></span>
-                    <button id="newsNavigateRight">
-                        <svg id="newsNavigationRightSVG" viewBox="0 0 24.87 13.97">
-                            <defs>
-                                <style>.arrowLine{fill:none;stroke:#FFF;stroke-width:2px;transition: 0.25s ease;}</style>
-                            </defs>
-                            <polyline class="arrowLine" points="0.71 13.26 12.56 1.41 24.16 13.02"/>
-                        </svg>
-                    </button>
-                </div>
-            </div>
-            <div id="newsArticleContainer">
-                <div id="newsArticleContent">
-                    <div id="newsArticleContentScrollable">
-                        <!-- Article Content -->
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div id="newsErrorContainer">
-            <div id="newsErrorLoading">
-                <span id="nELoadSpan" class="newsErrorContent"><%- lang('landing.newsErrorLoadSpan') %></span>
-            </div>
-            <div id="newsErrorFailed" style="display: none;">
-                <span id="nEFailedSpan" class="newsErrorContent"><%- lang('landing.newsErrorFailedSpan') %></span>
-                <button id="newsErrorRetry"><%- lang('landing.newsErrorRetryButton') %></button>
-            </div>
-            <div id="newsErrorNone" style="display: none;">
-                <span id="nENoneSpan" class="newsErrorContent"><%- lang('landing.newsErrorNoneSpan') %></span>
-            </div>
-        </div>
-    </div>
+
+    <div id="ionToasts" aria-live="polite" class="pointer-events-none absolute bottom-[100px] right-6 z-50 flex flex-col items-end gap-2"></div>
+
     <script src="./assets/js/scripts/landing.js"></script>
+    <script src="./assets/js/scripts/shell.js"></script>
 </div>

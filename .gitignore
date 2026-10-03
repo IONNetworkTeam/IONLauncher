@@ -4,3 +4,6 @@
 /target/
 /logs/
 /dist/
+/.idea/
+# Compiled from app/assets/css/tailwind.src.css by `npm run build:css`.
+/app/assets/css/ion.css
