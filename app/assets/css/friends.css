@@ -33,8 +33,8 @@
 .fstrip.is-stale .fs-head{filter:grayscale(.6)}
 .fstrip.is-stale .fs-count{color:rgba(255,255,255,.4)}
 
-/* The card a head slides out: transient, to the left of the strip */
-.fcard{position:absolute;right:12px;width:300px;padding:14px;box-sizing:border-box;border-radius:16px;background:rgba(16,18,24,.95);backdrop-filter:blur(20px) saturate(1.3);box-shadow:inset 0 0 0 1px rgba(255,255,255,.12),0 30px 70px -20px rgba(0,0,0,.85);color:#fff;font-family:'Geist',system-ui,sans-serif;z-index:8;opacity:0;transform:translateX(8px) scale(.97);pointer-events:none;transition:opacity .2s,transform .35s cubic-bezier(.3,1.4,.5,1),top .35s cubic-bezier(.3,1.3,.5,1)}
+/* The card a head slides out: transient, to the left of the strip, above the invite toast while it is out */
+.fcard{position:absolute;right:12px;width:300px;padding:14px;box-sizing:border-box;border-radius:16px;background:rgba(16,18,24,.95);backdrop-filter:blur(20px) saturate(1.3);box-shadow:inset 0 0 0 1px rgba(255,255,255,.12),0 30px 70px -20px rgba(0,0,0,.85);color:#fff;font-family:'Geist',system-ui,sans-serif;z-index:9;opacity:0;transform:translateX(8px) scale(.97);pointer-events:none;transition:opacity .2s,transform .35s cubic-bezier(.3,1.4,.5,1),top .35s cubic-bezier(.3,1.3,.5,1)}
 .fcard.is-open{opacity:1;transform:none;pointer-events:auto}
 .fcard::after{content:'';position:absolute;top:24px;right:-6px;width:12px;height:12px;transform:rotate(45deg);background:rgba(16,18,24,.95);box-shadow:1px -1px 0 rgba(255,255,255,.1)}
 .fcard-top{display:flex;gap:12px;align-items:center}

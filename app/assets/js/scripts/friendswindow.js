@@ -53,7 +53,7 @@ function note(uuid, text){
     render()
     setTimeout(() => { if(notes.get(uuid)?.until <= Date.now()){ notes.delete(uuid); render() } }, NOTE_MS + 50)
 }
-const failText = res => res?.error || (res?.code === 'UNAVAILABLE' ? t('unavailable') : res?.code === 'NO_SESSION' ? t('noSession') : t('noteFailed'))
+const failText = res => res?.error || (res?.code === 'UNAVAILABLE' || res?.code === 'GATE' ? t('unavailable') : res?.code === 'NO_SESSION' ? t('noSession') : t('noteFailed'))
 
 function row(f, section){
     const r = releaseFor(f)
