@@ -9,6 +9,9 @@
  *  - The `web:fetchJson` IPC handler makes the launcher's own requests. They have to come from
  *    the main process: the launcher page is a file:// document, and a cross-origin request with
  *    an Authorization header needs a CORS preflight, which the auth gate also rejects.
+ *  - `fetchJson()` is the same for other main-process modules, which may add a bearer token the
+ *    site issued (the friends session). A 401 counts as the gate's only when it carries a
+ *    `WWW-Authenticate: Basic` challenge; a route refusing a bearer is left to its caller.
  *
  * Credentials are verified against the site before they are used. They come from, in order:
  * memory, the encrypted file written when the user chose "Remember" (Electron safeStorage),
@@ -136,16 +139,58 @@ async function credentials(rejected = false){
     return current
 }
 
-/** fetch() through the auth gate, for the launcher's own requests to the website. */
-async function fetchWeb(pathname){
+/** Whether a 401 came from the site's basic-auth gate rather than from a route that wants a bearer. */
+function isGateChallenge(res){
+    return /^basic\b/i.test(res.headers.get('www-authenticate') || '')
+}
+
+/**
+ * fetch() through the auth gate, for the launcher's own requests to the website.
+ *
+ * @param {string} pathname The path on the site.
+ * @param {RequestInit} [init] Method, headers and body, as for fetch(). The site login is added.
+ */
+async function fetchWeb(pathname, init = {}){
     const url = Web.url + pathname
-    let res = await net.fetch(url, { headers: current ? { Authorization: header(current) } : {}, cache: 'no-store' })
-    if(res.status === 401){
+    const withAuth = creds => ({ ...init, headers: { ...(init.headers || {}), ...(creds ? { Authorization: header(creds) } : {}) }, cache: 'no-store' })
+    let res = await net.fetch(url, withAuth(current))
+    if(res.status === 401 && isGateChallenge(res)){
         const creds = await credentials(!!current)
         if(!creds) return res
-        res = await net.fetch(url, { headers: { Authorization: header(creds) }, cache: 'no-store' })
+        res = await net.fetch(url, withAuth(creds))
     }
     return res
+}
+
+/**
+ * A JSON request to one of the launcher's endpoints, through the auth gate.
+ *
+ * @param {string} pathname A path under /api/launcher/.
+ * @param {{method?: string, body?: any, bearer?: string}} [init] The body is sent as JSON; the
+ *        bearer is a token the site issued (the friends session), added as `Authorization: Bearer`.
+ * @returns {Promise<{ok: boolean, status: number, data?: any, error?: string, code?: string, retryAfter?: number}>}
+ *          `data` is the parsed answer (null for a 204); refusals carry the site's `error` and `code`.
+ */
+async function fetchJson(pathname, { method = 'GET', body, bearer } = {}){
+    if(typeof pathname !== 'string' || !pathname.startsWith('/api/launcher/')){
+        throw new Error('Only the launcher endpoints may be requested.')
+    }
+    const headers = { accept: 'application/json' }
+    if(body !== undefined) headers['content-type'] = 'application/json'
+    if(bearer) headers.authorization = `Bearer ${bearer}`
+    const res = await fetchWeb(pathname, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) })
+    let data = null
+    if(res.status !== 204){
+        try { data = await res.json() } catch { data = null }
+    }
+    const out = { ok: res.ok, status: res.status, data }
+    if(!res.ok){
+        if(typeof data?.error === 'string') out.error = data.error
+        if(typeof data?.code === 'string') out.code = data.code
+        const retry = Number(res.headers.get('retry-after'))
+        if(Number.isFinite(retry) && retry > 0) out.retryAfter = retry
+    }
+    return out
 }
 
 /**
@@ -172,15 +217,13 @@ function init(win){
     host = win
     if(initialised) return
     initialised = true
-    ipcMain.handle('web:fetchJson', async (_e, pathname) => {
-        if(typeof pathname !== 'string' || !pathname.startsWith('/api/launcher/')){
-            throw new Error('Only the launcher endpoints may be requested.')
-        }
-        const res = await fetchWeb(pathname)
-        if(!res.ok) return { ok: false, status: res.status }
-        return { ok: true, data: await res.json() }
+    // The renderer may pass a method and a JSON body; a bearer is added only in this process
+    // (friends/index.js), never from the renderer.
+    ipcMain.handle('web:fetchJson', (_e, pathname, init) => {
+        const { method, body } = init && typeof init === 'object' ? init : {}
+        return fetchJson(pathname, { method: typeof method === 'string' ? method : 'GET', body })
     })
     ipcMain.on('web:authRetry', () => { declined = false })
 }
 
-module.exports = { init, onLogin, fetchWeb }
+module.exports = { init, onLogin, fetchWeb, fetchJson }
