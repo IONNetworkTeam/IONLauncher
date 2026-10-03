@@ -14,6 +14,8 @@ const { AZURE_CLIENT_ID, MSFT_OPCODE, MSFT_REPLY_TYPE, MSFT_ERROR, SHELL_OPCODE 
 const LangLoader                        = require('./app/assets/js/langloader')
 const Web                               = require('./app/assets/js/weburl')
 const WebAuth                           = require('./app/assets/js/webauth')
+const { createWallStore }               = require('./app/assets/js/wallstore')
+const { LoggerUtil }                    = require('helios-core')
 
 // Setup Lang
 LangLoader.setupLanguage()
@@ -236,6 +238,44 @@ ipcMain.on(MSFT_OPCODE.OPEN_LOGOUT, (ipcEvent, uuid, isLastAccount) => {
 // be closed automatically when the JavaScript object is garbage collected.
 let win
 
+/**
+ * The wallpaper cache (wallstore.js). Created with the first window; the IPC handler is registered
+ * once here because createWindow can run again (macOS re-opens a window on activate).
+ */
+let walls = null
+let wallsReady = Promise.resolve()
+ipcMain.handle('wallpapers:list', async () => {
+    await wallsReady
+    return walls ? walls.list() : { releases: {} }
+})
+
+function startWallpapers(win){
+    if(!walls){
+        walls = createWallStore({
+            dir: path.join(app.getPath('userData'), 'wallpapers'),
+            fetchJson: async (p) => {
+                const res = await WebAuth.fetchWeb(p)
+                return res.ok ? res.json() : null
+            },
+            fetchBytes: async (p) => {
+                const res = await WebAuth.fetchWeb(p)
+                return res.ok ? Buffer.from(await res.arrayBuffer()) : null
+            },
+            onChange: (list) => {
+                for(const w of BrowserWindow.getAllWindows()){
+                    if(!w.isDestroyed()) w.webContents.send('wallpapers:changed', list)
+                }
+            },
+            logger: LoggerUtil.getLogger('WallStore')
+        })
+        wallsReady = walls.open().catch(err => LoggerUtil.getLogger('WallStore').error('Wallpaper cache unavailable.', err))
+        setInterval(() => walls.sync(), 30 * 60 * 1000)
+    }
+    win.webContents.once('did-finish-load', () => {
+        setTimeout(() => wallsReady.then(() => walls.sync()), 4000)
+    })
+}
+
 function createWindow() {
 
     win = new BrowserWindow({
@@ -256,6 +296,7 @@ function createWindow() {
     })
     remoteMain.enable(win.webContents)
     WebAuth.init(win)
+    startWallpapers(win)
 
     const data = {
         bkid: Math.floor((Math.random() * fs.readdirSync(path.join(__dirname, 'app', 'assets', 'images', 'backgrounds')).length)),

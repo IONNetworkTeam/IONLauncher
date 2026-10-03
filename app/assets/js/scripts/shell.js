@@ -200,25 +200,54 @@ function showToast(text, href){
 
 const LOBBY_TIME = 12000
 const LOBBY_FADE = 1800
-const LOBBY_SHOTS = [5, 3, 7, 2, 6, 4, 0, 1].map(n => `assets/images/backgrounds/${n}.jpg`)
+/** Shown for a release that has no pictures of its own on disk yet. */
+const BUNDLED_WALLS = [5, 3, 7, 2, 6, 4, 0, 1].map(n => `assets/images/backgrounds/${n}.jpg`)
 /** The direction each picture zooms towards, cycled through. */
 const DRIFTS = [['-2%', '-1.5%'], ['2%', '-1%'], ['-1.5%', '1.5%'], ['1.5%', '1.5%']]
 
-let lobbyShot = Math.floor(Math.random() * 6)
+const { WallCycle } = require('./assets/js/wallcycle')
+const { pathToFileURL } = require('url')
+
+/** The local wallpaper cache's listing (wallstore.js), release id → file paths. */
+let wallList = { releases: {} }
+let wallCycle = new WallCycle(BUNDLED_WALLS, Math.floor(Math.random() * BUNDLED_WALLS.length))
+let lobbyStep = 0
 let lobbySlot = 0
 let lobbyTimer = null
+
+/** A release's own pictures from disk, or the bundled ones while it has none. */
+function wallsFor(serverId){
+    const local = (wallList.releases[serverId] || []).map(p => pathToFileURL(p).href)
+    return local.length ? local : BUNDLED_WALLS
+}
+
+/** The cache changed (a sync finished): the selected release's set takes new pictures quietly. */
+function refreshWallCycle(){
+    const set = wallsFor(ConfigManager.getSelectedServer())
+    const fromBundled = wallCycle.current != null && BUNDLED_WALLS.includes(wallCycle.current) && set !== BUNDLED_WALLS
+    if(fromBundled){
+        // The release just got pictures of its own: switch to them at once rather than finish the stand-ins.
+        wallCycle = new WallCycle(set)
+        showLobbyShot()
+    } else {
+        wallCycle.update(set)
+    }
+}
+
+ipcRenderer.invoke('wallpapers:list').then(l => { wallList = l; refreshWallCycle() }).catch(() => {})
+ipcRenderer.on('wallpapers:changed', (_e, l) => { wallList = l; refreshWallCycle() })
 
 /**
  * Fade in the given picture. Two images take turns so a picture is fully loaded before it shows,
  * and the outgoing one keeps zooming while it fades (`is-leaving` in ion.css).
  */
-function showLobbyShot(index){
-    lobbyShot = (index + LOBBY_SHOTS.length) % LOBBY_SHOTS.length
-    const src = LOBBY_SHOTS[lobbyShot]
+function showLobbyShot(){
+    const src = wallCycle.current
+    if(!src) return
     const shots = document.querySelectorAll('#lobby .lobby-shot')
     const next = shots[1 - lobbySlot]
     const prev = shots[lobbySlot]
-    const [x, y] = DRIFTS[lobbyShot % DRIFTS.length]
+    const [x, y] = DRIFTS[lobbyStep++ % DRIFTS.length]
     const reveal = () => {
         next.classList.remove('is-leaving')
         next.style.setProperty('--drift-x', x)
@@ -245,7 +274,7 @@ function pauseLobby(){
 function resumeLobby(){
     clearTimeout(lobbyTimer)
     if(currentTab !== 'home' || document.hidden) return
-    lobbyTimer = setTimeout(() => showLobbyShot(lobbyShot + 1), LOBBY_TIME)
+    lobbyTimer = setTimeout(() => { wallCycle.advance(); showLobbyShot() }, LOBBY_TIME)
 }
 
 document.addEventListener('visibilitychange', () => (document.hidden ? pauseLobby() : resumeLobby()))
@@ -257,6 +286,9 @@ const heroMeta = { version: null, online: null, players: null }
 /** Called by landing.js when the selected server changes. */
 function onSelectedServerChanged(serv){
     const raw = serv?.rawServer
+    // Another release is another set of pictures.
+    wallCycle = new WallCycle(wallsFor(raw?.id))
+    showLobbyShot()
     document.getElementById('heroServerName').textContent = raw?.name ?? Lang.queryEJS('app.title')
     const desc = document.getElementById('heroServerDesc')
     desc.textContent = raw?.description ?? ''
@@ -436,7 +468,7 @@ document.addEventListener('keydown', e => {
 })
 
 onSelectedAccountChanged(ConfigManager.getSelectedAccount())
-showLobbyShot(lobbyShot)
+showLobbyShot()
 loadHomeFeed()
 // Open the Challenges tab in the background so the coin balance shows from the start.
 setTimeout(() => ensureWebview('challenges'), 1500)
