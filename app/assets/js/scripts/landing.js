@@ -32,74 +32,52 @@ const DiscordWrapper          = require('./assets/js/discordwrapper')
 const ProcessBuilder          = require('./assets/js/processbuilder')
 
 // Launch Elements
-const launch_content          = document.getElementById('launch_content')
-const launch_details          = document.getElementById('launch_details')
-const launch_progress         = document.getElementById('launch_progress')
-const launch_progress_label   = document.getElementById('launch_progress_label')
-const launch_details_text     = document.getElementById('launch_details_text')
-const server_selection_button = document.getElementById('server_selection_button')
 const user_text               = document.getElementById('user_text')
+const { createGameState }     = require('./assets/js/gamestate')
+
+/** Whether a game is being prepared, started or played; the Play view locks the other releases while it is. */
+const GameState = createGameState()
 
 const loggerLanding = LoggerUtil.getLogger('Landing')
 
 /* Launch Progress Wrapper Functions */
 
 /**
- * Show/hide the loading area.
- * 
- * @param {boolean} loading True if the loading area should be shown, otherwise false.
+ * The Play button shows progress itself (slices.js). Leaving the loading state while still
+ * preparing means the launch was abandoned — a failure, or a cancelled Java download — so the
+ * other releases unlock.
+ *
+ * @param {boolean} loading True when a launch starts, false when it ends without a game.
  */
 function toggleLaunchArea(loading){
-    if(loading){
-        launch_details.style.display = 'flex'
-        launch_content.style.display = 'none'
-    } else {
-        launch_details.style.display = 'none'
-        launch_content.style.display = 'flex'
-    }
+    if(!loading && GameState.state === 'preparing') GameState.failed()
 }
 
-/**
- * Set the details text of the loading area.
- * 
- * @param {string} details The new text for the loading details.
- */
+/** @param {string} details The step the launch is on, under the Play button's label. */
 function setLaunchDetails(details){
-    launch_details_text.innerHTML = details
+    document.getElementById('launch_details_text').innerHTML = details
 }
 
-/**
- * Set the value of the loading progress bar and display that value.
- * 
- * @param {number} percent Percentage (0-100)
- */
+/** @param {number} percent Percentage (0-100) */
 function setLaunchPercentage(percent){
-    launch_progress.setAttribute('max', 100)
-    launch_progress.setAttribute('value', percent)
-    launch_progress_label.innerHTML = percent + '%'
+    if(typeof Slices !== 'undefined') Slices.setPercent(percent)
 }
 
-/**
- * Set the value of the OS progress bar and display that on the UI.
- * 
- * @param {number} percent Percentage (0-100)
- */
+/** @param {number} percent Percentage (0-100), also shown on the taskbar. */
 function setDownloadPercentage(percent){
     remote.getCurrentWindow().setProgressBar(percent/100)
     setLaunchPercentage(percent)
 }
 
-/**
- * Enable or disable the launch button.
- * 
- * @param {boolean} val True to enable, false to disable.
- */
+/** @param {boolean} val True to enable, false to disable. */
 function setLaunchEnabled(val){
-    document.getElementById('launch_button').disabled = !val
+    document.getElementById('launch_button').disabled = !val || !GameState.canSwitch()
 }
 
 // Bind launch button
 document.getElementById('launch_button').addEventListener('click', async e => {
+    if(!GameState.canSwitch()) return
+    GameState.begin(ConfigManager.getSelectedServer())
     loggerLanding.info('Launching game..')
     try {
         const server = (await DistroAPI.getDistribution()).getServerById(ConfigManager.getSelectedServer())
@@ -315,6 +293,7 @@ let serverStatusListener = setInterval(() => refreshServerStatus(true), 300000)
  * @param {string} desc The overlay description.
  */
 function showLaunchFailure(title, desc){
+    GameState.failed()
     setOverlayContent(
         title,
         desc,
@@ -595,6 +574,7 @@ async function dlAsync(login = true) {
         const SERVER_JOINED_REGEX = new RegExp(`\\[.+\\]: \\[CHAT\\] ${authUser.displayName} joined the game`)
 
         const onLoadComplete = () => {
+            GameState.windowUp()
             toggleLaunchArea(false)
             if(hasRPC){
                 DiscordWrapper.updateDetails(Lang.queryJS('landing.discord.loading'))
@@ -641,6 +621,11 @@ async function dlAsync(login = true) {
         try {
             // Build Minecraft process.
             proc = pb.build()
+            GameState.spawned()
+            proc.on('close', () => {
+                GameState.exited()
+                remote.getCurrentWindow().setProgressBar(-1)
+            })
 
             // Bind listeners to stdout.
             proc.stdout.on('data', tempListener)
