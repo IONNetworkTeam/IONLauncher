@@ -39,6 +39,10 @@ mac:
 # Linux Configuration
 linux: 
   target: 'AppImage'
+  # An AppImage is a compressed file system that is decompressed on every launch, not once at
+  # install time like the Windows and macOS packages. With 'maximum' (xz) the launcher takes
+  # 15-25 seconds to start; with 'normal' (gzip) it takes under a second.
+  compression: 'normal'
   maintainer: 'IONNetwork'
   vendor: 'IONNetwork'
   synopsis: 'Modded Minecraft Launcher'

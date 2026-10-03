@@ -73,6 +73,7 @@ async function showMainUI(data){
     await prepareSettings(true)
     updateSelectedServer(data.getServerById(ConfigManager.getSelectedServer()))
     refreshServerStatus()
+    // Let the browser paint the prepared views once before they fade in.
     setTimeout(() => {
         $('#main').show()
 
@@ -86,27 +87,25 @@ async function showMainUI(data){
 
         if(ConfigManager.isFirstLaunch()){
             currentView = VIEWS.welcome
-            $(VIEWS.welcome).fadeIn(1000)
+            $(VIEWS.welcome).fadeIn(500)
         } else {
             if(isLoggedIn){
                 currentView = VIEWS.landing
-                $(VIEWS.landing).fadeIn(1000)
+                $(VIEWS.landing).fadeIn(500)
             } else {
                 loginOptionsCancelEnabled(false)
                 loginOptionsViewOnLoginSuccess = VIEWS.landing
                 loginOptionsViewOnLoginCancel = VIEWS.loginOptions
                 currentView = VIEWS.loginOptions
-                $(VIEWS.loginOptions).fadeIn(1000)
+                $(VIEWS.loginOptions).fadeIn(500)
             }
         }
 
-        setTimeout(() => {
-            $('#loadingContainer').fadeOut(500, () => {
-                $('#loadSpinnerImage').removeClass('rotating')
-            })
-        }, 250)
-        
-    }, 750)
+        $('#loadingContainer').fadeOut(300, () => {
+            $('#loadSpinnerImage').removeClass('rotating')
+        })
+
+    }, 50)
 }
 
 function showFatalStartupError(){
