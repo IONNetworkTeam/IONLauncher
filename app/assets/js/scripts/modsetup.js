@@ -145,11 +145,139 @@ async function acceptFile(mdl, file){
 }
 
 /**
- * Ask the player to download the given modules themselves.
- * @returns {Promise<boolean>} true once every file is in place, false when cancelled.
+ * Ask the player to download the given modules themselves, Prism-style: one "Open page" button
+ * per mod, the Downloads folder is watched for the expected file, files can also be chosen or
+ * dropped. Resolves true once every file is in place, false when the player cancels.
  */
 function showManualModsDialog(modules){
-    // Task 16 replaces this stub with the dialog.
-    loggerModSetup.error(`Manual download dialog not implemented; missing: ${modules.map(m => m.rawModule.name).join(', ')}`)
-    return Promise.resolve(false)
+    const { webUtils } = require('electron')
+    const downloadsDir = remote.app.getPath('downloads')
+    const t = (key, vars) => escapeHtml(Lang.queryJS(`landing.manualMods.${key}`, vars))
+
+    return new Promise(resolve => {
+        const pending = new Map(modules.map(m => [m.rawModule.id, m]))
+        const rows = new Map()
+
+        const dialog = document.createElement('div')
+        dialog.className = 'ion-shell fixed inset-0 z-[100] flex items-center justify-center bg-black/70'
+        dialog.innerHTML = `
+            <div class="ion-rise w-[620px] max-w-[calc(100vw-40px)] rounded-xl border border-white/10 bg-ionGray p-6 text-white shadow-[0_22px_45px_-14px_rgba(0,0,0,0.8)]">
+                <h2 class="text-lg font-bold">${t('title')}</h2>
+                <p class="mt-1 text-sm text-neutral-400">${t('description', { folder: downloadsDir })}</p>
+                <ul data-manual="list" class="mt-4 max-h-[50vh] space-y-2 overflow-y-auto pr-1"></ul>
+                <p data-manual="hint" class="mt-3 text-xs text-neutral-500">${t('dropHint')}</p>
+                <div class="mt-5 flex items-center justify-between gap-2">
+                    <button type="button" data-manual="openAll" class="rounded-lg bg-white/10 px-3.5 py-1.5 text-sm font-medium text-white transition hover:bg-white/20">${t('openAll')}</button>
+                    <div class="flex gap-2">
+                        <button type="button" data-manual="cancel" class="rounded-lg px-4 py-2 text-sm text-neutral-300 hover:bg-white/10">${t('cancel')}</button>
+                        <button type="button" data-manual="continue" disabled class="play-button rounded-lg px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">${t('continue')}</button>
+                    </div>
+                </div>
+            </div>`
+
+        const list = dialog.querySelector('[data-manual="list"]')
+        for(const mdl of modules){
+            const raw = mdl.rawModule
+            const li = document.createElement('li')
+            li.className = 'flex items-center gap-3 rounded-lg border border-white/10 bg-ionGrayer px-3 py-2'
+            li.innerHTML = `
+                <div class="min-w-0 flex-1">
+                    <p class="truncate text-sm font-medium">${escapeHtml(raw.name)} <span class="font-mono text-[11px] text-neutral-500">${escapeHtml(mdl.getMavenComponents()?.version ?? '')}</span></p>
+                    <p class="truncate font-mono text-[11px] text-neutral-500" title="${escapeHtml(raw.ion.manual.fileName)}">${escapeHtml(raw.ion.manual.fileName)}</p>
+                </div>
+                <span data-status class="shrink-0 rounded-full bg-ionWarn/20 px-2 py-0.5 text-[11px] font-medium text-[#f0c070]">${t('waiting')}</span>
+                <button type="button" data-open class="shrink-0 rounded-lg bg-white/10 px-3 py-1.5 text-xs font-medium hover:bg-white/20">${t('openPage')}</button>
+                <button type="button" data-choose class="shrink-0 rounded-lg bg-white/10 px-3 py-1.5 text-xs font-medium hover:bg-white/20">${t('chooseFile')}</button>`
+            li.querySelector('[data-open]').onclick = () => shell.openExternal(raw.ion.manual.pageUrl)
+            li.querySelector('[data-choose]').onclick = async () => {
+                const { canceled, filePaths } = await remote.dialog.showOpenDialog(remote.getCurrentWindow(), {
+                    properties: ['openFile'],
+                    filters: [{ name: 'Minecraft mod', extensions: ['jar'] }]
+                })
+                if(canceled || filePaths.length === 0) return
+                if(!await tryAccept(mdl, filePaths[0])) flash(li, t('wrongFile'))
+            }
+            rows.set(raw.id, li)
+            list.appendChild(li)
+        }
+
+        function flash(li, text){
+            const status = li.querySelector('[data-status]')
+            const original = status.textContent
+            status.textContent = text
+            status.classList.add('bg-ionCritical/20', 'text-[#f1a19b]')
+            setTimeout(() => {
+                if(status.textContent === text){
+                    status.textContent = original
+                    status.classList.remove('bg-ionCritical/20', 'text-[#f1a19b]')
+                }
+            }, 2500)
+        }
+
+        async function tryAccept(mdl, file){
+            try {
+                if(!await acceptFile(mdl, file)) return false
+            } catch(err) {
+                loggerModSetup.warn(`Could not accept ${file}`, err)
+                return false
+            }
+            markDone(mdl)
+            return true
+        }
+
+        function markDone(mdl){
+            const id = mdl.rawModule.id
+            if(!pending.delete(id)) return
+            const li = rows.get(id)
+            const status = li.querySelector('[data-status]')
+            status.textContent = Lang.queryJS('landing.manualMods.found')
+            status.className = 'shrink-0 rounded-full bg-ionGood/20 px-2 py-0.5 text-[11px] font-medium text-[#7fd9c4]'
+            for(const b of li.querySelectorAll('button')) b.disabled = true
+            li.classList.add('opacity-70')
+            if(pending.size === 0) dialog.querySelector('[data-manual="continue"]').disabled = false
+        }
+
+        // Pick up files the player saved to Downloads (polling covers editors that don't emit watch events).
+        async function scanDownloads(){
+            for(const mdl of [...pending.values()]){
+                const candidate = path.join(downloadsDir, mdl.rawModule.ion.manual.fileName)
+                if(await fsx.pathExists(candidate)) await tryAccept(mdl, candidate)
+            }
+        }
+        const poll = setInterval(() => { scanDownloads().catch(() => {}) }, 1500)
+        let watcher = null
+        try {
+            watcher = require('fs').watch(downloadsDir, () => { scanDownloads().catch(() => {}) })
+        } catch(err) {
+            loggerModSetup.warn('Cannot watch the Downloads folder; polling only.', err)
+        }
+
+        dialog.ondragover = e => { e.preventDefault() }
+        dialog.ondrop = async e => {
+            e.preventDefault()
+            for(const file of e.dataTransfer.files){
+                const filePath = webUtils.getPathForFile(file)
+                let accepted = false
+                for(const mdl of [...pending.values()]){
+                    if(await tryAccept(mdl, filePath)){ accepted = true; break }
+                }
+                if(!accepted) dialog.querySelector('[data-manual="hint"]').textContent = Lang.queryJS('landing.manualMods.droppedWrongFile', { file: file.name })
+            }
+        }
+
+        function close(result){
+            clearInterval(poll)
+            watcher?.close()
+            dialog.remove()
+            resolve(result)
+        }
+        dialog.querySelector('[data-manual="openAll"]').onclick = () => {
+            for(const mdl of pending.values()) shell.openExternal(mdl.rawModule.ion.manual.pageUrl)
+        }
+        dialog.querySelector('[data-manual="cancel"]').onclick = () => close(false)
+        dialog.querySelector('[data-manual="continue"]').onclick = () => close(true)
+
+        document.body.appendChild(dialog)
+        scanDownloads().catch(() => {})
+    })
 }

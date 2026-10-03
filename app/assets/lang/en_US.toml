@@ -229,6 +229,20 @@ doneEnjoyServer = "Done. Enjoy the server!"
 checkConsoleForDetails = "Please check the console (CTRL + Shift + i) for more details."
 githubModCorrupted = "The GitHub mod(s) {mods} did not match their release checksum after downloading. They were removed; please try again."
 
+[js.landing.manualMods]
+title = "Some mods need a manual download"
+description = "Their authors don't allow launchers to fetch them. Open each download page and save the file. The launcher picks it up from {folder} automatically, or choose the file yourself."
+dropHint = "You can also drop the downloaded files onto this window."
+droppedWrongFile = "{file} is not one of the expected files."
+waiting = "Waiting for file"
+found = "Ready"
+wrongFile = "Not the expected file"
+openPage = "Open page"
+chooseFile = "Choose file…"
+openAll = "Open all pages"
+cancel = "Cancel"
+continue = "Continue"
+
 [js.landing.news]
 checking = "Checking for News"
 

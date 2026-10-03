@@ -18,6 +18,7 @@
 
 @source "../../*.ejs";
 @source "../js/scripts/shell.js";
+@source "../js/scripts/modsetup.js";
 
 @theme {
     /* The website's palette, so both read as one product. */
