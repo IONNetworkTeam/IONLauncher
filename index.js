@@ -298,7 +298,7 @@ function createWindow() {
     remoteMain.enable(win.webContents)
     WebAuth.init(win)
     // The friends system (app/assets/js/friends): registers its IPC handlers once.
-    Friends.init({ app, ipcMain, BrowserWindow, safeStorage, webAuth: WebAuth, web: Web, logger: LoggerUtil.getLogger('Friends') })
+    Friends.init({ app, ipcMain, BrowserWindow, safeStorage, webAuth: WebAuth, web: Web, appDir: path.join(__dirname, 'app'), host: win, logger: LoggerUtil.getLogger('Friends') })
     startWallpapers(win)
 
     const data = {

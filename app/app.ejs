@@ -9,6 +9,7 @@
     <link type="text/css" rel="stylesheet" href="./assets/css/ion.css">
     <link type="text/css" rel="stylesheet" href="./assets/css/slices.css">
     <link type="text/css" rel="stylesheet" href="./assets/css/workspace.css">
+    <link type="text/css" rel="stylesheet" href="./assets/css/friends.css">
     <style>
         body {
             background: #07080b;
@@ -40,6 +41,8 @@
         <%- include('landing') %>
     </div>
     <%- include('overlay') %>
+    <%# Friends (friends.js): the strip beside the Play view, its cards and the invite toast. Loaded after the views' own scripts. %>
+    <script src="./assets/js/scripts/friends.js"></script>
     <div id="loadingContainer">
         <div id="loadingContent">
             <div id="loadSpinnerContainer">

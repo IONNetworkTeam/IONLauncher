@@ -14,11 +14,15 @@
  *   friends:presence {state, release}                          what the launcher is doing (presence.js)
  *   friends:poll                                               the presence poll, now (a window opened)
  *   friends:status                                             {account, session, live}
+ *   friends:releases [list]                                    the launcher window's releases, for the friends window (no list: read them)
+ *   friends:openWindow · friends:window op                    the friends window (friends.ejs): open; pin, putBack, minimize, close
+ *   friends:act op, uuid                                       from the friends window: join or challenge, run in the launcher window
  *
  * Main → renderer (`friends:event`, to every window): `{event, ...payload}` for the pushed events
  * of the contract (presence, request, request_resolved, friend_added, friend_removed, invite,
  * invite_expired), `snapshot` {friends} from the presence poll, `view` {view} after a change made
- * here, and `status` {session, live, reason}.
+ * here, `status` {session, live, reason}, `window` {open} and `releases` {releases}. The launcher
+ * window alone gets `friends:do` {op, uuid} for a Join or Challenge pressed in the friends window.
  *
  * Everything degrades: without a session the answers say NO_SESSION and nothing is retried in a
  * loop; a 503 keeps the last view; the Play button never waits for any of this.
@@ -27,6 +31,7 @@
  */
 const fs = require('fs')
 const path = require('path')
+const { pathToFileURL } = require('url')
 const { createSessionStore } = require('./session')
 const { createFriendsApi } = require('./api')
 const { createPresence } = require('./presence')
@@ -37,6 +42,8 @@ const NAME = /^[A-Za-z0-9_]{3,16}$/
 const UUID = /^[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}$/i
 
 let initialised = false
+let hostWin = null
+let friendsWin = null
 
 /**
  * @param {Object} deps
@@ -46,9 +53,12 @@ let initialised = false
  * @param {Electron.SafeStorage} deps.safeStorage
  * @param {{fetchJson: Function}} deps.webAuth webauth.js
  * @param {{url: string}} deps.web weburl.js, for the socket's address
+ * @param {string} deps.appDir The `app` directory, for friends.ejs.
+ * @param {Electron.BrowserWindow} deps.host The launcher window, where Join and Challenge run.
  * @param {Object} deps.logger
  */
-function init({ app, ipcMain, BrowserWindow, safeStorage, webAuth, web, logger }){
+function init({ app, ipcMain, BrowserWindow, safeStorage, webAuth, web, appDir, host, logger }){
+    hostWin = host
     if(initialised) return
     initialised = true
 
@@ -76,6 +86,7 @@ function init({ app, ipcMain, BrowserWindow, safeStorage, webAuth, web, logger }
 
     let account = null
     let lastView = null
+    let releases = []
     let status = { session: false, live: false, reason: null }
 
     const api = createFriendsApi({ fetchJson: webAuth.fetchJson, session, account: () => account, logger })
@@ -90,6 +101,7 @@ function init({ app, ipcMain, BrowserWindow, safeStorage, webAuth, web, logger }
         const next = { ...status, ...patch }
         if(next.session === status.session && next.live === status.live && next.reason === status.reason) return
         status = next
+        logger.info(`Friends: session ${status.session ? 'up' : 'down'}, live channel ${status.live ? 'up' : 'down'}${status.reason ? ` (${status.reason})` : ''}.`)
         broadcast('status', status)
     }
 
@@ -97,6 +109,8 @@ function init({ app, ipcMain, BrowserWindow, safeStorage, webAuth, web, logger }
     function note(res){
         if(res.ok){ setStatus({ session: true, reason: null }); return res }
         if(res.code === 'NO_SESSION') setStatus({ session: false, reason: res.reason ?? 'invalid' })
+        // The session exists, but the site's password gate answers bearer requests: nothing to show, nothing to retry in a loop.
+        else if(res.code === 'GATE') setStatus({ session: true, reason: 'gate' })
         else if(res.code === 'UNAVAILABLE' || res.code === 'OFFLINE') setStatus({ reason: res.code.toLowerCase() })
         return res
     }
@@ -123,7 +137,7 @@ function init({ app, ipcMain, BrowserWindow, safeStorage, webAuth, web, logger }
         ticket: () => api.wsTicket().then(note),
         poll: () => api.presence().then(note),
         url: web.url.replace(/^http/, 'ws') + '/api/launcher/friends/ws',
-        onEvent: (event, frame) => broadcast(event, frame),
+        onEvent: (event, frame) => { logger.info(`Friends: ${event} pushed.`); broadcast(event, frame) },
         onSnapshot: friends => broadcast('snapshot', { friends }),
         onStatus: up => setStatus({ live: up }),
         logger
@@ -139,7 +153,7 @@ function init({ app, ipcMain, BrowserWindow, safeStorage, webAuth, web, logger }
         if(!account) return
         const first = await view()
         if(first.ok) broadcast('view', { view: first.data })
-        if(!account || first.code === 'NO_SESSION') return
+        if(!account || first.code === 'NO_SESSION' || first.code === 'GATE') return
         presence.start()
         live.start()
     }
@@ -200,9 +214,50 @@ function init({ app, ipcMain, BrowserWindow, safeStorage, webAuth, web, logger }
         presence: (_e, p) => {
             if(!p || !['idle', 'playing'].includes(p.state)) return false
             presence.set(p.state, typeof p.release === 'string' ? p.release : null)
+            // The friends window shows Invite only while the game runs.
+            broadcast('launcher', { busy: p.state === 'playing', release: presence.release })
             return true
         },
-        poll: () => live.running ? live.poll() : undefined
+        poll: () => live.running ? live.poll() : undefined,
+        releases: (_e, list) => {
+            if(Array.isArray(list)){
+                releases = list.filter(r => r && typeof r.id === 'string').map(r => ({ id: r.id, name: String(r.name ?? r.id), net: !!r.net, accent: r.accent ?? null, playBg: typeof r.playBg === 'string' ? r.playBg : null }))
+                broadcast('releases', { releases })
+            }
+            return releases
+        },
+        openWindow: () => openWindow(),
+        window: (e, op) => {
+            const w = BrowserWindow.fromWebContents(e.sender)
+            if(!w || w !== friendsWin) return false
+            if(op === 'pin'){ w.setAlwaysOnTop(!w.isAlwaysOnTop()); return w.isAlwaysOnTop() }
+            if(op === 'minimize') w.minimize()
+            else if(op === 'close' || op === 'putBack') w.close()
+            return true
+        },
+        act: (e, op, uuid) => {
+            if(BrowserWindow.fromWebContents(e.sender) !== friendsWin || !guard(uuid) || !['join', 'challenge'].includes(op)) return false
+            const target = hostWin && !hostWin.isDestroyed() ? hostWin : BrowserWindow.getAllWindows().find(w => w !== friendsWin && !w.isDestroyed())
+            target?.webContents.send('friends:do', { op, uuid })
+            if(target && !target.isDestroyed()) target.focus()
+            return !!target
+        }
+    }
+
+    /** The friends window: one at a time, frameless, beside the launcher. */
+    function openWindow(){
+        if(friendsWin && !friendsWin.isDestroyed()){ friendsWin.focus(); return true }
+        friendsWin = new BrowserWindow({
+            width: 420, height: 720, minWidth: 360, minHeight: 480,
+            frame: false, backgroundColor: '#0e0f14', show: false,
+            webPreferences: { nodeIntegration: true, contextIsolation: false }
+        })
+        friendsWin.removeMenu()
+        friendsWin.loadURL(pathToFileURL(path.join(appDir, 'friends.ejs')).toString())
+        friendsWin.once('ready-to-show', () => friendsWin?.show())
+        friendsWin.on('closed', () => { friendsWin = null; broadcast('window', { open: false }) })
+        broadcast('window', { open: true })
+        return true
     }
     const badUuid = () => ({ ok: false, status: 400, code: 'BAD_REQUEST', error: null })
     for(const [name, fn] of Object.entries(handlers)) ipcMain.handle(`friends:${name}`, fn)

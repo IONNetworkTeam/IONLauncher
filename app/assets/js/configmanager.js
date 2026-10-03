@@ -92,7 +92,8 @@ const DEFAULT_CONFIG = {
         },
         launcher: {
             allowPrerelease: false,
-            dataDirectory: dataPath
+            dataDirectory: dataPath,
+            friends: false
         }
     },
     newsCache: {
@@ -976,4 +977,24 @@ exports.getAllowPrerelease = function(def = false){
  */
 exports.setAllowPrerelease = function(allowPrerelease){
     config.settings.launcher.allowPrerelease = allowPrerelease
+}
+
+/**
+ * Whether the friends strip and window are shown (a preview until the Slices redesign places them).
+ * ION_FRIENDS=1 in the environment turns them on for a development run.
+ *
+ * @param {boolean} def Optional. If true, the default value will be returned.
+ * @returns {boolean} Whether friends are shown.
+ */
+exports.getFriendsEnabled = function(def = false){
+    return !def ? config.settings.launcher.friends : DEFAULT_CONFIG.settings.launcher.friends
+}
+
+/**
+ * Show or hide the friends strip and window.
+ *
+ * @param {boolean} enabled Whether friends are shown.
+ */
+exports.setFriendsEnabled = function(enabled){
+    config.settings.launcher.friends = !!enabled
 }

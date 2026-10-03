@@ -1,0 +1,54 @@
+<%#
+    The friends window (friendswindow.js): its own title bar, the add row, the requests, the three
+    sections and the two switches, as the "Friends v2" window board shows them. Opened from the
+    friends strip (friends.js) through the main process (friends/index.js).
+%>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <meta charset="utf-8" http-equiv="Content-Security-Policy" content="script-src 'self'"/>
+    <title><%= lang('friends.windowTitle') %></title>
+    <link type="text/css" rel="stylesheet" href="./assets/css/ion.css">
+    <link type="text/css" rel="stylesheet" href="./assets/css/friends.css">
+    <style>
+        html, body { margin: 0; padding: 0; height: 100%; background: #0e0f14; overflow: hidden; }
+    </style>
+</head>
+<body>
+    <div id="friendsWindow" class="fw">
+        <div class="fw-bar">
+            <span class="horizon"></span>
+            <img src="assets/images/ion/star.svg" alt="">
+            <span class="fw-title"><%= lang('friends.windowTitle') %></span>
+            <span class="fw-online" id="fwOnline"></span>
+            <div style="flex: 1"></div>
+            <button class="tb-icon" id="fwPin" aria-pressed="false" aria-label="<%= lang('friends.keepOnTop') %>" title="<%= lang('friends.keepOnTop') %>"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4h6l-1 6 3 3H7l3-3zM12 13v7"/></svg></button>
+            <button class="tb-icon" id="fwPutBack" aria-label="<%= lang('friends.putBack') %>" title="<%= lang('friends.putBack') %>"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 20H4v-6M4 20l8-8M6 10V5a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1h-5"/></svg></button>
+            <span class="fw-sep"></span>
+            <button class="winbtn" id="fwMinimize" aria-label="<%= lang('friends.minimize') %>"><svg width="10" height="10" viewBox="0 0 12 12"><rect fill="currentColor" width="10" height="1" x="1" y="6"/></svg></button>
+            <button class="winbtn x" id="fwClose" aria-label="<%= lang('friends.close') %>"><svg width="10" height="10" viewBox="0 0 12 12"><path d="M1.5 1.5l9 9M10.5 1.5l-9 9" stroke="currentColor" stroke-width="1.1"/></svg></button>
+        </div>
+        <p class="fw-stale" id="fwStale" hidden></p>
+        <form class="fr-add" id="fwAdd">
+            <label class="fr-kicker" for="fwName"><%= lang('friends.addByName') %></label>
+            <div class="fr-add-row">
+                <span class="fr-preview" id="fwPreview"></span>
+                <input id="fwName" class="fr-field" type="text" maxlength="16" autocomplete="off" spellcheck="false" placeholder="<%= lang('friends.namePlaceholder') %>">
+                <button type="submit" class="fr-join" id="fwSend" disabled><%= lang('friends.send') %></button>
+            </div>
+            <p class="fcard-note" id="fwAddNote" hidden></p>
+        </form>
+        <div class="fd-body" id="fwBody"></div>
+        <div class="fd-foot">
+            <div class="row">
+                <div class="rt"><%= lang('friends.showActivity') %></div>
+                <button class="sw" id="fwShowActivity" role="switch" aria-checked="true" aria-label="<%= lang('friends.showActivity') %>"><span></span></button>
+            </div>
+            <div class="row">
+                <div class="rt"><%= lang('friends.appearOffline') %></div>
+                <button class="sw" id="fwAppearOffline" role="switch" aria-checked="false" aria-label="<%= lang('friends.appearOffline') %>"><span></span></button>
+            </div>
+        </div>
+    </div>
+    <script src="./assets/js/scripts/friendswindow.js"></script>
+</body>
+</html>
