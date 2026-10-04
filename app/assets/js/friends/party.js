@@ -7,20 +7,18 @@
  *
  * @module friends/party
  */
-const UUID = /^[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}$/i
-
 const badRequest = () => ({ ok: false, status: 400, code: 'BAD_REQUEST', error: null })
-const isId = v => typeof v === 'string' && UUID.test(v)
 
 /**
  * @param {Object} deps
  * @param {Object} deps.api The friends client (api.js).
+ * @param {(v: *) => boolean} deps.isId index.js's uuid guard, so the pattern lives in one place.
  * @param {(res: Object) => Object} deps.note index.js's session/reachability bookkeeping; returns its argument.
  * @param {(event: string, payload: Object) => void} deps.broadcast To every window.
  * @param {() => number} [deps.epoch] Counts the pushed party events. A `party` read whose answer
  *   arrives after the count moved is older than the push, so it is returned but not broadcast.
  */
-function createPartyHandlers({ api, note, broadcast, epoch = () => 0 }){
+function createPartyHandlers({ api, isId, note, broadcast, epoch = () => 0 }){
     function publish(res){
         if(res?.ok && res.data && typeof res.data === 'object'){
             broadcast('party', { party: res.data.party ?? null, invites: Array.isArray(res.data.invites) ? res.data.invites : [] })

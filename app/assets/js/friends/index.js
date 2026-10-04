@@ -109,7 +109,7 @@ function init({ app, ipcMain, BrowserWindow, safeStorage, webAuth, web, appDir, 
 
     /** Counts the pushed party events, so a GET /party that was in flight when one landed is dropped. */
     let partyEpoch = 0
-    const party = createPartyHandlers({ api, note, broadcast, epoch: () => partyEpoch })
+    const party = createPartyHandlers({ api, isId: v => guard(v), note, broadcast, epoch: () => partyEpoch })
     /** The party, read again: on start and beside every presence poll, so a missed frame heals within a minute. */
     const refreshParty = () => { party.party().catch(() => {}) }
 

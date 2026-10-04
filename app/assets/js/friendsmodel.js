@@ -21,6 +21,16 @@ const NAME = /^[A-Za-z0-9_]{3,16}$/
 const EMPTY_SETTINGS = { showActivity: true, appearOffline: false, allowJoin: true, receiveRequests: true }
 const PARTY_WHERE = ['launcher', 'network', 'away']
 const ENDED_KEPT = 32
+/** The strip's "Disbands in N min" line shows once the party has been idle this long (the store reaps at 15). */
+const IDLE_WARN_MS = 10 * 60000
+const TOAST_MIN_MS = 5000
+const TOAST_MAX_MS = 60000
+/** How often both renderers redraw a party so "Disbands in N min" counts down. */
+const PARTY_TICK_MS = 30000
+/** A member's `where` -> the language key of its label (friends.<key>); shared by the strip card and the window. */
+const PARTY_WHERE_KEYS = { launcher: 'whereLauncher', network: 'whereNetwork', away: 'whereAway' }
+/** The leader's crown, shared by the strip bracket and the window. */
+const CROWN_SVG = '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 7.5l4.6 4L12 4l4.4 7.5L21 7.5 19.2 18H4.8z"/></svg>'
 
 const isObj = v => v && typeof v === 'object'
 
@@ -136,6 +146,54 @@ function cleanFollow(f){
     }
 }
 
+/** The language key for a member's `where`; anything unknown reads as away. */
+function partyWhereKey(where){
+    return typeof where === 'string' && Object.hasOwn(PARTY_WHERE_KEYS, where) ? PARTY_WHERE_KEYS[where] : PARTY_WHERE_KEYS.away
+}
+
+/** A gamemode key from the wire as a label; an unknown key is shown as sent. `Object.hasOwn` keeps "__proto__" and friends from matching. */
+function modeLabel(gamemode){
+    return Object.hasOwn(MODES, gamemode) ? MODES[gamemode] : gamemode
+}
+
+/**
+ * Whole minutes until the idle disband, once the party has been idle 10 min (at least 1: when
+ * overdue the reaper is on its way); otherwise null.
+ */
+function idleDisbandMinutes(party, now = Date.now()){
+    if(!party || party.lastActivity == null || party.idleDisbandAt == null) return null
+    if(now - party.lastActivity < IDLE_WARN_MS) return null
+    return Math.max(1, Math.ceil((party.idleDisbandAt - now) / 60000))
+}
+
+/**
+ * The two-click confirm (Leave, Kick): the first click on a target arms it, the second on the
+ * same target confirms. A click on another target re-arms. Returns the new armed value.
+ */
+function confirmStep(armed, target){
+    return armed === target ? { confirmed: true, next: null } : { confirmed: false, next: target }
+}
+
+/**
+ * How long the party invite toast stays: until `expiresAt`, but never under 5 s or over 60 s,
+ * so a launcher clock that is off by minutes neither flashes it nor keeps it forever.
+ */
+function toastMs(expiresAt, now = Date.now()){
+    if(expiresAt == null) return TOAST_MAX_MS
+    return Math.min(TOAST_MAX_MS, Math.max(TOAST_MIN_MS, expiresAt - now))
+}
+
+/**
+ * Where the follow toast says the leader went: the mode's label, the hub, or the network. The
+ * frame carries a public gamemode key, never a server name.
+ */
+function followPlace(where, texts){
+    const g = where?.gamemode
+    if(typeof g !== 'string' || !g || g === 'network') return texts.network
+    if(g === 'lobby') return texts.hub
+    return modeLabel(g)
+}
+
 /** playing → launcher (and online) → offline, then by name. */
 function compareFriends(a, b){
     const d = (STATUS_ORDER[a.presence.status] ?? 3) - (STATUS_ORDER[b.presence.status] ?? 3)
@@ -176,7 +234,7 @@ function activityLine(presence, releaseName = () => null, t = TEXTS, now = Date.
             if(a?.kind === 'pack') return (a.release && releaseName(a.release)) || t.playing
             if(a?.kind === 'network'){
                 if(!a.gamemode || a.gamemode === 'lobby') return t.inTheHub
-                const mode = MODES[a.gamemode] || a.gamemode
+                const mode = modeLabel(a.gamemode)
                 const where = a.inMatch ? t.inAMatch : a.phase === 'podium' ? t.podium : t.lobby
                 return `${mode} · ${where}`
             }
@@ -400,6 +458,50 @@ function createFriendsModel(){
         get partyKicked(){ return partyKicked },
         /** The "You were removed from the party" note was shown. */
         clearKicked(){ if(!partyKicked) return; partyKicked = null; emit() },
+        isMe: uuid => !!me?.uuid && uid(uuid) === uid(me.uuid),
+        isInMyParty: uuid => !!party?.members.some(m => uid(m.uuid) === uid(uuid)),
+        amLeader: () => !!party && party.leader != null && !!me?.uuid && uid(party.leader) === uid(me.uuid),
+        /** My party has a live invite out for this player. */
+        invitedToMyParty: uuid => !!party?.invites.some(i => uid(i.uuid) === uid(uuid)),
+        /** Whole minutes until the idle disband, once the party has been idle 10 min; otherwise null. */
+        idleDisbandIn: (now = Date.now()) => idleDisbandMinutes(party, now),
+        /**
+         * What Invite does for a friend. While I am in a round, friends in the launcher get the
+         * round invite ("come where I am"), as before, even if already in my party. Otherwise
+         * anyone not offline and not already in my party gets a party invite, if I lead the
+         * party or have none.
+         */
+        inviteAction(uuid, inRound){
+            const f = friends.get(uuid)
+            if(!f) return null
+            const st = f.presence.status
+            if(st === 'offline') return null
+            if(inRound && (st === 'launcher' || st === 'online')) return 'round'
+            if(api.isInMyParty(uuid)) return null
+            if(party && !api.amLeader()) return null
+            return 'party'
+        },
+        /** The one toast to show: a party invite, the kicked note, a follow, then a round invite, skipping dismissed keys. */
+        pickToast(dismissed = new Set()){
+            for(const i of partyInvites){
+                const key = `party:${i.partyId}`
+                if(!dismissed.has(key)) return { kind: 'party', key, item: i }
+            }
+            if(partyKicked){
+                const key = `kicked:${partyKicked}`
+                if(!dismissed.has(key)) return { kind: 'kicked', key, item: { partyId: partyKicked } }
+            }
+            if(partyFollow){
+                // A move to another mode (or release) is a new key, so it shows again.
+                const key = `follow:${partyFollow.partyId}:${partyFollow.where.gamemode}:${partyFollow.where.release ?? ''}`
+                if(!dismissed.has(key)) return { kind: 'follow', key, item: partyFollow }
+            }
+            for(const i of invites){
+                const key = `round:${i.from.uuid}`
+                if(!dismissed.has(key)) return { kind: 'round', key, item: i }
+            }
+            return null
+        },
         friends: sorted,
         friend: uuid => friends.get(uuid) ?? null,
         /** The window's three sections. */
@@ -440,4 +542,4 @@ function createFriendsModel(){
     return api
 }
 
-module.exports = { createFriendsModel, cleanPresence, compareFriends, activityLine, ago, toMs, cleanPartyView, cleanPartyInvite, MODES, NAME, TEXTS }
+module.exports = { createFriendsModel, cleanPresence, compareFriends, activityLine, ago, toMs, toastMs, followPlace, modeLabel, partyWhereKey, idleDisbandMinutes, confirmStep, cleanPartyView, cleanPartyInvite, CROWN_SVG, PARTY_TICK_MS, PARTY_WHERE_KEYS, MODES, NAME, TEXTS }

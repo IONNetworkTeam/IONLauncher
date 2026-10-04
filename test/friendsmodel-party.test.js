@@ -1,6 +1,6 @@
 const { test } = require('node:test')
 const assert = require('node:assert/strict')
-const { createFriendsModel, toMs, cleanPartyView } = require('../app/assets/js/friendsmodel')
+const { createFriendsModel, toMs, cleanPartyView, toastMs, followPlace, modeLabel, partyWhereKey, idleDisbandMinutes, confirmStep, CROWN_SVG, PARTY_TICK_MS, PARTY_WHERE_KEYS } = require('../app/assets/js/friendsmodel')
 
 const T0 = Date.parse('2026-10-04T12:00:00Z')
 const MIN = 60000
@@ -191,4 +191,119 @@ test('"kicked_all" leaves the removed note; idle, empty and admin do not', () =>
         m.apply('party_disbanded', { partyId: 'p1', reason })
         assert.equal(m.partyKicked, note, reason)
     }
+})
+
+test('who I can invite, and how: a party invite outside a round, the round invite in one', () => {
+    const m = loaded()
+    // No party yet: anyone not offline gets a party invite (the first invite creates the party).
+    assert.equal(m.inviteAction('a', false), 'party')   // playing
+    assert.equal(m.inviteAction('d', false), 'party')   // launcher
+    assert.equal(m.inviteAction('o', false), 'party')   // online
+    assert.equal(m.inviteAction('e', false), null)      // offline
+    assert.equal(m.inviteAction('nobody', false), null)
+    m.apply('party', { party: partyView(), invites: [] })
+    assert.equal(m.amLeader(), true)
+    assert.equal(m.isInMyParty('d'), true)
+    assert.equal(m.isInMyParty('a'), false)
+    assert.equal(m.isMe('ME'), true)
+    assert.equal(m.inviteAction('d', false), null)      // already in my party
+    assert.equal(m.inviteAction('a', false), 'party')
+    assert.equal(m.invitedToMyParty('o'), true)
+    assert.equal(m.invitedToMyParty('a'), false)
+    // In a round: friends in the launcher get the round invite ("come where I am"), as before.
+    assert.equal(m.inviteAction('o', true), 'round')
+    assert.equal(m.inviteAction('d', true), 'round')
+    assert.equal(m.inviteAction('a', true), 'party')
+    // A member who is not the leader cannot party-invite (the route answers NOT_LEADER).
+    m.apply('party', { party: partyView({ leader: 'd' }), invites: [] })
+    assert.equal(m.amLeader(), false)
+    assert.equal(m.inviteAction('a', false), null)
+    assert.equal(m.inviteAction('o', true), 'round')
+})
+
+test('"Disbands in N min" once the party has been idle 10 min', () => {
+    const m = loaded()
+    assert.equal(m.idleDisbandIn(T0), null)                         // no party
+    m.apply('party', { party: partyView(), invites: [] })
+    assert.equal(m.idleDisbandIn(T0 + 9 * MIN), null)
+    assert.equal(m.idleDisbandIn(T0 + 10 * MIN), 5)
+    assert.equal(m.idleDisbandIn(T0 + 11.5 * MIN), 4)
+    assert.equal(m.idleDisbandIn(T0 + 16 * MIN), 1)                 // overdue: the reaper is on its way
+    m.apply('party', { party: partyView({ idleDisbandAt: null }), invites: [] })
+    assert.equal(m.idleDisbandIn(T0 + 12 * MIN), null)
+    m.apply('party', { party: partyView({ lastActivity: T0, idleDisbandAt: T0 + 15 * MIN }), invites: [] })   // epoch ms still reads
+    assert.equal(m.idleDisbandIn(T0 + 10 * MIN), 5)
+})
+
+test('the follow toast names a mode, the hub or ION Network, never a server', () => {
+    const texts = { hub: 'the hub', network: 'ION Network' }
+    assert.equal(followPlace({ gamemode: 'bowbash', release: 'ion_net' }, texts), 'Bowbash')
+    assert.equal(followPlace({ gamemode: 'newmode', release: 'ion_net' }, texts), 'newmode')
+    assert.equal(followPlace({ gamemode: 'lobby', release: 'ion_net' }, texts), 'the hub')
+    assert.equal(followPlace({ gamemode: 'network', release: null }, texts), 'ION Network')
+    assert.equal(followPlace(null, texts), 'ION Network')
+    assert.equal(followPlace({ gamemode: '__proto__' }, texts), '__proto__')
+})
+
+test('the toast time follows expiresAt, clamped against a launcher clock that is off', () => {
+    assert.equal(toastMs(T0 + 60000, T0), 60000)
+    assert.equal(toastMs(T0 + 42000, T0), 42000)
+    assert.equal(toastMs(T0 + 10 * MIN, T0), 60000)                 // launcher clock behind
+    assert.equal(toastMs(T0 - 10 * MIN, T0), 5000)                  // launcher clock ahead
+    assert.equal(toastMs(null, T0), 60000)
+})
+
+test('one toast at a time: party invite, then follow, then round invite; dismissed keys are skipped', () => {
+    const m = loaded()
+    assert.equal(m.pickToast(new Set()), null)
+    m.apply('invite', { invite: { from: { uuid: 'a', name: 'alice', headUrl: '/h/a' }, activity: null, expiresAt: 'x' } })
+    m.apply('party', { party: partyView({ leader: 'd', members: [member('d', 'Dan', 'launcher', true), member('me', 'Me', 'launcher')] }), invites: [partyInvite('p9')] })
+    m.apply('party_follow', { partyId: 'p1', leader: { uuid: 'd', name: 'Dan' }, where: { gamemode: 'bowbash', release: 'ion_net' } })
+    const first = m.pickToast(new Set())
+    assert.equal(first.kind, 'party')
+    assert.equal(first.key, 'party:p9')
+    assert.equal(first.item.from.uuid, 'a')
+    const second = m.pickToast(new Set(['party:p9']))
+    assert.deepEqual([second.kind, second.key], ['follow', 'follow:p1:bowbash:ion_net'])
+    const third = m.pickToast(new Set(['party:p9', 'follow:p1:bowbash:ion_net']))
+    assert.deepEqual([third.kind, third.key], ['round', 'round:a'])
+    assert.equal(m.pickToast(new Set(['party:p9', 'follow:p1:bowbash:ion_net', 'round:a'])), null)
+    // A move to another gamemode is a new follow: a new key.
+    m.apply('party_follow', { partyId: 'p1', leader: { uuid: 'd', name: 'Dan' }, where: { gamemode: 'lobby', release: 'ion_net' } })
+    assert.equal(m.pickToast(new Set(['party:p9', 'follow:p1:bowbash:ion_net'])).key, 'follow:p1:lobby:ion_net')
+})
+
+test('the kicked note comes right after party invites, before a follow or a round invite', () => {
+    const m = loaded()
+    m.apply('invite', { invite: { from: { uuid: 'a', name: 'alice', headUrl: '/h/a' }, activity: null, expiresAt: 'x' } })
+    m.apply('party', { party: partyView({ leader: 'd', members: [member('d', 'Dan', 'launcher', true), member('me', 'Me', 'launcher')] }), invites: [partyInvite('p9')] })
+    m.apply('party_disbanded', { partyId: 'p1', reason: 'kicked' })
+    const next = m.pickToast(new Set(['party:p9']))
+    assert.deepEqual([next.kind, next.key, next.item], ['kicked', 'kicked:p1', { partyId: 'p1' }])
+    assert.equal(m.pickToast(new Set(['party:p9', 'kicked:p1'])).kind, 'round')
+    m.clearKicked()
+    assert.equal(m.pickToast(new Set(['party:p9'])).kind, 'round')
+})
+
+test('shared helpers both renderers use: place keys, crown, idle minutes, two-click confirm', () => {
+    assert.deepEqual(PARTY_WHERE_KEYS, { launcher: 'whereLauncher', network: 'whereNetwork', away: 'whereAway' })
+    assert.equal(partyWhereKey('network'), 'whereNetwork')
+    assert.equal(partyWhereKey('__proto__'), 'whereAway')
+    assert.equal(partyWhereKey('constructor'), 'whereAway')
+    assert.equal(partyWhereKey(undefined), 'whereAway')
+    assert.equal(modeLabel('bowbash'), 'Bowbash')
+    assert.equal(modeLabel('constructor'), 'constructor')
+    assert.equal(modeLabel('toString'), 'toString')
+    assert.match(CROWN_SVG, /^<svg .*<\/svg>$/)
+    assert.equal(PARTY_TICK_MS, 30000)
+    const p = { lastActivity: T0, idleDisbandAt: T0 + 15 * MIN }
+    assert.equal(idleDisbandMinutes(null, T0), null)
+    assert.equal(idleDisbandMinutes(p, T0 + 9 * MIN), null)
+    assert.equal(idleDisbandMinutes(p, T0 + 10 * MIN), 5)
+    assert.equal(idleDisbandMinutes({ lastActivity: T0, idleDisbandAt: null }, T0 + 12 * MIN), null)
+    // The first click arms, the second on the same target confirms; another target re-arms.
+    assert.deepEqual(confirmStep(null, 'leave'), { confirmed: false, next: 'leave' })
+    assert.deepEqual(confirmStep('leave', 'leave'), { confirmed: true, next: null })
+    assert.deepEqual(confirmStep('kick:a', 'kick:b'), { confirmed: false, next: 'kick:b' })
+    assert.deepEqual(confirmStep('leave', 'kick:a'), { confirmed: false, next: 'kick:a' })
 })

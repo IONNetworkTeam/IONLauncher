@@ -2,6 +2,9 @@ const { test } = require('node:test')
 const assert = require('node:assert/strict')
 const { createPartyHandlers } = require('../app/assets/js/friends/party')
 
+/** Stands in for index.js's guard, which the handlers are handed. */
+const UUID_GUARD = v => typeof v === 'string' && /^[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}$/i.test(v)
+
 const U = 'a900acbf-ffc1-4ebc-899c-e1e17141cf5d'
 const P = 'b6c6c0a8-3f7e-4c43-9a51-6d1f0e2f9a10'
 const RESPONSE = { ok: true, status: 200, data: { party: { id: P }, invites: [{ partyId: 'q' }] } }
@@ -12,7 +15,7 @@ function harness(answer = () => RESPONSE, extra = {}){
     const sent = []
     const noted = []
     const api = new Proxy({}, { get: (_t, name) => (...args) => { calls.push([name, ...args]); return Promise.resolve(answer(name)) } })
-    const handlers = createPartyHandlers({ api, note: r => { noted.push(r); return r }, broadcast: (event, payload) => sent.push([event, payload]), ...extra })
+    const handlers = createPartyHandlers({ api, isId: UUID_GUARD, note: r => { noted.push(r); return r }, broadcast: (event, payload) => sent.push([event, payload]), ...extra })
     return { handlers, calls, sent, noted }
 }
 
@@ -69,7 +72,7 @@ test('a party read that was in flight when a party event arrived is not broadcas
     const gate = new Promise(r => { release = r })
     const sent = []
     const api = { party: () => gate }
-    const handlers = createPartyHandlers({ api, note: r => r, broadcast: (e, p) => sent.push([e, p]), epoch: () => epoch })
+    const handlers = createPartyHandlers({ api, isId: UUID_GUARD, note: r => r, broadcast: (e, p) => sent.push([e, p]), epoch: () => epoch })
     const read = handlers.party({})
     epoch++ // a party_updated frame lands while GET /party is out
     release(RESPONSE)
