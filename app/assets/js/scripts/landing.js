@@ -29,6 +29,7 @@ const {
 // Internal Requirements
 const DiscordWrapper          = require('./assets/js/discordwrapper')
 const ProcessBuilder          = require('./assets/js/processbuilder')
+const { PlayerStateGuard }    = require('./assets/js/playerstate')
 
 // Launch Elements
 const user_text               = document.getElementById('user_text')
@@ -395,6 +396,10 @@ async function dlAsync(login = true) {
         }
     })
 
+    // A modpack may ship servers.dat or options.txt; once the player has their own, keep theirs.
+    const playerState = new PlayerStateGuard(require('path').join(ConfigManager.getInstanceDirectory(), serv.rawServer.id), loggerLaunchSuite)
+    await playerState.capture()
+
     loggerLaunchSuite.info('Validating files.')
     setLaunchDetails(Lang.queryJS('landing.dlAsync.validatingFileIntegrity'))
     let invalidFileCount = 0
@@ -433,6 +438,8 @@ async function dlAsync(login = true) {
     } else {
         loggerLaunchSuite.info('No invalid files, skipping download.')
     }
+
+    await playerState.restore()
 
     // Remove download bar.
     remote.getCurrentWindow().setProgressBar(-1)

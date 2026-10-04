@@ -253,6 +253,12 @@ class SettingsSync {
                 continue
             }
             const entries = mc.entriesOf(mc.parseOptions(current.text, spec.sep))
+            if(Object.keys(entries).length === 0){
+                // An empty file (a modpack shipping a blank options.txt, or a truncated write)
+                // carries no settings; never let it count as the newest state.
+                this.recordHash(store, server.id, spec.name, current.hash)
+                continue
+            }
             let values
             if(spec.translate){
                 values = mc.entriesToCanonical(entries, mc.detectFormat(entries, server.minecraftVersion))
@@ -288,7 +294,10 @@ class SettingsSync {
             if(bucket == null || Object.keys(bucket.values).length === 0){
                 continue
             }
-            const current = await this.readInstanceFile(server.id, spec.name)
+            let current = await this.readInstanceFile(server.id, spec.name)
+            if(current != null && spec.seed && Object.keys(mc.entriesOf(mc.parseOptions(current.text, spec.sep))).length === 0){
+                current = null // An empty options.txt is as good as none; seed it.
+            }
             if(current != null){
                 const result = spec.translate
                     ? mc.applyCanonical(current.text, bucket.values, server.minecraftVersion)
