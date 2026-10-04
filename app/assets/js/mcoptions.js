@@ -62,7 +62,9 @@ const EXCLUDED_KEYS = new Set([
     'telemetryOptInExtra',
     'syncChunkWrites',
     'fullscreenResolution',
-    'glDebugVerbosity'
+    'glDebugVerbosity',
+    // Forced off on Java 21 setups (servers[].ion.launch.options), where 1.8.9's Netty can't use it
+    'useNativeTransport'
 ])
 
 /**
