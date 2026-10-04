@@ -10,6 +10,7 @@ const path                  = require('path')
 
 const ConfigManager            = require('./configmanager')
 const LaunchProfile            = require('./launchprofile')
+const JvmFlags                 = require('./jvmflags')
 
 const logger = LoggerUtil.getLogger('ProcessBuilder')
 
@@ -359,6 +360,25 @@ class ProcessBuilder {
     }
 
     /**
+     * The player's JVM options for this server. A server that needs Java 9 or newer never gets the
+     * Java 8-only ones (CMS and friends): modern Java refuses to start with them and says so only
+     * on stderr, so the game would silently never open.
+     *
+     * @returns {string[]}
+     */
+    getPlayerJVMOptions(){
+        const options = ConfigManager.getJVMOptions(this.server.rawServer.id)
+        if(!(this.server.effectiveJavaOptions?.suggestedMajor > 8)){
+            return options
+        }
+        const { kept, dropped } = JvmFlags.dropRemovedAfterJava8(options)
+        if(dropped.length > 0){
+            logger.warn('Leaving out JVM options this server\'s Java no longer supports:', dropped.join(' '))
+        }
+        return kept
+    }
+
+    /**
      * The main class to launch: the server's launch profile can replace the one from the
      * Forge/Fabric version manifest (RetroFuturaBootstrap instead of LaunchWrapper).
      *
@@ -408,7 +428,7 @@ class ProcessBuilder {
         }
         args.push('-Xmx' + ConfigManager.getMaxRAM(this.server.rawServer.id))
         args.push('-Xms' + ConfigManager.getMinRAM(this.server.rawServer.id))
-        args = args.concat(ConfigManager.getJVMOptions(this.server.rawServer.id))
+        args = args.concat(this.getPlayerJVMOptions())
         args = args.concat(LaunchProfile.jvmArgsFor(this.launchProfile, process.platform))
         args.push('-Djava.library.path=' + tempNativePath)
 
@@ -460,7 +480,7 @@ class ProcessBuilder {
         }
         args.push('-Xmx' + ConfigManager.getMaxRAM(this.server.rawServer.id))
         args.push('-Xms' + ConfigManager.getMinRAM(this.server.rawServer.id))
-        args = args.concat(ConfigManager.getJVMOptions(this.server.rawServer.id))
+        args = args.concat(this.getPlayerJVMOptions())
         args = args.concat(LaunchProfile.jvmArgsFor(this.launchProfile, process.platform))
 
         // Main Java Class
