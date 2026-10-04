@@ -140,6 +140,25 @@ version may not exist in another.
 The settings tab lists every known pack with its kind, declared format range and how many
 modpacks share it, with a Compatible / Everywhere / Off control per pack.
 
+## Player files shipped by a modpack
+
+A modpack can ship `servers.dat`, `options.txt` and similar files (an instance import copies the
+whole game directory). Helios validates every required file on each launch and re-downloads any
+whose checksum differs, so such files would reset the player's server list and settings on every
+launch. This was seen on 2026-10-03 with the iontest 1.21.1 pack, which shipped an empty
+`options.txt` plus `servers.dat`.
+
+Two defenses:
+
+- **Launcher**: `PlayerStateGuard` (`app/assets/js/playerstate.js`) snapshots the player-state
+  files that exist before validation and writes them back afterwards if validation changed or
+  removed them. A fresh instance still receives the modpack's copies, since there is nothing to
+  snapshot. The sync also treats an `options.txt` without entries as missing: it is seeded from
+  the store and never ingested as the newest state.
+- **Manager**: instance imports skip these files, and distribution generation warns about any
+  that remain in a server's `files/` directory, since the launcher would otherwise download
+  them again on every launch.
+
 ## Manager side
 
 `servermeta.json` gains `meta.settingsSync?: boolean` (absent means on). The Metadata tab of the

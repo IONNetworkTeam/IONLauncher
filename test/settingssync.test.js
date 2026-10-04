@@ -111,6 +111,21 @@ test('a new instance gets an options.txt seeded in its own format', async () => 
     assert.equal((await readEntries(OLD)).fov, '30.0')
 })
 
+test('an empty options.txt is treated as missing: seeded, never taken as the newest state', async () => {
+    await writeInstance(OLD, OPTIONS_1_8.replace('fov:0.0', 'fov:30.0'))
+    await writeInstance(FRESH, '')
+    const past = new Date(Date.now() - 60000)
+    await fs.utimes(instanceFile(OLD), past, past)
+
+    await sync.reconcile([OLD, FRESH])
+    const fresh = await readEntries(FRESH)
+    assert.equal(fresh.fov, '30.0')
+    assert.equal(fresh.version, String(mc.dataVersionForMinecraft('1.20.1')))
+    assert.equal((await readEntries(OLD)).fov, '30.0')
+    const store = await fs.readJson(path.join(root, 'settingssync.json'))
+    assert.equal(store.files['options.txt'].source, OLD.id)
+})
+
 test('a new instance with an unknown data version is left alone', async () => {
     const unknown = { id: 'future-pack', minecraftVersion: '1.99.1' }
     await writeInstance(OLD, OPTIONS_1_8)

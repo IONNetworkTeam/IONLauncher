@@ -46,13 +46,32 @@
     <section class="web" data-tab-panel="map" data-tab-hidden data-web-path=""></section>
 
     <div id="launchCluster" class="launch">
-        <div class="launch-cap"><span id="launch_caption" class="mono"></span><span id="launch_side" class="mono"></span></div>
+        <div class="launch-cap"><span id="launch_caption" class="mono"></span><span id="launch_side" class="mono"></span><button id="launch_kill" class="launch-kill mono" hidden></button></div>
         <button id="launch_button" class="play">
             <span class="play-fill"></span>
             <span class="play-sheen"></span>
             <svg class="launch-star" viewBox="0 0 13 13" aria-hidden="true"><path class="dots-dim" fill="currentColor" opacity=".22"/><path class="dots-lit" fill="currentColor"/></svg>
             <span class="play-text"><span class="launch-label is-word"></span><span id="launch_details_text" class="mono"></span></span>
         </button>
+    </div>
+
+    <div id="forceClose" class="fc" hidden>
+        <div class="fc-card" role="alertdialog" aria-modal="true" aria-labelledby="forceCloseTitle" aria-describedby="forceCloseBody">
+            <div class="fc-head">
+                <span class="fc-icon"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg></span>
+                <span class="fc-kicker mono"><%= lang('forceClose.kicker') %></span>
+            </div>
+            <h2 id="forceCloseTitle" class="fc-title"><%= lang('forceClose.title') %></h2>
+            <p id="forceCloseBody" class="fc-body"><%= lang('forceClose.body') %></p>
+            <ul class="fc-risks">
+                <li><i></i><%= lang('forceClose.riskProgress') %></li>
+                <li><i></i><%= lang('forceClose.riskCorruption') %></li>
+            </ul>
+            <div class="fc-actions">
+                <button type="button" class="fc-btn fc-cancel" data-fc="cancel"><%= lang('forceClose.cancel') %></button>
+                <button type="button" class="fc-btn fc-kill" data-fc="kill"><%= lang('forceClose.confirm') %></button>
+            </div>
+        </div>
     </div>
 
     <div id="ionToasts" aria-live="polite" class="pointer-events-none absolute bottom-6 right-6 z-50 flex flex-col items-end gap-2"></div>

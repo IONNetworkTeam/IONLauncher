@@ -10,6 +10,7 @@
     <link type="text/css" rel="stylesheet" href="./assets/css/slices.css">
     <link type="text/css" rel="stylesheet" href="./assets/css/workspace.css">
     <link type="text/css" rel="stylesheet" href="./assets/css/friends.css">
+    <link type="text/css" rel="stylesheet" href="./assets/css/onboarding.css">
     <style>
         body {
             background: #07080b;
@@ -33,10 +34,17 @@
 <body bkid="<%=bkid%>">
     <%- include('frame') %>
     <div id="main">
+        <%# The sign-in views' shared backdrop (onboarding.js). %>
+        <div id="onboardStage" aria-hidden="true">
+            <div class="ob-panel"></div>
+            <div id="onboardSlices" class="ob-slices"></div>
+        </div>
+        <script src="./assets/js/scripts/onboarding.js"></script>
         <%- include('welcome') %>
         <%- include('login') %>
         <%- include('waiting') %>
         <%- include('loginOptions') %>
+        <%- include('ionaccount') %>
         <%- include('settings') %>
         <%- include('landing') %>
     </div>

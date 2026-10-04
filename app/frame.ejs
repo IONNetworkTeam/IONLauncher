@@ -8,7 +8,7 @@
     const tabs = ['home', 'challenges', 'stats', 'news']
     const winButton = 'winbtn frameButton'
 %>
-<div id="frameBar" class="tb app-drag select-none">
+<div id="frameBar" class="tb is-bare app-drag select-none">
     <span class="horizon"></span>
     <%if (process.platform === 'darwin') { %>
         <div id="frameButtonDockDarwin" class="app-no-drag flex items-center gap-2 pl-3 pr-2">
@@ -42,7 +42,7 @@
     </nav>
     <div class="tb-drag"></div>
     <a id="frameCoins" href="#" data-tab-link="challenges" title="<%= lang('frame.coinsTitle') %>" class="tb-coins app-no-drag hidden">
-        <img src="assets/images/ion/coin.svg" alt="">
+        <img src="assets/images/ion/gold_ingot.png" alt="">
         <span id="frameCoinsValue">0</span>
     </a>
     <div id="image_seal_container" class="tb-gear-wrap app-no-drag">
@@ -78,7 +78,7 @@
     </div>
     <div class="am-rule"></div>
     <div class="am-others"></div>
-    <button class="am-item" role="menuitem" data-manage><span class="am-plus">+</span><%= lang('frame.addAccount') %></button>
+    <button class="am-item" role="menuitem" data-add><span class="am-plus">+</span><%= lang('frame.addAccount') %></button>
     <div class="am-rule"></div>
     <button class="am-item" role="menuitem" data-manage><%= lang('frame.manageAccounts') %></button>
 </div>

@@ -5,7 +5,7 @@
  * scripts/modsetup.js and the settings UI use them.
  */
 const got = require('got')
-const fs = require('fs/promises')
+const fs = require('fs-extra')
 const path = require('path')
 
 /** First `.jar` that isn't a sources / dev / javadoc / api / shadow artifact. Same as the Manager's. */

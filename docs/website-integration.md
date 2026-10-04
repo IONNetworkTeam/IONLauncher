@@ -103,6 +103,29 @@ The web tabs only load the configured site, the sign-in providers listed in `SIG
 (`index.js`), and other hosts under the site's domain (such as an API on a subdomain). Any other
 link, and every new window, opens in the system browser.
 
+## Signing in from the onboarding
+
+After the Minecraft sign-in, the onboarding's last step creates or signs in to the player's ION
+account with its own form (`app/ionaccount.ejs`); the Minecraft name becomes the account's name.
+The main process (`web:account` in `index.js`) posts to the site:
+
+```
+POST /api/launcher/account/register   {minecraftName, email, password}
+POST /api/launcher/account/login      {identifier, password}
+POST /api/launcher/account/2fa        {tempToken, code}
+POST /api/launcher/account/discord    {accessToken}
+```
+
+Each answers `{jwt, username}`, `{requires2fa: true, tempToken}`, `{jwt: null, confirmEmail: true}`
+or `{error, code}`. The launcher writes the jwt into the web tabs' `ion_session` cookie and reloads
+them; the site adopts that cookie into its `localStorage` when it has no session of its own. The
+token never reaches the renderer.
+
+Discord (`web:discord`) opens `/api/launcher/account/discord/start` in its own window and its own
+short-lived session; the site sends it on to Strapi's Discord connect. When Strapi sends the window
+back to `/auth/discord/callback?access_token=…`, the launcher takes the token from the address
+before the page loads, closes the window and posts the token to `/api/launcher/account/discord`.
+
 ## HTTP basic authentication
 
 A site that is not public yet can sit behind HTTP basic auth. The launcher asks for the username
@@ -114,7 +137,7 @@ provides them for development.
 ## Friends
 
 The launcher can show the player's friends: a strip beside the Play view and a window of their own,
-turned on in Settings › Launcher › Friends (`settings.launcher.friends`, or `ION_FRIENDS=1` for a
+on by default and switched in Settings › Launcher › Friends (`settings.launcher.friends`, or `ION_FRIENDS=1` for a
 development run). They read the site's `/api/launcher/friends/*` routes, from the main process like
 the feed, and open one WebSocket at `wss://<site>/api/launcher/friends/ws`.
 

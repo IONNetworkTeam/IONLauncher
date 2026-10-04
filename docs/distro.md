@@ -161,6 +161,30 @@ Whether the launcher may synchronize Minecraft's settings (options.txt, OptiFine
 }
 ```
 
+##### `Server.ion.launch: object`
+
+Changes how the game is started, for setups the Forge or Fabric version manifest doesn't describe. The Forge 1.8.9 server uses it to run on Java 21: RetroFuturaBootstrap replaces LaunchWrapper, and LWJGL 3 (added as `Library` modules) replaces Mojang's LWJGL 2. All fields are optional.
+
+* `mainClass`: replaces the manifest's main class.
+* `jvmArgs`: added after the player's own JVM options, so players can't remove them in the settings.
+* `platformJvmArgs`: more JVM args per platform, keyed by Node's `process.platform` (`win32`, `darwin`, `linux`).
+* `excludeLibraries`: `group:artifact` patterns (`*` matches anything) kept off the classpath. This applies to Mojang's libraries, whose natives are then not extracted either, and to `Library` modules.
+* `options`: `options.txt` values written before every launch, after the player's settings were restored and synced.
+
+```json
+"ion": {
+    "launch": {
+        "mainClass": "com.gtnewhorizons.retrofuturabootstrap.Main",
+        "jvmArgs": ["-Dfile.encoding=UTF-8", "-Djava.system.class.loader=com.gtnewhorizons.retrofuturabootstrap.RfbSystemClassLoader", "--enable-native-access", "ALL-UNNAMED"],
+        "platformJvmArgs": { "darwin": ["-XstartOnFirstThread"] },
+        "excludeLibraries": ["org.lwjgl.lwjgl:*", "net.java.jinput:*", "net.java.jutils:*", "net.minecraft:launchwrapper", "org.ow2.asm:asm-all"],
+        "options": { "useNativeTransport": false }
+    }
+}
+```
+
+Launchers without this field start the server the stock Helios way, which fails for setups like the one above, so only use it on servers meant for the ION Launcher.
+
 ### `Server.javaOptions: JavaOptions`
 
 **OPTIONAL**

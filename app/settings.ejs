@@ -138,7 +138,7 @@
                 <div class="settingsSwitchServerContainer"><div class="settingsSwitchServerContent"><button class="settingsSwitchServerButton"><%- lang('settings.switchServerButton') %></button></div></div>
             </div>
             <div id="settingsModsContainer">
-                <div class="gh"><h3><%- lang('settings.optionalMods') %></h3><i></i></div>
+                <div id="settingsOptModsHeader" class="gh"><h3><%- lang('settings.optionalMods') %></h3><i></i></div>
                 <div id="settingsOptModsContent"></div>
 
                 <div class="gh"><h3><%- lang('settings.dropinMods') %></h3><i></i></div>
@@ -173,9 +173,9 @@
                 <label class="toggleSwitch"><input type="checkbox" cValue="AllowPrerelease"><span class="toggleSwitchSlider"></span></label>
             </div>
 
-            <div class="gh"><h3><%- lang('settings.sectionFriends') %></h3><i></i></div>
+            <div class="gh"><h3><%- lang('settings.friends.section') %></h3><i></i></div>
             <div class="row">
-                <div><div class="rt"><%- lang('settings.friendsTitle') %></div><div class="rd"><%- lang('settings.friendsDesc') %></div></div>
+                <div><div class="rt"><%- lang('settings.friends.title') %></div><div class="rd"><%- lang('settings.friends.desc') %></div></div>
                 <label class="toggleSwitch"><input type="checkbox" cValue="FriendsEnabled"><span class="toggleSwitchSlider"></span></label>
             </div>
 
@@ -192,6 +192,25 @@
 
         <%# ---- Account ---- %>
         <div id="settingsTabAccount" class="settingsTab">
+            <%# ION account: the website login the web tabs share %>
+            <div class="gh"><h3><%- lang('settings.ion.section') %></h3><i></i></div>
+            <div class="row">
+                <div class="ws-ion-status">
+                    <img id="settingsIonHead" class="ws-ion-head" alt="" style="display: none;">
+                    <div>
+                        <div class="rt" id="settingsIonStatus"></div>
+                        <div class="rd" id="settingsIonDetail"></div>
+                    </div>
+                </div>
+                <div class="ws-ion-actions">
+                    <button class="btn" id="settingsIonOpen"><%- lang('settings.ion.open') %></button>
+                    <button class="btn" id="settingsIonRegister"><%- lang('settings.ion.register') %></button>
+                    <button class="btn" id="settingsIonLogin"><%- lang('settings.ion.login') %></button>
+                    <button class="btn" id="settingsIonSignOut"><%- lang('settings.ion.signOut') %></button>
+                </div>
+            </div>
+            <div class="rd"><%- lang('settings.ion.note') %></div>
+
             <div class="gh"><h3><%- lang('settings.microsoftAccount') %></h3><i></i><button class="settingsAddAuthAccount btn" id="settingsAddMicrosoftAccount"><%- lang('settings.addMicrosoftAccount') %></button></div>
             <div class="settingsCurrentAccounts" id="settingsCurrentMicrosoftAccounts">
                 <!-- Microsoft auth accounts populated here. -->

@@ -2,7 +2,8 @@
  * The title bar: Play · Challenges · Stats · News with the lit horizon and the stretching tab
  * light ("Nav 1+"), count badges and hover peeks, the coins, the settings gear and the account.
  */
-/* global ConfigManager, Lang, escapeHtml, showTab, setSelectedAccount, prepareSettings, switchView, getCurrentView, VIEWS, settingsNavItemListener, Workspace */
+/* global ConfigManager, Lang, escapeHtml, showTab, setSelectedAccount, prepareSettings, switchView, getCurrentView, VIEWS, settingsNavItemListener, Workspace, loginOptionsCancelEnabled */
+/* global loginOptionsViewOnLoginSuccess:writable, loginOptionsViewOnLoginCancel:writable, loginOptionsViewOnCancel:writable */
 const TitleBar = (() => {
     const nav = document.getElementById('ionNav')
     const seg = document.getElementById('ionNavLit')
@@ -81,6 +82,8 @@ const TitleBar = (() => {
         const item = e.target.closest('[data-tab]') || e.target.closest('[data-peek]')
         if(!item) return
         const tab = item.dataset.tab || item.dataset.peek
+        const view = getCurrentView()
+        if(view !== VIEWS.landing && view !== VIEWS.settings) return
         // A News peek opens the newest post itself.
         const path = tab === 'news' && item.dataset.peek && window.ionNewestArticle
             ? `/blog/${encodeURIComponent(window.ionNewestArticle.slug)}` : undefined
@@ -112,8 +115,25 @@ const TitleBar = (() => {
                 <img class="head" src="https://mc-heads.net/avatar/${encodeURIComponent(a.uuid)}/22" alt="">
                 <span class="am-name">${escapeHtml(a.displayName)}</span><span class="mono am-hint">${escapeHtml(Lang.queryJS('titlebar.switch'))}</span>
             </button>`).join('')
-        menu.querySelector('.am-me-head').src = sel ? `https://mc-heads.net/avatar/${encodeURIComponent(sel.uuid)}/44` : ''
-        menu.querySelector('.am-me-name').textContent = sel?.displayName ?? ''
+        // No account selected: no "signed in" card, only the add and manage items.
+        menu.querySelector('.am-me').hidden = !sel
+        menu.querySelector('.am-rule').hidden = !sel
+        if(!sel) return
+        menu.querySelector('.am-me-head').src = `https://mc-heads.net/avatar/${encodeURIComponent(sel.uuid)}/44`
+        menu.querySelector('.am-me-name').textContent = sel.displayName
+        menu.querySelector('.am-me-sub').textContent = Lang.queryJS(sel.type === 'microsoft' ? 'titlebar.signedInMicrosoft' : 'titlebar.signedInMojang')
+    }
+
+    /** Straight to the login options; cancelling or signing in returns to where the menu was opened. */
+    function addAccount(){
+        const from = getCurrentView()
+        if(from !== VIEWS.landing && from !== VIEWS.settings) return
+        switchView(from, VIEWS.loginOptions, 500, 500, () => {
+            loginOptionsViewOnLoginSuccess = from
+            loginOptionsViewOnLoginCancel = VIEWS.loginOptions
+            loginOptionsViewOnCancel = from
+            loginOptionsCancelEnabled(true)
+        })
     }
 
     function toggleMenu(open = !menu.classList.contains('is-open')){
@@ -129,6 +149,11 @@ const TitleBar = (() => {
     menu.addEventListener('click', async e => {
         const sw = e.target.closest('[data-switch]')
         if(sw){ setSelectedAccount(sw.dataset.switch); toggleMenu(false); return }
+        if(e.target.closest('[data-add]')){
+            toggleMenu(false)
+            addAccount()
+            return
+        }
         if(e.target.closest('[data-manage]')){
             toggleMenu(false)
             openSettings('settingsNavAccount')

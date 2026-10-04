@@ -8,7 +8,7 @@
  *
  * @module wallstore
  */
-const fs = require('fs/promises')
+const fs = require('fs-extra')
 const path = require('path')
 const { emptyManifest, parseManifest, planSync, settle } = require('./wallsync')
 

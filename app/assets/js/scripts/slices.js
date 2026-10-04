@@ -17,6 +17,7 @@ const Slices = (() => {
     const CYCLE_MS = 12000
     const LIB_STRIP_W = 72     // slices.css: .lib-strip's flex-basis
     const SLICE_MIN_W = 54     // slices.css: .slice's min-width
+    const SWITCH_MS = 900      // slices.css: .slice's flex-grow transition
     const BUNDLED = [5, 3, 7, 2, 6, 4, 0, 1].map(n => `assets/images/backgrounds/${n}.jpg`)
     const STAR_IMG = 'assets/images/ion/star.svg'
 
@@ -41,6 +42,8 @@ const Slices = (() => {
     let presentation = []      // last /api/launcher/releases answer
     let shelf = []             // release ids, max SHELF_MAX
     let hover = null
+    let shownSel = null     // the open slice update() last laid out
+    let switchedAt = 0      // when it changed
     let mode = 'play'          // 'play' | 'settings'
     let intro = true
     let walls = { releases: {} }
@@ -134,8 +137,9 @@ const Slices = (() => {
             </div>`
         const tag = el.querySelector('.tag')
         tag.addEventListener('click', () => pick(r.id))
-        tag.addEventListener('mouseenter', () => { hover = r.id; update() })
-        tag.addEventListener('mouseleave', () => { hover = null; update() })
+        tag.addEventListener('mouseenter', e => hoverTag(e, r.id))
+        tag.addEventListener('mousemove', e => hoverTag(e, r.id))
+        tag.addEventListener('mouseleave', () => { if(hover === r.id){ hover = null; update() } })
         el.querySelector('.ann').addEventListener('click', () => openAnnouncement(byId(r.id)))
         return el
     }
@@ -187,7 +191,12 @@ const Slices = (() => {
         libStrip.querySelector('.lib-total').textContent = String(releases.length).padStart(2, '0')
         // With every release already on the shelf the library has nothing more to show.
         libStrip.hidden = releases.length <= SHELF_MAX
+        const moved = cluster.parentElement !== nodes.get(picked())?.querySelector('.slice-side')
         update()
+        // update() announces the open slice only when it changes; new data for the same one (the
+        // site's presentation can make it a game server) is announced here, so its panel follows.
+        const openEl = nodes.get(picked())
+        if(openEl && !moved) openListeners.forEach(fn => fn(byId(picked()), openEl))
     }
 
     function paintFrame(el, src, instant){
@@ -212,6 +221,16 @@ const Slices = (() => {
             clearTimeout(update.refit)
             update.refit = setTimeout(() => stage.classList.remove('is-refit'), 950)
         }
+        // While a switch runs, hovering leaves the widths alone: the mouse on its way into the opening
+        // slice crosses the ones sliding aside, and growing one of them cut the opening short. The
+        // hover the mouse ends on applies once the switch is done.
+        if(sel !== shownSel){
+            shownSel = sel
+            switchedAt = Date.now()
+            clearTimeout(update.settle)
+            update.settle = setTimeout(update, SWITCH_MS)
+        }
+        const switching = Date.now() - switchedAt < SWITCH_MS
         for(const [id, el] of nodes){
             const r = byId(id)
             const open = id === sel && !intro
@@ -219,7 +238,7 @@ const Slices = (() => {
             let grow = restingGrow(id, open)
             if(mode === 'settings') grow = id === sel ? 1.4 : 1
             else if(folded) grow = 0
-            else if(!open && id === hover) grow = 1.6
+            else if(!open && id === hover && !switching) grow = 1.6
             el.style.flexGrow = grow
             el.classList.toggle('is-open', open)
             el.classList.toggle('is-folded', folded)
@@ -283,6 +302,23 @@ const Slices = (() => {
         if(busy()) return nudge(id)
         const serv = (await DistroAPI.getDistribution()).getServerById(id)
         updateSelectedServer(serv)
+    }
+
+    /*
+     * Hover only follows the mouse. A switch slides the slices under a still pointer (the wheel
+     * leaves it where it is), and Chromium then reports the slice that arrives under it as entered:
+     * growing that one took width from the opening slice just before it was fully revealed.
+     */
+    let pointer = null
+    let lastPointer = null
+    document.addEventListener('mousemove', e => { lastPointer = pointer; pointer = `${e.screenX},${e.screenY}` }, true)
+    function hoverTag(e, id){
+        const at = `${e.screenX},${e.screenY}`
+        // mouseenter comes before the move it belongs to, mousemove after it was recorded
+        const before = e.type === 'mousemove' ? lastPointer : pointer
+        if(at === before || hover === id) return
+        hover = id
+        update()
     }
 
     /** From the library: the release joins the front of the shelf and wipes in. */
@@ -360,16 +396,21 @@ const Slices = (() => {
         // Also catches the first layout after the Play view was hidden
         if(e.propertyName === 'flex-grow') setOpenWidths()
     })
-    window.addEventListener('resize', () => requestAnimationFrame(setOpenWidths))
+    // The window resizing, and the friends strip giving its column back or taking it (friends.js)
+    new ResizeObserver(() => requestAnimationFrame(setOpenWidths)).observe(stage.parentElement)
 
     stage.addEventListener('wheel', e => {
         if(Math.abs(e.deltaY) < 8 || mode !== 'play') return
+        // One step per switch: a step taken while the last one is still opening turns that slice
+        // round before it is fully revealed.
         const now = Date.now()
-        if(now - (stage.lastWheel || 0) < 650) return
+        if(now - (stage.lastWheel || 0) < SWITCH_MS + 50) return
         stage.lastWheel = now
         const at = shelf.indexOf(picked())
         const next = Math.max(0, Math.min(shelf.length - 1, at + (e.deltaY > 0 ? 1 : -1)))
-        if(next !== at) pick(shelf[next])
+        if(next === at) return
+        hover = null
+        pick(shelf[next])
     }, { passive: true })
 
     libStrip.addEventListener('mouseenter', () => { hover = 'lib'; update() })
@@ -406,6 +447,10 @@ const Slices = (() => {
             : Lang.queryJS(`slices.caption.${s}`)
         cap.classList.toggle('cap-flash', !!nudgedNow)
         document.getElementById('launch_side').textContent = s === 'idle' ? (r?.net ? Lang.queryJS('slices.joinLobby') : (r?.version ?? '')) : ''
+        // Only once the process exists; while preparing there is nothing to kill yet.
+        const kill = document.getElementById('launch_kill')
+        kill.hidden = s !== 'starting' && s !== 'running'
+        kill.textContent = Lang.queryJS('slices.forceClose')
     }
 
     GameState.subscribe(() => { percent = 0; update() })

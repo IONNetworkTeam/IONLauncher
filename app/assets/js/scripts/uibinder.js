@@ -21,6 +21,7 @@ const VIEWS = {
     login: '#loginContainer',
     settings: '#settingsContainer',
     welcome: '#welcomeContainer',
+    ionAccount: '#ionAccountContainer',
     waiting: '#waitingContainer'
 }
 
@@ -40,7 +41,7 @@ let currentView
  * fades in.
  */
 function switchView(current, next, currentFadeTime = 500, nextFadeTime = 500, onCurrentFade = () => {}, onNextFade = () => {}){
-    currentView = next
+    setCurrentView(next)
     // The settings workspace sits on the Play view: entering or leaving it folds or unfolds the
     // release slices instead of fading the window (workspace.js).
     if(typeof Workspace !== 'undefined' && (next === VIEWS.settings || current === VIEWS.settings)){
@@ -56,12 +57,32 @@ function switchView(current, next, currentFadeTime = 500, nextFadeTime = 500, on
 }
 
 /**
+ * Record the shown view container, and tell the sign-in views' backdrop (onboarding.js).
+ *
+ * @param {string} view The ID of the view container.
+ */
+function setCurrentView(view){
+    currentView = view
+    Onboarding.setView(view)
+    syncFrameControls()
+}
+
+/**
  * Get the currently shown view container.
  * 
  * @returns {string} The currently shown view container.
  */
 function getCurrentView(){
     return currentView
+}
+
+/**
+ * The title bar's tabs, coins, settings and account belong to the Play view and settings. On the
+ * loading screen (frame.ejs starts bare) they do nothing yet; on the welcome and login views they
+ * are hidden too: settings left from there would return to a Play view with nobody signed in.
+ */
+function syncFrameControls(){
+    document.getElementById('frameBar')?.classList.toggle('is-bare', currentView !== VIEWS.landing && currentView !== VIEWS.settings)
 }
 
 async function showMainUI(data){
@@ -89,17 +110,17 @@ async function showMainUI(data){
         }
 
         if(ConfigManager.isFirstLaunch()){
-            currentView = VIEWS.welcome
+            setCurrentView(VIEWS.welcome)
             $(VIEWS.welcome).fadeIn(500)
         } else {
             if(isLoggedIn){
-                currentView = VIEWS.landing
+                setCurrentView(VIEWS.landing)
                 $(VIEWS.landing).fadeIn(500)
             } else {
                 loginOptionsCancelEnabled(false)
-                loginOptionsViewOnLoginSuccess = VIEWS.landing
+                loginOptionsViewOnLoginSuccess = VIEWS.ionAccount
                 loginOptionsViewOnLoginCancel = VIEWS.loginOptions
-                currentView = VIEWS.loginOptions
+                setCurrentView(VIEWS.loginOptions)
                 $(VIEWS.loginOptions).fadeIn(500)
             }
         }

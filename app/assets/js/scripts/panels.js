@@ -30,7 +30,8 @@ const Panels = (() => {
 
     function heads(ping){
         const shown = (Array.isArray(ping?.sample) ? ping.sample : []).filter(p => typeof p?.id === 'string' && typeof p?.name === 'string').slice(0, 6)
-        const more = (Number(ping?.online) || 0) - shown.length
+        // "+n" only beside heads: alone it would just repeat the count next to it.
+        const more = shown.length ? (Number(ping?.online) || 0) - shown.length : 0
         return `<span class="heads">${shown.map(p => `<img class="hd" src="https://mc-heads.net/avatar/${encodeURIComponent(p.id)}/30" alt="" title="${escapeHtml(p.name)}">`).join('')}${more > 0 ? `<span class="mono heads-more">+${more}</span>` : ''}</span>`
     }
 
@@ -47,7 +48,7 @@ const Panels = (() => {
             </button>`).join('')
         return `<div class="netpanel">
             <div class="np-h"><span class="live"></span><span>${t('network')}</span><i></i><span>${escapeHtml(host(r))}</span></div>
-            <div class="np-count"><span class="mono np-big">${count(net?.players)}</span><span class="np-unit">${t('online')}</span>${heads(pings.get(r.id))}</div>
+            <div class="np-count"><span class="mono np-big">${count(net?.players ?? pings.get(r.id)?.online)}</span><span class="np-unit">${t('online')}</span>${heads(pings.get(r.id))}</div>
             <div class="np-h np-gap"><span>${t('youOnNetwork')}</span><i></i></div>
             <div class="hist">
                 <div><b>${playtime(you?.playtimeSeconds)}</b><span>${t('played')}</span></div>
@@ -63,7 +64,8 @@ const Panels = (() => {
         const l = live.get(r.id)
         const ping = pings.get(r.id)
         const STATES = ['running', 'starting', 'stopping', 'restarting', 'offline', 'unknown']
-        const state = STATES.includes(l?.state) ? l.state : 'unknown'
+        // Without the panel's word on it, a server that answered the ping is plainly online.
+        const state = STATES.includes(l?.state) && l.state !== 'unknown' ? l.state : ping ? 'running' : 'unknown'
         const shown = ping && ping.online > 0
         return `<div class="netpanel">
             <div class="np-h"><span class="live state-${state}"></span><span>${t(`state.${state}`)}</span><i></i><span>${escapeHtml(host(r))}</span></div>
@@ -81,7 +83,7 @@ const Panels = (() => {
 
     function modeTiles(r){
         if(!r.net) return ''
-        return `<div class="modes">${MODES.map(m => `
+        return `<div class="modes" style="--n:${MODES.length}">${MODES.map(m => `
             <button class="mode" data-tab-link="challenges" aria-label="${escapeHtml(m.name)}">
                 <img src="${modeIcon(m.id)}" alt=""><span>${escapeHtml(m.name)}</span><span class="mode-bar" style="background:${m.accent}"></span>
             </button>`).join('')}</div>`

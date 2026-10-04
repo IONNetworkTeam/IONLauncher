@@ -29,6 +29,7 @@ const {
 // Internal Requirements
 const DiscordWrapper          = require('./assets/js/discordwrapper')
 const ProcessBuilder          = require('./assets/js/processbuilder')
+const { PlayerStateGuard }    = require('./assets/js/playerstate')
 
 // Launch Elements
 const user_text               = document.getElementById('user_text')
@@ -168,6 +169,56 @@ function showLaunchFailure(title, desc){
     toggleOverlay(true)
     toggleLaunchArea(false)
 }
+
+/* Force close */
+
+/** Kills the game outright. Minecraft gets no chance to save, so this is only for a stuck game. */
+function forceCloseGame(){
+    if(proc == null || proc.exitCode !== null || proc.signalCode !== null) return
+    loggerLanding.warn('Force closing the game.')
+    proc.kill('SIGKILL')
+}
+
+/**
+ * The warning before a force close. Cancel has focus and Enter does not confirm, so the kill
+ * always takes a deliberate click.
+ */
+const ForceCloseDialog = (() => {
+    const root = document.getElementById('forceClose')
+    const cancel = root.querySelector('[data-fc="cancel"]')
+
+    function open(){
+        root.hidden = false
+        void root.offsetWidth  // start the entrance from the hidden state
+        root.classList.add('is-open')
+        cancel.focus()
+    }
+    function close(){
+        if(root.hidden) return
+        root.classList.remove('is-open')
+        setTimeout(() => { if(!root.classList.contains('is-open')) root.hidden = true }, 220)
+    }
+
+    cancel.addEventListener('click', close)
+    root.querySelector('[data-fc="kill"]').addEventListener('click', () => {
+        forceCloseGame()
+        close()
+    })
+    root.addEventListener('mousedown', e => { if(e.target === root) close() })
+    document.addEventListener('keydown', e => {
+        if(!root.hidden && e.key === 'Escape'){
+            e.stopPropagation()
+            close()
+        }
+    }, true)
+
+    // The game closed on its own while the warning was up: nothing left to kill.
+    GameState.subscribe(state => { if(state === 'idle') close() })
+
+    return { open, close }
+})()
+
+document.getElementById('launch_kill').addEventListener('click', () => ForceCloseDialog.open())
 
 /* System (Java) Scan */
 
@@ -395,6 +446,10 @@ async function dlAsync(login = true) {
         }
     })
 
+    // A modpack may ship servers.dat or options.txt; once the player has their own, keep theirs.
+    const playerState = new PlayerStateGuard(require('path').join(ConfigManager.getInstanceDirectory(), serv.rawServer.id), loggerLaunchSuite)
+    await playerState.capture()
+
     loggerLaunchSuite.info('Validating files.')
     setLaunchDetails(Lang.queryJS('landing.dlAsync.validatingFileIntegrity'))
     let invalidFileCount = 0
@@ -434,6 +489,8 @@ async function dlAsync(login = true) {
         loggerLaunchSuite.info('No invalid files, skipping download.')
     }
 
+    await playerState.restore()
+
     // Remove download bar.
     remote.getCurrentWindow().setProgressBar(-1)
 
@@ -454,6 +511,15 @@ async function dlAsync(login = true) {
     const versionData = await mojangIndexProcessor.getVersionJson()
 
     if(login) {
+        // The Minecraft token lasts 24 hours and is otherwise only checked when the launcher starts, so
+        // a launcher left open longer would hand the game an expired token and every online server
+        // would refuse it ("Invalid session"). This refreshes it, or asks the player to sign in again.
+        if(await validateSelectedAccount() !== true){
+            loggerLaunchSuite.warn('The selected account could not be refreshed, not launching.')
+            toggleLaunchArea(false)
+            GameState.failed()
+            return
+        }
         const authUser = ConfigManager.getSelectedAccount()
         loggerLaunchSuite.info(`Sending selected account (${authUser.displayName}) to ProcessBuilder.`)
         let pb = new ProcessBuilder(serv, versionData, modLoaderData, authUser, remote.app.getVersion())

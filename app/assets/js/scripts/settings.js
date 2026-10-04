@@ -563,7 +563,7 @@ ipcRenderer.on(MSFT_OPCODE.REPLY_LOGIN, (_, ...arguments_) => {
             const authCode = queryMap.code
             AuthManager.addMicrosoftAccount(authCode).then(value => {
                 updateSelectedAccount(value)
-                switchView(getCurrentView(), viewOnClose, 500, 500, async () => {
+                switchView(getCurrentView(), IonAccount.after(viewOnClose), 500, 500, async () => {
                     await prepareSettings()
                 })
             })
@@ -831,6 +831,67 @@ function prepareAccountsTab() {
 }
 
 /**
+ * ION Account Tab
+ *
+ * The website login the web tabs share, as the website last reported it (shell.js webState).
+ */
+
+/** Leave settings for a page of the website in the Challenges tab. */
+function openIonPage(path){
+    fullSettingsSave()
+    switchView(getCurrentView(), VIEWS.landing, 500, 500, () => showTab('challenges', path))
+}
+
+/** Draw the ION Account tab. Called by shell.js whenever the website reports. */
+function renderIonAccountTab(){
+    const status = document.getElementById('settingsIonStatus')
+    const detail = document.getElementById('settingsIonDetail')
+    const head = document.getElementById('settingsIonHead')
+    const show = (id, visible) => { document.getElementById(id).style.display = visible ? '' : 'none' }
+    const known = webState != null
+    const loggedIn = !!webState?.loggedIn
+
+    if(!known){
+        status.textContent = Lang.queryJS('settings.ion.checking')
+        detail.textContent = Lang.queryJS('settings.ion.checkingDetail')
+        checkWebSession()
+    } else if(loggedIn){
+        status.textContent = Lang.queryJS('settings.ion.signedIn', { name: webState.username ?? webState.minecraftName ?? '' })
+        detail.textContent = webState.minecraftName
+            ? Lang.queryJS('settings.ion.minecraft', { name: webState.minecraftName })
+            : Lang.queryJS('settings.ion.noMinecraft')
+    } else {
+        status.textContent = Lang.queryJS('settings.ion.signedOut')
+        detail.textContent = Lang.queryJS('settings.ion.signedOutDetail')
+    }
+
+    const mc = loggedIn ? webState.minecraftName : null
+    if(mc) head.src = `https://mc-heads.net/avatar/${encodeURIComponent(mc)}/40`
+    head.style.display = mc ? '' : 'none'
+
+    show('settingsIonOpen', loggedIn)
+    show('settingsIonSignOut', loggedIn)
+    show('settingsIonLogin', known && !loggedIn)
+    show('settingsIonRegister', known && !loggedIn)
+}
+
+document.getElementById('settingsIonOpen').onclick = () => openIonPage('/account')
+document.getElementById('settingsIonLogin').onclick = () => openIonPage('/auth/login')
+document.getElementById('settingsIonRegister').onclick = () => openIonPage('/auth/register')
+document.getElementById('settingsIonSignOut').onclick = async e => {
+    const button = e.currentTarget
+    button.disabled = true
+    try {
+        await signOutOfWebsite()
+    } catch (err) {
+        LoggerUtil.getLogger('Settings').error('Could not sign out of the website.', err)
+        document.getElementById('settingsIonDetail').textContent = Lang.queryJS('settings.ion.signOutFailed')
+    } finally {
+        button.disabled = false
+    }
+}
+
+/**
  * Minecraft Tab
  */
 
@@ -867,6 +928,8 @@ async function resolveModsForUI(){
 
     document.getElementById('settingsReqModsContent').innerHTML = modStr.reqMods
     document.getElementById('settingsOptModsContent').innerHTML = modStr.optMods
+    // Most releases have no optional mods: no heading over an empty section.
+    document.getElementById('settingsOptModsHeader').hidden = !modStr.optMods
 }
 
 /**
@@ -1436,21 +1499,19 @@ function bindRangeSlider(){
             // Move slider according to the mouse position.
             document.onmousemove = (e) => {
 
-                // Distance from the beginning of the bar in pixels.
-                const diff = e.pageX - v.offsetLeft - track.offsetWidth/2
-                
-                // Don't move the track off the bar.
-                if(diff >= 0 && diff <= v.offsetWidth-track.offsetWidth/2){
+                // Distance from the beginning of the bar in pixels. Measured against the
+                // bar's on-screen box: offsetLeft is relative to the offsetParent, which
+                // in the settings workspace is not the page, so the thumb jumped.
+                const rect = v.getBoundingClientRect()
+                const diff = Math.min(Math.max(e.clientX - rect.left - track.offsetWidth/2, 0), rect.width)
 
-                    // Convert the difference to a percentage.
-                    const perc = (diff/v.offsetWidth)*100
-                    // Calculate the percentage of the closest notch.
-                    const notch = Number(perc/sliderMeta.inc).toFixed(0)*sliderMeta.inc
+                // Convert the difference to a percentage, then snap to the closest notch.
+                const perc = (diff/rect.width)*100
+                const notch = Math.round(perc/sliderMeta.inc)*sliderMeta.inc
+                const value = sliderMeta.min+(sliderMeta.step*Math.round(notch/sliderMeta.inc))
 
-                    // If we're close to that notch, stick to it.
-                    if(Math.abs(perc-notch) < sliderMeta.inc/2){
-                        updateRangedSlider(v, sliderMeta.min+(sliderMeta.step*(notch/sliderMeta.inc)), notch)
-                    }
+                if(value !== Number(v.getAttribute('value'))){
+                    updateRangedSlider(v, value, notch)
                 }
             }
         }
@@ -1750,6 +1811,7 @@ async function prepareSettings(first = false) {
     await prepareSettingsSyncList()
     await prepareSharedPacksList()
     prepareAccountsTab()
+    renderIonAccountTab()
     await prepareJavaTab()
     prepareAboutTab()
 }

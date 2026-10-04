@@ -13,7 +13,7 @@ const Web = require('./assets/js/weburl')
 
 const loggerShell = LoggerUtil.getLogger('Shell')
 
-const WEBBRIDGE_PRELOAD = 'file://' + require('path').join(__dirname, 'assets', 'js', 'webbridge.js')
+const WEBBRIDGE_PRELOAD = require('url').pathToFileURL(require('path').join(__dirname, 'assets', 'js', 'webbridge.js')).href
 
 /** What the website last reported, or null until it has. */
 let webState = null
@@ -157,6 +157,7 @@ function onBridgeMessage(view, channel, payload){
             balance: Number.isFinite(payload.balance) ? payload.balance : null
         }
         renderWebState()
+        promptForAccount()
     } else if(channel === 'web:toast' && typeof payload.text === 'string' && typeof payload.href === 'string'){
         showToast(payload.text, payload.href)
     }
@@ -168,13 +169,98 @@ function renderWebState(){
     coins.classList.toggle('hidden', !hasBalance)
     coins.classList.toggle('flex', hasBalance)
     if(hasBalance) document.getElementById('frameCoinsValue').textContent = webState.balance.toLocaleString()
+    if(typeof renderIonAccountTab === 'function') renderIonAccountTab()
+}
 
+/**
+ * Settle a missing report: with no session cookie the site is signed out, whatever it says later.
+ * A site that is signed in reports for itself.
+ */
+async function checkWebSession(){
+    if(webState != null) return
+    if(await ipcRenderer.invoke('web:hasSession') || webState != null) return
+    webState = { loggedIn: false, username: null, minecraftName: null, balance: null }
+    renderWebState()
+}
+
+/** Sign out of the website, then reload the open web tabs so they show the signed-out site. */
+async function signOutOfWebsite(){
+    await ipcRenderer.invoke('web:signOut')
+    webState = { loggedIn: false, username: null, minecraftName: null, balance: null }
+    renderWebState()
+    for(const [tab, view] of Object.entries(webviews)){
+        if(tab !== 'map' && view.dataset.ready === 'true') view.reload()
+    }
+}
+
+/**
+ * The onboarding signed in to the website with its own forms (ionaccount.js), which left the
+ * session in the web tabs' cookie: reload the open tabs so they pick it up.
+ *
+ * @param {string|null} username The ION account's name.
+ */
+function signedInToWebsite(username){
+    webState = { ...(webState || { balance: null, minecraftName: null }), loggedIn: true, username }
+    renderWebState()
+    for(const [tab, view] of Object.entries(webviews)){
+        if(tab !== 'map' && view.dataset.ready === 'true') view.reload()
+    }
+}
+
+/* The ION account prompt */
+
+/** Set once the user dismisses the prompt; it never shows again. */
+const ACCOUNT_PROMPT_KEY = 'ion.accountPromptDismissed'
+let accountPrompt = null
+/** The prompt is offered at most once per start. */
+let accountPromptOffered = false
+
+/**
+ * Invite a signed-out user to sign in to or create their ION account. Asked on the first report
+ * from the website after start, and again on later starts until the user dismisses it.
+ */
+function promptForAccount(){
+    if(webState?.loggedIn){
+        accountPrompt?.remove()
+        accountPrompt = null
+        return
+    }
+    if(accountPromptOffered || localStorage.getItem(ACCOUNT_PROMPT_KEY)) return
+    // Wait for the Play view, and for the website's password prompt to be answered.
+    if(getCurrentView() !== VIEWS.landing || (authDialog && !authDialog.classList.contains('hidden'))){
+        setTimeout(promptForAccount, 2000)
+        return
+    }
+    accountPromptOffered = true
+
+    const t = key => escapeHtml(Lang.queryJS(`shell.account.${key}`))
+    accountPrompt = document.createElement('div')
+    accountPrompt.className = 'ion-shell fixed inset-0 z-[90] flex items-center justify-center bg-black/70'
+    accountPrompt.innerHTML = `
+        <div class="ion-rise w-[400px] rounded-xl border border-white/10 bg-ionGray p-6 text-white shadow-[0_22px_45px_-14px_rgba(0,0,0,0.8)]">
+            <h2 class="text-lg font-bold">${t('title')}</h2>
+            <p class="mt-2 text-sm text-neutral-400">${t('description')}</p>
+            <div class="mt-6 flex justify-end gap-2">
+                <button type="button" data-account="dismiss" class="rounded-lg px-4 py-2 text-sm text-neutral-300 hover:bg-white/10">${t('dismiss')}</button>
+                <button type="button" data-account="register" class="rounded-lg bg-white/10 px-4 py-2 text-sm text-white hover:bg-white/20">${t('register')}</button>
+                <button type="button" data-account="login" class="play-button rounded-lg px-4 py-2 text-sm font-semibold text-white">${t('login')}</button>
+            </div>
+            <p class="mt-4 text-xs text-neutral-500">${t('later')}</p>
+        </div>`
+    const close = () => { accountPrompt.remove(); accountPrompt = null }
+    accountPrompt.querySelector('[data-account="dismiss"]').onclick = () => {
+        localStorage.setItem(ACCOUNT_PROMPT_KEY, new Date().toISOString())
+        close()
+    }
+    accountPrompt.querySelector('[data-account="register"]').onclick = () => { close(); showTab('challenges', '/auth/register') }
+    accountPrompt.querySelector('[data-account="login"]').onclick = () => { close(); showTab('challenges', '/auth/login') }
+    document.body.appendChild(accountPrompt)
 }
 
 function showToast(text, href){
     const toast = document.createElement('button')
     toast.className = 'ion-rise pointer-events-auto flex max-w-sm items-center gap-3 rounded-lg border border-white/10 bg-ionGray px-4 py-3 text-left text-sm text-white shadow-[0_18px_40px_-14px_rgba(0,0,0,0.75)] transition hover:border-white/30'
-    toast.innerHTML = `<img src="assets/images/ion/coin.svg" alt="" class="h-[18px] w-[18px]"><span>${escapeHtml(text)}</span>`
+    toast.innerHTML = `<img src="assets/images/ion/gold_ingot.png" alt="" class="h-[18px] w-[18px]" style="image-rendering:pixelated"><span>${escapeHtml(text)}</span>`
     toast.onclick = () => {
         toast.remove()
         showTab('challenges', href)
