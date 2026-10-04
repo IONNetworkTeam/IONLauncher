@@ -19,6 +19,8 @@ const MODES = {
 }
 const NAME = /^[A-Za-z0-9_]{3,16}$/
 const EMPTY_SETTINGS = { showActivity: true, appearOffline: false, allowJoin: true, receiveRequests: true }
+const PARTY_WHERE = ['launcher', 'network', 'away']
+const ENDED_KEPT = 32
 
 const isObj = v => v && typeof v === 'object'
 
@@ -69,6 +71,69 @@ function cleanSettings(s){
     const out = { ...EMPTY_SETTINGS }
     for(const k of Object.keys(EMPTY_SETTINGS)) if(typeof s?.[k] === 'boolean') out[k] = s[k]
     return out
+}
+
+const str = v => typeof v === 'string' ? v : null
+const list = v => Array.isArray(v) ? v : []
+/** The same player, dashed or not, any case. */
+const uid = v => String(v ?? '').replace(/-/g, '').toLowerCase()
+
+/** A server time: ISO-8601 text (the contract) or epoch ms both read as ms; anything else is null. */
+function toMs(v){
+    if(typeof v === 'number') return Number.isFinite(v) ? v : null
+    if(typeof v === 'string'){ const t = Date.parse(v); return Number.isFinite(t) ? t : null }
+    return null
+}
+
+function cleanPartyMember(m){
+    if(!isObj(m) || typeof m.uuid !== 'string' || typeof m.name !== 'string') return null
+    return { uuid: m.uuid, name: m.name, headUrl: str(m.headUrl), leader: !!m.leader, where: PARTY_WHERE.includes(m.where) ? m.where : 'away', presence: cleanPresence(m.presence) }
+}
+
+/** A PartyView as the website sends it; members leader first, then in the server's order. `version` is the store snapshot version. */
+function cleanPartyView(p){
+    if(!isObj(p) || typeof p.id !== 'string') return null
+    const members = list(p.members).map(cleanPartyMember).filter(Boolean)
+    const leader = typeof p.leader === 'string' ? p.leader : (members.find(m => m.leader)?.uuid ?? null)
+    const ordered = members.map(m => ({ ...m, leader: leader != null && uid(m.uuid) === uid(leader) }))
+        .sort((a, b) => Number(b.leader) - Number(a.leader))
+    return {
+        id: p.id,
+        version: Number.isFinite(p.version) ? p.version : null,
+        leader,
+        private: !!p.private,
+        createdAt: toMs(p.createdAt),
+        lastActivity: toMs(p.lastActivity),
+        idleDisbandAt: toMs(p.idleDisbandAt),
+        members: ordered,
+        invites: list(p.invites).filter(i => isObj(i) && typeof i.uuid === 'string').map(i => ({ uuid: i.uuid, name: typeof i.name === 'string' ? i.name : '', expiresAt: toMs(i.expiresAt) }))
+    }
+}
+
+/** A PartyInviteView: an invite addressed to me. */
+function cleanPartyInvite(i){
+    if(!isObj(i) || typeof i.partyId !== 'string' || !isObj(i.from) || typeof i.from.uuid !== 'string') return null
+    return {
+        partyId: i.partyId,
+        from: { uuid: i.from.uuid, name: typeof i.from.name === 'string' ? i.from.name : '', headUrl: str(i.from.headUrl) },
+        members: Number.isInteger(i.members) && i.members > 0 ? i.members : 1,
+        expiresAt: toMs(i.expiresAt)
+    }
+}
+
+/**
+ * The `follow` frame: the leader went somewhere, I am in the launcher. `where` is the public
+ * gamemode key ('lobby' for the hub, 'network' when unknown) and the release; only those two
+ * keys are copied, so nothing else the frame might carry is ever kept.
+ */
+function cleanFollow(f){
+    if(!isObj(f) || typeof f.partyId !== 'string' || !isObj(f.leader) || typeof f.leader.uuid !== 'string') return null
+    const where = isObj(f.where) ? f.where : {}
+    return {
+        partyId: f.partyId,
+        leader: { uuid: f.leader.uuid, name: typeof f.leader.name === 'string' ? f.leader.name : '' },
+        where: { gamemode: str(where.gamemode) || 'network', release: str(where.release) }
+    }
 }
 
 /** playing → launcher (and online) → offline, then by name. */
@@ -143,6 +208,27 @@ function createFriendsModel(){
     let blocked = []
     let loaded = false
     let stale = false
+    let party = null            // PartyView | null
+    let partyInvites = []       // [PartyInviteView], addressed to me
+    let partyFollow = null      // the last follow frame, until answered
+    let partyKicked = null      // the id of the party I was just kicked from, until the note is shown
+    const ended = new Map()     // party id -> last version held, for the last ENDED_KEPT parties that ended
+
+    /** My party ended (or lost me): remember it so a late, older view of it cannot bring it back. */
+    function endParty(){
+        if(!party) return
+        ended.delete(party.id)
+        ended.set(party.id, party.version ?? -1)
+        while(ended.size > ENDED_KEPT) ended.delete(ended.keys().next().value)
+        party = null
+        partyFollow = null
+    }
+    /** A view older than what I hold for that party, or than where it ended, is a late frame: ignore it. */
+    function staleView(p){
+        if(party && party.id === p.id && p.version != null && party.version != null && p.version < party.version) return true
+        if(ended.has(p.id) && p.version != null && p.version <= ended.get(p.id)) return true
+        return false
+    }
     const listeners = new Set()
 
     function emit(){ for(const fn of listeners) fn(api) }
@@ -210,6 +296,68 @@ function createFriendsModel(){
             case 'invite_expired':
                 invites = invites.filter(x => x.from.uuid !== frame.from)
                 break
+            case 'party': {
+                // A PartyResponse from the main process: GET /party, or the answer to a change made here.
+                const p = cleanPartyView(frame.party)
+                partyInvites = list(frame.invites).map(cleanPartyInvite).filter(Boolean)
+                if(!p){
+                    if(party) endParty()
+                    partyFollow = null
+                } else if(!staleView(p)){
+                    party = p
+                    ended.delete(p.id)
+                    partyKicked = null
+                }
+                break
+            }
+            case 'party_invite': {
+                const i = cleanPartyInvite(frame.invite)
+                if(!i) return
+                partyInvites = partyInvites.filter(x => x.partyId !== i.partyId).concat(i)
+                break
+            }
+            case 'party_invite_expired': {
+                const before = partyInvites.length
+                partyInvites = partyInvites.filter(x => x.partyId !== frame.partyId)
+                if(partyInvites.length === before) return
+                break
+            }
+            case 'party_updated': {
+                const p = cleanPartyView(frame.party)
+                if(!p || staleView(p)) return
+                if(me?.uuid && !p.members.some(m => uid(m.uuid) === uid(me.uuid))){
+                    // Safety net: my party, without me. The removed member normally gets a
+                    // `disbanded` (left | kicked) frame instead. Any other party is not mine to show.
+                    if(party?.id !== p.id) return
+                    endParty()
+                    break
+                }
+                party = p
+                ended.delete(p.id)
+                partyKicked = null
+                partyInvites = partyInvites.filter(x => x.partyId !== p.id)
+                break
+            }
+            case 'party_disbanded': {
+                // To every former member (idle, empty, ...), and to a removed member alone
+                // with reason "left" or "kicked" while the party goes on without them.
+                const mine = party?.id === frame.partyId
+                const before = partyInvites.length
+                partyInvites = partyInvites.filter(x => x.partyId !== frame.partyId)
+                if(mine){
+                    endParty()
+                    // Removed against my will: kicked, or the leader kicked everyone. Not idle/empty/admin.
+                    if(frame.reason === 'kicked' || frame.reason === 'kicked_all') partyKicked = frame.partyId
+                }
+                if(!mine && partyInvites.length === before) return
+                break
+            }
+            case 'party_follow': {
+                const f = cleanFollow(frame)
+                if(!f || uid(f.leader.uuid) === uid(me?.uuid) || (party && party.id !== f.partyId)) return
+                partyFollow = f
+                break
+            }
             default: return
         }
         emit()
@@ -243,6 +391,14 @@ function createFriendsModel(){
         get requests(){ return requests.slice() },
         get invites(){ return invites.slice() },
         get blocked(){ return blocked.slice() },
+        get party(){ return party },
+        get partyInvites(){ return partyInvites.slice() },
+        get partyFollow(){ return partyFollow },
+        /** The follow toast was answered or put off. */
+        clearFollow(){ if(!partyFollow) return; partyFollow = null; emit() },
+        get partyKicked(){ return partyKicked },
+        /** The "You were removed from the party" note was shown. */
+        clearKicked(){ if(!partyKicked) return; partyKicked = null; emit() },
         friends: sorted,
         friend: uuid => friends.get(uuid) ?? null,
         /** The window's three sections. */
@@ -283,4 +439,4 @@ function createFriendsModel(){
     return api
 }
 
-module.exports = { createFriendsModel, cleanPresence, compareFriends, activityLine, ago, MODES, NAME, TEXTS }
+module.exports = { createFriendsModel, cleanPresence, compareFriends, activityLine, ago, toMs, cleanPartyView, cleanPartyInvite, MODES, NAME, TEXTS }
