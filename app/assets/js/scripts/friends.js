@@ -32,6 +32,7 @@ const Friends = (() => {
     const ICONS = {
         friends: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18.5 14.8c1.7.8 2.8 2.5 3.2 5.2"/></svg>',
         hide: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>',
+        offline: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8.8a15 15 0 0 1 4.2-2.6M10.7 5.1A15 15 0 0 1 22 8.8M5 12.5a10 10 0 0 1 3.7-2.2M15.2 10.4A10 10 0 0 1 19 12.5M8.5 16a5 5 0 0 1 7 0M12 20h.01M3 3l18 18"/></svg>',
         window: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M20 4l-8 8M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>'
     }
 
@@ -136,7 +137,7 @@ const Friends = (() => {
     function unmount(){
         if(!mounted) return
         mounted = false
-        document.body.classList.remove('has-friends')
+        document.body.classList.remove('has-friends', 'friends-folded')
         for(const el of [strip, card, addCard, inv, showBtn]) el?.remove()
         document.querySelectorAll('.tag-friends, .mode-friends, .slice-friendline').forEach(el => el.remove())
         lastAccountKey = null
@@ -277,12 +278,13 @@ const Friends = (() => {
     }
 
     /** The slices fold into a band in the settings workspace; the strip goes with them. */
-    const away = () => stage.classList.contains('is-mini') || getComputedStyle(landing).display === 'none'
+    const away = () => stage.classList.contains('is-mini') || landing.clientWidth === 0
 
     function renderStrip(){
         const online = model.onlineCount()
         const unavailable = status.reason === 'unavailable' || status.reason === 'offline' || status.reason === 'gate'
         strip.classList.toggle('is-hidden', stripHidden || windowOpen || away())
+        document.body.classList.toggle('friends-folded', stripHidden || windowOpen)
         strip.classList.toggle('is-stale', model.stale || unavailable)
         strip.setAttribute('aria-hidden', String(stripHidden || windowOpen || away()))
         showBtn.classList.toggle('is-gone', !stripHidden || windowOpen || away())
@@ -312,8 +314,24 @@ const Friends = (() => {
             const rule = st === 'offline' && !ruled ? (ruled = true, '<span class="fs-rule"></span>') : ''
             return `${rule}<button class="fs-head${st === 'offline' ? ' is-off' : ''}${hot === f.uuid ? ' is-hot' : ''}" data-head="${escapeHtml(f.uuid)}" aria-label="${escapeHtml(f.name)} · ${escapeHtml(line(f))}" style="${headStyle(f.headUrl)};${ring}">${icon ? `<span class="fs-badge"><img src="${icon}" alt=""></span>` : ''}${st === 'launcher' || st === 'online' ? '<span class="fs-dot"></span>' : ''}</button>`
         }).join('')
-        if(list.dataset.html !== html){ list.innerHTML = html; list.dataset.html = html }
+        const shown = all.length ? html : emptyState(unavailable)
+        strip.classList.toggle('is-empty', !all.length)
+        if(list.dataset.html !== shown){ list.innerHTML = shown; list.dataset.html = shown }
         updateAddCard()
+    }
+
+    /**
+     * What the strip says when there are no heads to show, in the slices' own vertical type:
+     * loading (three breathing slots), signed out, the service down, or no friends yet, where the
+     * whole column invites the first request and requests already sent wait as dashed heads.
+     */
+    function emptyState(unavailable){
+        const vertical = (text, cls = '') => `<span class="fs-empty-label${cls}">${escapeHtml(text)}</span>`
+        if(!model.loaded && !status.reason) return '<span class="fs-ghost"></span><span class="fs-ghost"></span><span class="fs-ghost"></span>'
+        if(unavailable) return `<span class="fs-empty-icon" aria-hidden="true">${ICONS.offline}</span>${vertical(t('emptyUnavailable'), ' is-muted')}`
+        if(!status.session) return `<span class="fs-empty-icon" aria-hidden="true">${ICONS.friends}</span>${vertical(t('emptySignedOut'), ' is-muted')}`
+        const pending = model.outgoingRequests().map(r => `<span class="fs-head is-pending" title="${escapeHtml(t('pendingTo', { name: r.name }))}" style="${headStyle(r.headUrl)}"></span>`).join('')
+        return `<button class="fs-empty-add" data-act="add" aria-label="${h('addFriend')}"><span class="fs-plus" aria-hidden="true">+</span>${vertical(t(pending ? 'emptyWaiting' : 'emptyAdd'))}</button>${pending}`
     }
 
     function updateAddCard(){
@@ -557,8 +575,9 @@ const Friends = (() => {
     new MutationObserver(() => { if(mounted) requestAnimationFrame(decorateSlices) }).observe(stage, { childList: true, subtree: true })
     // Entering or leaving the settings workspace only changes the stage's class (slices.js).
     new MutationObserver(() => { if(mounted) render() }).observe(stage, { attributes: true, attributeFilter: ['class'] })
-    // The views fade in and out by their inline display (uibinder.js), the Play view included.
-    new MutationObserver(() => { if(mounted) render() }).observe(landing, { attributes: true, attributeFilter: ['style'] })
+    // The Play view is shown and hidden in several ways (jQuery fades, the settings workspace); a
+    // hidden view has no size, so its size is the one signal all of them share.
+    new ResizeObserver(() => { if(mounted) render() }).observe(landing)
     // The flag (Settings › Launcher) and a refreshed account token are picked up here.
     setInterval(() => {
         if(enabled() !== mounted) (enabled() ? mount : unmount)()

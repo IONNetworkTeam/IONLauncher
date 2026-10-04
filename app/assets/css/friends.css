@@ -10,6 +10,8 @@
  * clips its children), so it sits in #main beside it.
  */
 .has-friends #landingContainer{position:relative;height:100%;width:calc(100% - 64px)}
+/* Hidden, or standing in the friends window: the Play view takes the column back. */
+.has-friends.friends-folded #landingContainer{width:100%}
 .fstrip{position:absolute;top:0;right:0;bottom:0;width:64px;display:flex;flex-direction:column;align-items:center;padding:12px 0 10px;box-sizing:border-box;background:#0c0d12;box-shadow:inset 1px 0 0 rgba(255,255,255,.05);color:#fff;font-family:'Geist',system-ui,sans-serif;transition:opacity .4s;z-index:4}
 /* Folded away in the settings workspace and while the window stands in for it. */
 .fstrip.is-hidden{opacity:0;pointer-events:none}
@@ -33,6 +35,21 @@
 .fs-foot{display:flex;flex-direction:column;align-items:center;gap:4px;padding-top:8px}
 .fs-btn{display:flex;align-items:center;justify-content:center;width:36px;height:32px;border:0;border-radius:8px;background:none;color:rgba(255,255,255,.6);cursor:pointer;text-decoration:none}
 .fs-btn:hover,.fs-btn[aria-pressed="true"]{background:rgba(255,255,255,.08);color:#fff}
+/* Nothing to show yet: loading, signed out, unavailable, or no friends. Vertical type like the slices' names. */
+.fstrip.is-empty .fs-list{justify-content:flex-start;gap:14px;padding-top:14px}
+.fs-ghost{flex-shrink:0;width:40px;height:40px;border-radius:10px;background:rgba(255,255,255,.05);animation:fsBreathe 1.6s ease-in-out infinite}
+.fs-ghost:nth-child(2){animation-delay:.2s}.fs-ghost:nth-child(3){animation-delay:.4s}
+@keyframes fsBreathe{50%{background:rgba(255,255,255,.1)}}
+.fs-empty-add{display:flex;flex-direction:column;align-items:center;gap:16px;padding:0 0 12px;border:0;background:none;color:rgba(255,255,255,.62);cursor:pointer;transition:color .25s}
+.fs-plus{display:flex;align-items:center;justify-content:center;width:40px;height:40px;box-sizing:border-box;border:1.5px dashed rgba(255,255,255,.28);border-radius:10px;font:300 24px/1 'Geist',system-ui,sans-serif;color:rgba(255,255,255,.55);transition:border-color .25s,color .25s,transform .3s cubic-bezier(.3,1.5,.5,1),background .25s}
+.fs-empty-add:hover,.fs-empty-add:focus-visible{color:#fff}
+.fs-empty-add:hover .fs-plus,.fs-empty-add:focus-visible .fs-plus{border-color:var(--acc-text,#A9B9FA);color:var(--acc-text,#A9B9FA);background:color-mix(in srgb,var(--acc,#6E8CF0) 14%,transparent);transform:scale(1.08)}
+.fs-empty-label{writing-mode:vertical-rl;transform:rotate(180deg);font:700 15px 'Geist',system-ui,sans-serif;letter-spacing:-.005em;white-space:nowrap;transition:letter-spacing .4s}
+.fs-empty-add:hover .fs-empty-label{letter-spacing:.02em}
+.fs-empty-label.is-muted{font:500 10.5px 'Geist Mono',ui-monospace,monospace;letter-spacing:.22em;text-transform:uppercase;color:rgba(255,255,255,.4)}
+.fs-empty-icon{display:flex;color:rgba(255,255,255,.3)}
+.fs-head.is-pending{cursor:default;opacity:.55;box-shadow:0 0 0 1.5px #0c0d12,0 0 0 2.5px rgba(255,255,255,.25);outline:1.5px dashed rgba(255,255,255,.35);outline-offset:2px}
+.fs-head.is-pending:hover{transform:none}
 /* Nothing to show: no session, or no friends yet. The strip stays, quiet. */
 .fstrip.is-stale .fs-head{filter:grayscale(.6)}
 .fstrip.is-stale .fs-count{color:rgba(255,255,255,.4)}
@@ -55,16 +72,24 @@
 .fr-act img{width:14px;height:14px;image-rendering:pixelated;flex-shrink:0}
 .fr-act .fr-since{font:400 11px 'Geist Mono',ui-monospace,monospace;color:rgba(255,255,255,.4)}
 .fr-acts{display:flex;gap:6px;align-items:center}
-.fr-ghost{height:30px;padding:0 10px;border:0;border-radius:8px;background:none;color:rgba(255,255,255,.65);font:500 12px 'Geist',system-ui,sans-serif;cursor:pointer;transition:background .2s,color .2s}
-.fr-ghost:hover{background:rgba(255,255,255,.08);color:#fff}
-.fr-join{height:30px;padding:0 13px;border:0;border-radius:8px;background:var(--join-bg,#4F6EE0);color:#fff;font:600 12.5px 'Geist',system-ui,sans-serif;cursor:pointer;transition:transform .2s cubic-bezier(.3,1.5,.5,1),filter .2s,opacity .2s}
-.fr-join:hover{transform:translateY(-1px);filter:brightness(1.12)}
-.fr-join:disabled,.fr-ghost:disabled{opacity:.4;cursor:default;transform:none;filter:none}
-.fr-join.is-done{background:rgba(255,255,255,.12)}
-.fr-join.fr-danger{background:#DE4E45}
+/* The card and window actions: small launcher controls, not web buttons. A quiet tinted chip with a hairline, and the release-coloured one with a lit top edge and its own glow, like Play. */
+.fr-ghost,.fr-join{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:28px;padding:0 11px;box-sizing:border-box;border:0;border-radius:8px;font:550 12px/1 'Geist',system-ui,sans-serif;letter-spacing:.005em;white-space:nowrap;cursor:pointer;transition:background-color .2s,box-shadow .2s,color .2s,transform .2s cubic-bezier(.3,1.5,.5,1),filter .2s,opacity .2s}
+.fr-ghost{background:rgba(255,255,255,.05);box-shadow:inset 0 0 0 1px rgba(255,255,255,.09);color:rgba(255,255,255,.72)}
+.fr-ghost:hover{background:rgba(255,255,255,.1);box-shadow:inset 0 0 0 1px rgba(255,255,255,.18);color:#fff}
+.fr-join{padding:0 13px;background:var(--join-bg,#4F6EE0);box-shadow:inset 0 1px 0 rgba(255,255,255,.22),inset 0 0 0 1px rgba(255,255,255,.08),0 8px 18px -10px var(--join-bg,#4F6EE0);color:#fff;font-weight:600}
+.fr-join:hover{transform:translateY(-1px);filter:brightness(1.1)}
+.fr-ghost:active,.fr-join:active{transform:translateY(0) scale(.96)}
+.fr-ghost:focus-visible,.fr-join:focus-visible{outline:2px solid var(--acc-text,#A9B9FA);outline-offset:2px}
+.fr-ghost:disabled{opacity:.4;cursor:default;transform:none}
+/* Not ready (an empty name, a stale view): neutral, not a faded colour */
+.fr-join:disabled{background:rgba(255,255,255,.06);box-shadow:inset 0 0 0 1px rgba(255,255,255,.07);color:rgba(255,255,255,.35);cursor:default;transform:none;filter:none}
+.fr-join.is-done,.fr-join.is-done:disabled{background:none;box-shadow:inset 0 0 0 1px rgba(255,255,255,.1);color:rgba(255,255,255,.5)}
+.fr-join.fr-danger{background:rgba(222,78,69,.16);box-shadow:inset 0 0 0 1px rgba(222,78,69,.45);color:#F59A93}
+.fr-join.fr-danger:hover{background:#DE4E45;box-shadow:inset 0 1px 0 rgba(255,255,255,.2),0 8px 18px -10px #DE4E45;color:#fff;filter:none}
 
 /* Add a friend: a small card from the strip's top */
 .fr-add-row{display:flex;gap:8px;align-items:center;margin-top:10px}
+.fr-add-row .fr-join{height:36px;padding:0 15px;border-radius:9px}
 .fr-field{flex:1;min-width:0;height:36px;box-sizing:border-box;padding:0 12px;border:1px solid rgba(255,255,255,.14);border-radius:9px;background:rgba(8,9,12,.5);color:#fff;font:400 13px 'Geist Mono',ui-monospace,monospace}
 .fr-field:focus{outline:none;border-color:rgba(255,255,255,.5)}
 .fr-field::placeholder{color:rgba(255,255,255,.35)}
@@ -101,7 +126,7 @@
 /* The friends window (friends.ejs): its own title bar, the add row, the sections, the two switches */
 .fw{width:100%;height:100vh;display:flex;flex-direction:column;background:#0e0f14;color:#fff;font-family:'Geist',system-ui,sans-serif;overflow:hidden;-webkit-user-select:none}
 .fw *{box-sizing:border-box}
-.fw button{font:inherit;color:inherit}
+:where(.fw) button{font:inherit;color:inherit}
 .fw-bar{position:relative;height:36px;flex-shrink:0;display:flex;align-items:center;padding-left:12px;background:color-mix(in oklab,#6E8CF0 9%,#0a0b0f);-webkit-app-region:drag}
 .fw-bar button{-webkit-app-region:no-drag}
 .fw-bar .horizon{background:linear-gradient(90deg,#6E8CF022,#6E8CF0aa 18%,#6E8CF055 55%,#6E8CF011)}
