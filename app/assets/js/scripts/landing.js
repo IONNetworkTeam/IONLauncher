@@ -170,6 +170,56 @@ function showLaunchFailure(title, desc){
     toggleLaunchArea(false)
 }
 
+/* Force close */
+
+/** Kills the game outright. Minecraft gets no chance to save, so this is only for a stuck game. */
+function forceCloseGame(){
+    if(proc == null || proc.exitCode !== null || proc.signalCode !== null) return
+    loggerLanding.warn('Force closing the game.')
+    proc.kill('SIGKILL')
+}
+
+/**
+ * The warning before a force close. Cancel has focus and Enter does not confirm, so the kill
+ * always takes a deliberate click.
+ */
+const ForceCloseDialog = (() => {
+    const root = document.getElementById('forceClose')
+    const cancel = root.querySelector('[data-fc="cancel"]')
+
+    function open(){
+        root.hidden = false
+        void root.offsetWidth  // start the entrance from the hidden state
+        root.classList.add('is-open')
+        cancel.focus()
+    }
+    function close(){
+        if(root.hidden) return
+        root.classList.remove('is-open')
+        setTimeout(() => { if(!root.classList.contains('is-open')) root.hidden = true }, 220)
+    }
+
+    cancel.addEventListener('click', close)
+    root.querySelector('[data-fc="kill"]').addEventListener('click', () => {
+        forceCloseGame()
+        close()
+    })
+    root.addEventListener('mousedown', e => { if(e.target === root) close() })
+    document.addEventListener('keydown', e => {
+        if(!root.hidden && e.key === 'Escape'){
+            e.stopPropagation()
+            close()
+        }
+    }, true)
+
+    // The game closed on its own while the warning was up: nothing left to kill.
+    GameState.subscribe(state => { if(state === 'idle') close() })
+
+    return { open, close }
+})()
+
+document.getElementById('launch_kill').addEventListener('click', () => ForceCloseDialog.open())
+
 /* System (Java) Scan */
 
 /**

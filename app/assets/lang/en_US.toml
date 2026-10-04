@@ -437,6 +437,15 @@ challenges = "Challenges"
 stats = "Stats"
 news = "News"
 
+[ejs.forceClose]
+kicker = "FORCE CLOSE"
+title = "Kill Minecraft now?"
+body = "The game stops instantly, without a chance to save. Only do this when it's frozen or won't close."
+riskProgress = "Progress since the last save is lost"
+riskCorruption = "Worlds or mod data being saved can corrupt"
+cancel = "Keep playing"
+confirm = "Force close"
+
 [ejs.slices]
 stageLabel = "Releases"
 allReleases = "All releases"
@@ -461,6 +470,7 @@ inGame = "In game"
 closeToSwitch = "CLOSE THE GAME TO SWITCH"
 switchAfter = "SWITCH AFTER THE GAME CLOSES"
 joinLobby = "Join from the lobby"
+forceClose = "FORCE CLOSE"
 
 [js.slices.caption]
 idle = "READY"

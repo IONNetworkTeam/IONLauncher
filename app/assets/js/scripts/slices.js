@@ -406,6 +406,10 @@ const Slices = (() => {
             : Lang.queryJS(`slices.caption.${s}`)
         cap.classList.toggle('cap-flash', !!nudgedNow)
         document.getElementById('launch_side').textContent = s === 'idle' ? (r?.net ? Lang.queryJS('slices.joinLobby') : (r?.version ?? '')) : ''
+        // Only once the process exists; while preparing there is nothing to kill yet.
+        const kill = document.getElementById('launch_kill')
+        kill.hidden = s !== 'starting' && s !== 'running'
+        kill.textContent = Lang.queryJS('slices.forceClose')
     }
 
     GameState.subscribe(() => { percent = 0; update() })
