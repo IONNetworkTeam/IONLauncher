@@ -13,7 +13,7 @@ const Web = require('./assets/js/weburl')
 
 const loggerShell = LoggerUtil.getLogger('Shell')
 
-const WEBBRIDGE_PRELOAD = 'file://' + require('path').join(__dirname, 'assets', 'js', 'webbridge.js')
+const WEBBRIDGE_PRELOAD = require('url').pathToFileURL(require('path').join(__dirname, 'assets', 'js', 'webbridge.js')).href
 
 /** What the website last reported, or null until it has. */
 let webState = null

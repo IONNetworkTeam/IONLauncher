@@ -33,7 +33,7 @@ export default defineConfig(
           requireLast: false
         }
       }],
-      '@stylistic/linebreak-style': ['error', 'windows'],
+      '@stylistic/linebreak-style': ['error', 'unix'],
       'no-var': ['error'],
       'no-control-regex': 'off',
       'no-unused-vars': ['error', {
