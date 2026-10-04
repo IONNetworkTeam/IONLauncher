@@ -12,7 +12,7 @@
  * (showTab, escapeHtml, onSelectedServerChanged), slices.js (Slices), panels.js (Panels).
  */
 /* global ConfigManager, ipcRenderer, Lang, LoggerUtil, GameState, Slices, Panels, showTab, escapeHtml, getCurrentView, VIEWS, validateSelectedAccount */
-const { createFriendsModel, activityLine, ago, MODES: FRIEND_MODES, NAME: FRIEND_NAME } = require('./assets/js/friendsmodel')
+const { createFriendsModel, activityLine, ago, toastMs, followPlace, MODES: FRIEND_MODES, NAME: FRIEND_NAME } = require('./assets/js/friendsmodel')
 const FriendsWeb = require('./assets/js/weburl')
 
 const Friends = (() => {
@@ -27,6 +27,8 @@ const Friends = (() => {
     const NOTE_MS = 2600
     const INVITE_MS = 20000
     const LEAVE_MS = 220
+    const FOLLOW_MS = 30000
+    const KICKED_MS = 6000
     const NET_RING = '#A9B9FA'
     const NET_JOIN = 'linear-gradient(100deg, #1E9CCB 0%, #4F6EE0 52%, #7150CF 100%)'
     const ICONS = {
@@ -50,7 +52,10 @@ const Friends = (() => {
     let leaveTimer = null
     const notes = new Map()     // uuid → { text, good, until }
     const invited = new Set()
-    const dismissed = new Set() // invites put off with Later, by sender
+    const dismissed = new Set() // toasts answered, put off or timed out, by pickToast key (round:<uuid>, party:<id>, kicked:<id>, follow:<id>:<gamemode>:<release>)
+    const toastNotes = new Map() // pickToast key → why the last answer did not work
+    let toastKey = null
+    let toastItem = null
     let inviteTimer = null
     let lastAccountKey = null
     let accountRefreshAt = 0
@@ -70,7 +75,7 @@ const Friends = (() => {
     }
     const ringOf = r => r?.accent?.text ?? NET_RING
     const joinBgOf = r => r ? r.playBg : NET_JOIN
-    const modeIcon = id => FRIEND_MODES[id] ? `assets/images/modes/${id}.svg` : null
+    const modeIcon = id => Object.hasOwn(FRIEND_MODES, id) ? `assets/images/modes/${id}.svg` : null
     const headUrl = url => {
         if(!url) return ''
         try { return new URL(url, FriendsWeb.url).href } catch { return '' }
@@ -131,6 +136,7 @@ const Friends = (() => {
         render()
         sendAccount()
         reportPresence()
+        ipcRenderer.invoke('friends:party').catch(() => {})
         requestAnimationFrame(() => { if(typeof Slices !== 'undefined') Slices.update() })
     }
 
@@ -199,6 +205,16 @@ const Friends = (() => {
     }
     const failText = res => res?.error || (res?.code === 'UNAVAILABLE' || res?.code === 'GATE' ? t('unavailable') : res?.code === 'NO_SESSION' ? t('noSession') : t('noteFailed'))
 
+    /** What a Join or a party Follow answered: moved, a release to start here, or why not. */
+    function joined(res, fail){
+        if(!res?.ok) return fail(failText(res))
+        const a = res.data ?? {}
+        if(a.outcome === 'moved') return true
+        if(a.outcome === 'refused') return fail(a.error || a.reason || t('noteFailed'))
+        if(a.outcome === 'launch' || a.outcome === 'pack') return launch(a.release, fail)
+        fail(t('noteFailed'))
+    }
+
     /**
      * Join a friend: `moved` when I was in game, `launch` or `pack` to start a release here,
      * `refused` with the reason for the row's note. While a different release runs nothing is
@@ -210,27 +226,29 @@ const Friends = (() => {
         const target = releaseFor(f)
         const busy = !GameState.canSwitch()
         if(busy && (!target || GameState.releaseId !== target.id)) return note(uuid, t('noteClosePlaying'))
-        const res = await ipcRenderer.invoke('friends:join', uuid, busy)
-        if(!res.ok) return note(uuid, failText(res))
-        const a = res.data ?? {}
-        if(a.outcome === 'moved') return
-        if(a.outcome === 'refused') return note(uuid, a.error || a.reason || t('noteFailed'))
-        if(a.outcome === 'launch' || a.outcome === 'pack') return launch(a.release, uuid)
-        note(uuid, t('noteFailed'))
+        joined(await ipcRenderer.invoke('friends:join', uuid, busy), text => note(uuid, text))
+    }
+
+    /** Follow the party leader: the same outcomes as a Join, routed to the leader by the website. */
+    async function follow(item, key){
+        const fail = text => key ? toastFail(key, text) : undefined
+        if(!GameState.canSwitch()) return fail(t('noteClosePlaying'))
+        if(await joined(await ipcRenderer.invoke('friends:partyFollow'), fail)) model.clearFollow()
     }
 
     /** Open a release and press Play, as the user would. */
-    async function launch(releaseId, uuid){
-        if(!releaseId || !Slices.byId(releaseId)) return note(uuid, t('noteUnknownRelease'))
-        if(!GameState.canSwitch()) return note(uuid, t('noteClosePlaying'))
+    async function launch(releaseId, fail){
+        if(!releaseId || !Slices.byId(releaseId)) return fail(t('noteUnknownRelease'))
+        if(!GameState.canSwitch()) return fail(t('noteClosePlaying'))
         hot = null
-        hideInvite()
+        hideToast()
         render()
-        if(getCurrentView() !== VIEWS.landing) return
+        if(getCurrentView() !== VIEWS.landing) return true
         await Slices.libraryPick(releaseId)
         setTimeout(() => {
             if(GameState.canSwitch() && ConfigManager.getSelectedServer() === releaseId) document.getElementById('launch_button').click()
         }, 900)
+        return true
     }
 
     function challenge(uuid){
@@ -238,9 +256,16 @@ const Friends = (() => {
         showTab('challenges', `/challenges?with=${encodeURIComponent(uuid)}`)
     }
 
+    /** Invite: the round invite while I am in a round, a party invite otherwise (model.inviteAction). */
     async function invite(uuid){
-        const res = await ipcRenderer.invoke('friends:invite', uuid)
-        if(res.ok){ invited.add(uuid); render() } else note(uuid, failText(res))
+        const kind = model.inviteAction(uuid, inGame())
+        if(kind === 'round'){
+            const res = await ipcRenderer.invoke('friends:invite', uuid)
+            if(res.ok){ invited.add(uuid); render() } else note(uuid, failText(res))
+        } else if(kind === 'party'){
+            const res = await ipcRenderer.invoke('friends:partyInvite', uuid)
+            if(!res.ok) note(uuid, failText(res))
+        }
     }
 
     async function sendRequest(name){
@@ -272,7 +297,7 @@ const Friends = (() => {
         if(!mounted) return
         renderStrip()
         renderCard()
-        renderInvite()
+        renderToast()
         decorateSlices()
         pushReleases()
     }
@@ -356,7 +381,9 @@ const Friends = (() => {
         const icon = f.presence.status === 'playing' && a?.kind === 'network' && a.gamemode && a.gamemode !== 'lobby' ? modeIcon(a.gamemode) : null
         const canJoin = f.presence.status === 'playing' && (f.presence.join.play || f.presence.join.spectate)
         const canChallenge = a?.kind === 'network'
-        const canInvite = (f.presence.status === 'launcher' || f.presence.status === 'online') && inGame()
+        const inviteKind = model.inviteAction(f.uuid, inGame())
+        const canInvite = !!inviteKind
+        const inviteDone = inviteKind === 'round' ? invited.has(f.uuid) : inviteKind === 'party' && model.invitedToMyParty(f.uuid)
         const n = notes.get(f.uuid)
         const since = f.presence.status === 'playing' ? ago(f.presence.since) : ''
         const stale = model.stale || !status.session
@@ -373,7 +400,7 @@ const Friends = (() => {
             ${canChallenge || canJoin || canInvite ? `<div class="fcard-actions">
                 ${canChallenge ? `<button class="fr-ghost" data-act="challenge">${h('challenge')}</button>` : ''}
                 ${canJoin ? `<button class="fr-join" data-act="join" style="--join-bg:${escapeHtml(joinBgOf(r))}" ${stale ? 'disabled' : ''}>${h(f.presence.join.play ? 'join' : 'spectate')}</button>` : ''}
-                ${canInvite ? `<button class="fr-join${invited.has(f.uuid) ? ' is-done' : ''}" data-act="invite" style="--join-bg:var(--acc)" ${stale || invited.has(f.uuid) ? 'disabled' : ''}>${h(invited.has(f.uuid) ? 'invited' : 'invite')}</button>` : ''}
+                ${canInvite ? `<button class="fr-join${inviteDone ? ' is-done' : ''}" data-act="invite" style="--join-bg:var(--acc)" title="${escapeHtml(t(inviteKind === 'party' ? 'partyInviteHint' : 'roundInviteHint', { name: f.name }))}" ${stale || inviteDone ? 'disabled' : ''}>${h(inviteDone ? 'invited' : 'invite')}</button>` : ''}
             </div>` : ''}
             ${n ? `<p class="fcard-note${n.good ? ' is-good' : ''}">${escapeHtml(n.text)}</p>` : ''}`
         const head = strip.querySelector(`[data-head="${CSS.escape(f.uuid)}"]`)
@@ -386,25 +413,33 @@ const Friends = (() => {
         card.classList.add('is-open')
     }
 
-    function hideInvite(){
+    function hideToast(){
         clearTimeout(inviteTimer)
         inv.classList.remove('is-open')
-        delete inv.dataset.from
+        toastKey = null
+        toastItem = null
     }
 
-    function renderInvite(){
-        const i = model.invites.find(x => !dismissed.has(x.from.uuid))
-        if(!i || stripHidden || windowOpen || away()){ hideInvite(); return }
-        if(inv.dataset.from === i.from.uuid) return
+    /** An answer from a toast did not work: show the same toast again, saying why. */
+    function toastFail(key, text){
+        dismissed.delete(key)
+        toastNotes.set(key, text)
+        hideToast()
+        render()
+    }
+
+    const toastNote = text => text ? `<p class="fcard-note">${escapeHtml(text)}</p>` : ''
+
+    /** "{name} invited you" to where they play: the round invite, unchanged. */
+    function roundToast(i, why){
         const a = i.activity
         const r = a?.kind === 'network' ? netRelease() : releases().find(x => x.id === a?.release) ?? null
         const icon = a?.kind === 'network' && a.gamemode && a.gamemode !== 'lobby' ? modeIcon(a.gamemode) : null
         const where = a?.kind === 'network'
             ? t('inviteNetwork', { where: a.gamemode && a.gamemode !== 'lobby' ? (FRIEND_MODES[a.gamemode] || a.gamemode) : t('inTheHub') })
             : (releaseName(a?.release) ?? t('playing'))
-        inv.dataset.from = i.from.uuid
         inv.style.setProperty('--acc-text', ringOf(r))
-        inv.innerHTML = `
+        return `
             <div class="inv-top">
                 <span class="fr-head" style="${headStyle(i.from.headUrl)};box-shadow:0 0 0 2px #111219,0 0 0 3.5px ${escapeHtml(ringOf(r))}"></span>
                 <span style="min-width:0;flex:1">
@@ -413,14 +448,96 @@ const Friends = (() => {
                     <span class="fr-act">${icon ? `<img src="${icon}" alt="">` : ''}<span>${escapeHtml(where)}</span></span>
                 </span>
             </div>
+            ${toastNote(why)}
             <div class="inv-actions">
                 <button class="fr-ghost" data-act="later">${h('later')}</button>
                 <button class="fr-join" data-act="join" style="--join-bg:${escapeHtml(joinBgOf(r))}">${h('join')}</button>
             </div>
             <span class="inv-bar"></span>`
+    }
+
+    /** "{name} invited you to their party": Decline / Join party, until the invite expires. */
+    function partyToast(i, why){
+        inv.style.setProperty('--acc-text', NET_RING)
+        return `
+            <div class="inv-top">
+                <span class="fr-head" style="${headStyle(i.from.headUrl)};box-shadow:0 0 0 2px #111219,0 0 0 3.5px ${NET_RING}"></span>
+                <span style="min-width:0;flex:1">
+                    <span class="fr-kicker" style="color:${NET_RING}">${h('partyKicker')}</span>
+                    <span class="inv-title">${escapeHtml(t('partyInvitedYou', { name: i.from.name }))}</span>
+                    <span class="fr-act"><span>${escapeHtml(t('partyMembers', { n: i.members }))}</span></span>
+                </span>
+            </div>
+            ${toastNote(why)}
+            <div class="inv-actions">
+                <button class="fr-ghost" data-act="pDecline">${h('decline')}</button>
+                <button class="fr-join" data-act="pJoin" style="--join-bg:${NET_JOIN}">${h('joinParty')}</button>
+            </div>
+            <span class="inv-bar"></span>`
+    }
+
+    /**
+     * "{leader} went to {Mode | the hub | ION Network}": Follow. The frame names a public
+     * gamemode and a release, never a server (followPlace).
+     */
+    function followToast(f, why){
+        const r = f.where.release ? (releases().find(x => x.id === f.where.release) ?? null) : netRelease()
+        const where = followPlace(f.where, { hub: t('followHub'), network: t('network') })
+        const icon = modeIcon(f.where.gamemode)
+        const head = model.party?.members.find(m => m.uuid === f.leader.uuid)?.headUrl ?? null
+        inv.style.setProperty('--acc-text', ringOf(r))
+        return `
+            <div class="inv-top">
+                <span class="fr-head" style="${headStyle(head)};box-shadow:0 0 0 2px #111219,0 0 0 3.5px ${escapeHtml(ringOf(r))}"></span>
+                <span style="min-width:0;flex:1">
+                    <span class="fr-kicker" style="color:${escapeHtml(ringOf(r))}">${h('followKicker')}</span>
+                    <span class="inv-title">${escapeHtml(t('followWent', { name: f.leader.name, where }))}</span>
+                    ${icon ? `<span class="fr-act"><img src="${icon}" alt=""></span>` : ''}
+                </span>
+            </div>
+            ${toastNote(why)}
+            <div class="inv-actions">
+                <button class="fr-ghost" data-act="fLater">${h('later')}</button>
+                <button class="fr-join" data-act="fFollow" style="--join-bg:${escapeHtml(joinBgOf(r))}">${h('follow')}</button>
+            </div>
+            <span class="inv-bar"></span>`
+    }
+
+    /** "You were removed from the party": a short note, no buttons; it goes when its bar runs out. */
+    function kickedToast(){
+        inv.style.setProperty('--acc-text', '#F2C443')
+        return `
+            <div class="inv-top">
+                <span style="min-width:0;flex:1">
+                    <span class="fr-kicker" style="color:#F2C443">${h('partyLabel')}</span>
+                    <span class="inv-title">${h('partyRemoved')}</span>
+                </span>
+            </div>
+            <span class="inv-bar"></span>`
+    }
+
+    /** One toast at a time (model.pickToast): a party invite, the kicked note, a follow, then a round invite. */
+    function renderToast(){
+        const pick = model.pickToast(dismissed)
+        if(!pick || stripHidden || windowOpen || away()){ hideToast(); return }
+        if(toastKey === pick.key) return
+        const ms = pick.kind === 'party' ? toastMs(pick.item.expiresAt) : pick.kind === 'follow' ? FOLLOW_MS : pick.kind === 'kicked' ? KICKED_MS : INVITE_MS
+        toastKey = pick.key
+        toastItem = pick.item
+        inv.dataset.kind = pick.kind
+        const draw = { party: partyToast, kicked: kickedToast, follow: followToast }[pick.kind] ?? roundToast
+        inv.innerHTML = draw(pick.item, toastNotes.get(pick.key))
+        inv.style.setProperty('--inv-ms', `${ms}ms`)
         inv.classList.add('is-open')
         clearTimeout(inviteTimer)
-        inviteTimer = setTimeout(() => { dismissed.add(i.from.uuid); hideInvite(); render() }, INVITE_MS)
+        inviteTimer = setTimeout(() => {
+            dismissed.add(pick.key)
+            toastNotes.delete(pick.key)
+            if(pick.kind === 'follow') model.clearFollow()
+            if(pick.kind === 'kicked') model.clearKicked()
+            hideToast()
+            render()
+        }, ms)
     }
 
     /* Presence on the slices and the mode tiles */
@@ -514,18 +631,43 @@ const Friends = (() => {
             if(FRIEND_NAME.test(name)) sendRequest(name)
         })
         form.querySelector('input').addEventListener('input', () => { addCard.querySelector('.fcard-note').hidden = true; updateAddCard() })
-        inv.addEventListener('click', e => {
+        inv.addEventListener('click', async e => {
             const act = e.target.closest('[data-act]')?.dataset.act
-            const from = inv.dataset.from
-            if(!act || !from) return
-            if(act === 'later'){
-                dismissed.add(from)
-                hideInvite()
-                ipcRenderer.invoke('friends:dismissInvite', from).catch(() => {})
-                render()
-            } else if(act === 'join'){
-                dismissed.add(from)
-                join(from)
+            const key = toastKey
+            const item = toastItem
+            if(!act || !key || !item) return
+            dismissed.add(key)
+            toastNotes.delete(key)
+            switch(act){
+                case 'later':
+                    hideToast()
+                    ipcRenderer.invoke('friends:dismissInvite', item.from.uuid).catch(() => {})
+                    render()
+                    break
+                case 'join':
+                    join(item.from.uuid)
+                    render()
+                    break
+                case 'pDecline':
+                    hideToast()
+                    ipcRenderer.invoke('friends:partyDecline', item.partyId).catch(() => {})
+                    render()
+                    break
+                case 'pJoin': {
+                    hideToast()
+                    render()
+                    const res = await ipcRenderer.invoke('friends:partyAccept', item.partyId)
+                    if(!res?.ok) toastFail(key, failText(res))
+                    break
+                }
+                case 'fLater':
+                    hideToast()
+                    model.clearFollow()
+                    break
+                case 'fFollow':
+                    hideToast()
+                    follow(item, key)
+                    break
             }
         })
         document.addEventListener('mousedown', e => {
@@ -559,6 +701,12 @@ const Friends = (() => {
     })
     // Join and Challenge from the friends window run here, where the Play view is.
     ipcRenderer.on('friends:do', (_e, m) => {
+        if(m?.op === 'partyFollow') {
+            // The friends window's Follow: the same path as the follow toast's button.
+            const pick = model.pickToast(new Set())
+            if(model.partyFollow) follow(model.partyFollow, pick?.kind === 'follow' ? pick.key : null)
+            return
+        }
         if(!m || typeof m.uuid !== 'string') return
         if(m.op === 'join') join(m.uuid)
         else if(m.op === 'challenge') challenge(m.uuid)
@@ -585,5 +733,5 @@ const Friends = (() => {
     }, 2000)
     if(enabled()) mount()
 
-    return { model, join, challenge, invite, openWindow, get mounted(){ return mounted } }
+    return { model, join, follow, challenge, invite, openWindow, get mounted(){ return mounted } }
 })()

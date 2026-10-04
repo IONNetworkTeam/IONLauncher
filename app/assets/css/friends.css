@@ -103,7 +103,7 @@
 .inv-top{display:flex;gap:12px;align-items:center}
 .inv-title{display:block;margin-top:3px;font-size:14px;font-weight:700}
 .inv-actions{display:flex;gap:8px;margin-top:12px;justify-content:flex-end}
-.inv-bar{position:absolute;left:0;bottom:0;height:2px;background:var(--acc-text,#A9B9FA);animation:invTime 20s linear forwards}
+.inv-bar{position:absolute;left:0;bottom:0;height:2px;background:var(--acc-text,#A9B9FA);animation:invTime var(--inv-ms,20s) linear forwards}
 @keyframes invTime{from{width:100%}to{width:0}}
 
 /* Friends can be hidden completely; a quiet title-bar button brings them back */
