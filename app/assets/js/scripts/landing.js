@@ -157,14 +157,18 @@ let serverStatusListener = setInterval(() => refreshServerStatus(true), 300000)
  * 
  * @param {string} title The overlay title.
  * @param {string} desc The overlay description.
+ * @param {string} icon Optional. The dialog icon (see DIALOG_ICONS in overlay.js).
  */
-function showLaunchFailure(title, desc){
+function showLaunchFailure(title, desc, icon = 'error'){
     GameState.failed()
-    setOverlayContent(
+    setOverlayContent({
+        tone: 'danger',
+        icon,
+        kicker: Lang.queryJS('landing.launch.kicker'),
         title,
-        desc,
-        Lang.queryJS('landing.launch.okay')
-    )
+        description: desc,
+        acknowledge: Lang.queryJS('landing.launch.okay')
+    })
     setOverlayHandler(null)
     toggleOverlay(true)
     toggleLaunchArea(false)
@@ -241,12 +245,15 @@ async function asyncSystemScan(effectiveJavaOptions, launchAfter = true){
     if(jvmDetails == null) {
         // If the result is null, no valid Java installation was found.
         // Show this information to the user.
-        setOverlayContent(
-            Lang.queryJS('landing.systemScan.noCompatibleJava'),
-            Lang.queryJS('landing.systemScan.installJavaMessage', { 'major': effectiveJavaOptions.suggestedMajor }),
-            Lang.queryJS('landing.systemScan.installJava'),
-            Lang.queryJS('landing.systemScan.installJavaManually')
-        )
+        setOverlayContent({
+            tone: 'warn',
+            icon: 'java',
+            kicker: Lang.queryJS('landing.systemScan.kicker'),
+            title: Lang.queryJS('landing.systemScan.noCompatibleJava', { 'major': effectiveJavaOptions.suggestedMajor }),
+            description: Lang.queryJS('landing.systemScan.installJavaMessage', { 'major': effectiveJavaOptions.suggestedMajor }),
+            acknowledge: Lang.queryJS('landing.systemScan.installJava'),
+            dismiss: Lang.queryJS('landing.systemScan.installJavaManually')
+        })
         setOverlayHandler(() => {
             setLaunchDetails(Lang.queryJS('landing.systemScan.javaDownloadPrepare'))
             toggleOverlay(false)
@@ -255,18 +262,21 @@ async function asyncSystemScan(effectiveJavaOptions, launchAfter = true){
             // other releases), not become an unhandled rejection.
             downloadJava(effectiveJavaOptions, launchAfter).catch(err => {
                 loggerLanding.error('Unhandled error in Java Download', err)
-                showLaunchFailure(Lang.queryJS('landing.systemScan.javaDownloadFailureTitle'), Lang.queryJS('landing.systemScan.javaDownloadFailureText'))
+                showLaunchFailure(Lang.queryJS('landing.systemScan.javaDownloadFailureTitle'), Lang.queryJS('landing.systemScan.javaDownloadFailureText'), 'java')
             })
         })
         setDismissHandler(() => {
             $('#overlayContent').fadeOut(250, () => {
                 //$('#overlayDismiss').toggle(false)
-                setOverlayContent(
-                    Lang.queryJS('landing.systemScan.javaRequired', { 'major': effectiveJavaOptions.suggestedMajor }),
-                    Lang.queryJS('landing.systemScan.javaRequiredMessage', { 'major': effectiveJavaOptions.suggestedMajor }),
-                    Lang.queryJS('landing.systemScan.javaRequiredDismiss'),
-                    Lang.queryJS('landing.systemScan.javaRequiredCancel')
-                )
+                setOverlayContent({
+                    tone: 'warn',
+                    icon: 'java',
+                    kicker: Lang.queryJS('landing.systemScan.kicker'),
+                    title: Lang.queryJS('landing.systemScan.javaRequired', { 'major': effectiveJavaOptions.suggestedMajor }),
+                    description: Lang.queryJS('landing.systemScan.javaRequiredMessage', { 'major': effectiveJavaOptions.suggestedMajor }),
+                    acknowledge: Lang.queryJS('landing.systemScan.javaRequiredDismiss'),
+                    dismiss: Lang.queryJS('landing.systemScan.javaRequiredCancel')
+                })
                 setOverlayHandler(() => {
                     toggleLaunchArea(false)
                     toggleOverlay(false)
@@ -390,7 +400,7 @@ async function dlAsync(login = true) {
         onDistroRefresh(distro)
     } catch(err) {
         loggerLaunchSuite.error('Unable to refresh distribution index.', err)
-        showLaunchFailure(Lang.queryJS('landing.dlAsync.fatalError'), Lang.queryJS('landing.dlAsync.unableToLoadDistributionIndex'))
+        showLaunchFailure(Lang.queryJS('landing.dlAsync.fatalError'), Lang.queryJS('landing.dlAsync.unableToLoadDistributionIndex'), 'offline')
         return
     }
 
@@ -460,7 +470,7 @@ async function dlAsync(login = true) {
         setLaunchPercentage(100)
     } catch (err) {
         loggerLaunchSuite.error('Error during file validation.')
-        showLaunchFailure(Lang.queryJS('landing.dlAsync.errorDuringFileVerificationTitle'), err.displayable || Lang.queryJS('landing.dlAsync.seeConsoleForDetails'))
+        showLaunchFailure(Lang.queryJS('landing.dlAsync.errorDuringFileVerificationTitle'), err.displayable || Lang.queryJS('landing.dlAsync.seeConsoleForDetails'), 'file')
         return
     }
     
@@ -477,12 +487,12 @@ async function dlAsync(login = true) {
             const corrupted = await findCorruptedGithubFiles(serv)
             if(corrupted.length > 0){
                 loggerLaunchSuite.error(`GitHub mods failed verification: ${corrupted.join(', ')}`)
-                showLaunchFailure(Lang.queryJS('landing.dlAsync.errorDuringFileDownloadTitle'), Lang.queryJS('landing.dlAsync.githubModCorrupted', { mods: corrupted.join(', ') }))
+                showLaunchFailure(Lang.queryJS('landing.dlAsync.errorDuringFileDownloadTitle'), Lang.queryJS('landing.dlAsync.githubModCorrupted', { mods: corrupted.join(', ') }), 'download')
                 return
             }
         } catch(err) {
             loggerLaunchSuite.error('Error during file download.')
-            showLaunchFailure(Lang.queryJS('landing.dlAsync.errorDuringFileDownloadTitle'), err.displayable || Lang.queryJS('landing.dlAsync.seeConsoleForDetails'))
+            showLaunchFailure(Lang.queryJS('landing.dlAsync.errorDuringFileDownloadTitle'), err.displayable || Lang.queryJS('landing.dlAsync.seeConsoleForDetails'), 'download')
             return
         }
     } else {
@@ -569,7 +579,7 @@ async function dlAsync(login = true) {
             data = data.trim()
             if(data.indexOf('Could not find or load main class net.minecraft.launchwrapper.Launch') > -1){
                 loggerLaunchSuite.error('Game launch failed, LaunchWrapper was not downloaded properly.')
-                showLaunchFailure(Lang.queryJS('landing.dlAsync.errorDuringLaunchTitle'), Lang.queryJS('landing.dlAsync.launchWrapperNotDownloaded'))
+                showLaunchFailure(Lang.queryJS('landing.dlAsync.errorDuringLaunchTitle'), Lang.queryJS('landing.dlAsync.launchWrapperNotDownloaded'), 'file')
             }
         }
 

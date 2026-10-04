@@ -177,19 +177,20 @@ function showManualModsDialog(modules){
         const rows = new Map()
 
         const dialog = document.createElement('div')
-        dialog.className = 'ion-shell fixed inset-0 z-[100] flex items-center justify-center bg-black/70'
+        dialog.className = 'dlg'
+        dialog.hidden = true
         dialog.innerHTML = `
-            <div class="ion-rise w-[620px] max-w-[calc(100vw-40px)] rounded-xl border border-white/10 bg-ionGray p-6 text-white shadow-[0_22px_45px_-14px_rgba(0,0,0,0.8)]">
-                <h2 class="text-lg font-bold">${t('title')}</h2>
-                <p class="mt-1 text-sm text-neutral-400">${t('description', { folder: downloadsDir })}</p>
-                <ul data-manual="list" class="mt-4 max-h-[50vh] space-y-2 overflow-y-auto pr-1"></ul>
-                <p data-manual="hint" class="mt-3 text-xs text-neutral-500">${t('dropHint')}</p>
-                <div class="mt-5 flex items-center justify-between gap-2">
-                    <button type="button" data-manual="openAll" class="rounded-lg bg-white/10 px-3.5 py-1.5 text-sm font-medium text-white transition hover:bg-white/20">${t('openAll')}</button>
-                    <div class="flex gap-2">
-                        <button type="button" data-manual="cancel" class="rounded-lg px-4 py-2 text-sm text-neutral-300 hover:bg-white/10">${t('cancel')}</button>
-                        <button type="button" data-manual="continue" disabled class="play-button rounded-lg px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">${t('continue')}</button>
-                    </div>
+            <div class="dlg-card is-wider" data-tone="warn" role="dialog" aria-modal="true" aria-labelledby="manualModsTitle">
+                ${dialogHead('download', t('kicker'))}
+                <h2 id="manualModsTitle" class="dlg-title">${t('title')}</h2>
+                <p class="dlg-body">${t('description', { folder: '\u0000' }).replace('\u0000', `<strong>${escapeHtml(downloadsDir)}</strong>`)}</p>
+                <ul data-manual="list" class="dlg-list"></ul>
+                <p data-manual="hint" class="dlg-note">${t('dropHint')}</p>
+                <div class="dlg-actions">
+                    <button type="button" data-manual="openAll" class="dlg-btn dlg-ghost">${t('openAll')}</button>
+                    <span class="dlg-spacer"></span>
+                    <button type="button" data-manual="cancel" class="dlg-btn dlg-quiet">${t('cancel')}</button>
+                    <button type="button" data-manual="continue" disabled class="dlg-btn dlg-primary">${t('continue')}</button>
                 </div>
             </div>`
 
@@ -197,15 +198,15 @@ function showManualModsDialog(modules){
         for(const mdl of modules){
             const raw = mdl.rawModule
             const li = document.createElement('li')
-            li.className = 'flex items-center gap-3 rounded-lg border border-white/10 bg-ionGrayer px-3 py-2'
+            li.className = 'dlg-row'
             li.innerHTML = `
-                <div class="min-w-0 flex-1">
-                    <p class="truncate text-sm font-medium">${escapeHtml(raw.name)} <span class="font-mono text-[11px] text-neutral-500">${escapeHtml(mdl.getMavenComponents()?.version ?? '')}</span></p>
-                    <p class="truncate font-mono text-[11px] text-neutral-500" title="${escapeHtml(raw.ion.manual.fileName)}">${escapeHtml(raw.ion.manual.fileName)}</p>
-                </div>
-                <span data-status class="shrink-0 rounded-full bg-ionWarn/20 px-2 py-0.5 text-[11px] font-medium text-[#f0c070]">${t('waiting')}</span>
-                <button type="button" data-open class="shrink-0 rounded-lg bg-white/10 px-3 py-1.5 text-xs font-medium hover:bg-white/20">${t('openPage')}</button>
-                <button type="button" data-choose class="shrink-0 rounded-lg bg-white/10 px-3 py-1.5 text-xs font-medium hover:bg-white/20">${t('chooseFile')}</button>`
+                <span class="dlg-row-main">
+                    <span class="dlg-row-title">${escapeHtml(raw.name)} <span class="dlg-row-meta">${escapeHtml(mdl.getMavenComponents()?.version ?? '')}</span></span>
+                    <span class="dlg-row-meta" title="${escapeHtml(raw.ion.manual.fileName)}">${escapeHtml(raw.ion.manual.fileName)}</span>
+                </span>
+                <span data-status class="dlg-pill">${t('waiting')}</span>
+                <button type="button" data-open class="dlg-btn dlg-ghost is-small">${t('openPage')}</button>
+                <button type="button" data-choose class="dlg-btn dlg-ghost is-small">${t('chooseFile')}</button>`
             li.querySelector('[data-open]').onclick = () => shell.openExternal(raw.ion.manual.pageUrl)
             li.querySelector('[data-choose]').onclick = async () => {
                 const { canceled, filePaths } = await remote.dialog.showOpenDialog(remote.getCurrentWindow(), {
@@ -223,11 +224,11 @@ function showManualModsDialog(modules){
             const status = li.querySelector('[data-status]')
             const original = status.textContent
             status.textContent = text
-            status.classList.add('bg-ionCritical/20', 'text-[#f1a19b]')
+            status.dataset.state = 'bad'
             setTimeout(() => {
                 if(status.textContent === text){
                     status.textContent = original
-                    status.classList.remove('bg-ionCritical/20', 'text-[#f1a19b]')
+                    delete status.dataset.state
                 }
             }, 2500)
         }
@@ -249,9 +250,9 @@ function showManualModsDialog(modules){
             const li = rows.get(id)
             const status = li.querySelector('[data-status]')
             status.textContent = Lang.queryJS('landing.manualMods.found')
-            status.className = 'shrink-0 rounded-full bg-ionGood/20 px-2 py-0.5 text-[11px] font-medium text-[#7fd9c4]'
+            status.dataset.state = 'good'
             for(const b of li.querySelectorAll('button')) b.disabled = true
-            li.classList.add('opacity-70')
+            li.classList.add('is-done')
             if(pending.size === 0) dialog.querySelector('[data-manual="continue"]').disabled = false
         }
 
@@ -307,7 +308,7 @@ function showManualModsDialog(modules){
         function close(result){
             clearInterval(poll)
             watcher?.close()
-            dialog.remove()
+            closeDialog(dialog, () => dialog.remove())
             resolve(result)
         }
         dialog.querySelector('[data-manual="openAll"]').onclick = () => {
@@ -317,6 +318,7 @@ function showManualModsDialog(modules){
         dialog.querySelector('[data-manual="continue"]').onclick = () => close(true)
 
         document.body.appendChild(dialog)
+        openDialog(dialog)
         scanDownloads().catch(() => {})
     })
 }

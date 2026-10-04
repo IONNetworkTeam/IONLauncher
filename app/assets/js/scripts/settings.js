@@ -520,11 +520,14 @@ ipcRenderer.on(MSFT_OPCODE.REPLY_LOGIN, (_, ...arguments_) => {
             }
 
             // Unexpected error.
-            setOverlayContent(
-                Lang.queryJS('settings.msftLogin.errorTitle'),
-                Lang.queryJS('settings.msftLogin.errorMessage'),
-                Lang.queryJS('settings.msftLogin.okButton')
-            )
+            setOverlayContent({
+                tone: 'danger',
+                icon: 'account',
+                kicker: Lang.queryJS('login.errorKicker'),
+                title: Lang.queryJS('settings.msftLogin.errorTitle'),
+                description: Lang.queryJS('settings.msftLogin.errorMessage'),
+                acknowledge: Lang.queryJS('settings.msftLogin.okButton')
+            })
             setOverlayHandler(() => {
                 toggleOverlay(false)
             })
@@ -545,11 +548,14 @@ ipcRenderer.on(MSFT_OPCODE.REPLY_LOGIN, (_, ...arguments_) => {
                 console.log(error)
                 console.log(errorDesc)
                 console.log('Full query map: ', queryMap)
-                setOverlayContent(
-                    error,
-                    errorDesc,
-                    Lang.queryJS('settings.msftLogin.okButton')
-                )
+                setOverlayContent({
+                    tone: 'danger',
+                    icon: 'account',
+                    kicker: Lang.queryJS('login.errorKicker'),
+                    title: escapeHtml(error),
+                    description: escapeHtml(errorDesc ?? ''),
+                    acknowledge: Lang.queryJS('settings.msftLogin.okButton')
+                })
                 setOverlayHandler(() => {
                     toggleOverlay(false)
                 })
@@ -580,7 +586,14 @@ ipcRenderer.on(MSFT_OPCODE.REPLY_LOGIN, (_, ...arguments_) => {
                     }
 
                     switchView(getCurrentView(), viewOnClose, 500, 500, () => {
-                        setOverlayContent(actualDisplayableError.title, actualDisplayableError.desc, Lang.queryJS('login.tryAgain'))
+                        setOverlayContent({
+                            tone: 'danger',
+                            icon: 'account',
+                            kicker: Lang.queryJS('login.errorKicker'),
+                            title: actualDisplayableError.title,
+                            description: actualDisplayableError.desc,
+                            acknowledge: Lang.queryJS('login.tryAgain')
+                        })
                         setOverlayHandler(() => {
                             toggleOverlay(false)
                         })
@@ -626,12 +639,16 @@ function bindAuthAccountLogOut(){
             let isLastAccount = false
             if(Object.keys(ConfigManager.getAuthAccounts()).length === 1){
                 isLastAccount = true
-                setOverlayContent(
-                    Lang.queryJS('settings.authAccountLogout.lastAccountWarningTitle'),
-                    Lang.queryJS('settings.authAccountLogout.lastAccountWarningMessage'),
-                    Lang.queryJS('settings.authAccountLogout.confirmButton'),
-                    Lang.queryJS('settings.authAccountLogout.cancelButton')
-                )
+                setOverlayContent({
+                    tone: 'warn',
+                    icon: 'signOut',
+                    kicker: Lang.queryJS('settings.authAccountLogout.kicker'),
+                    title: Lang.queryJS('settings.authAccountLogout.lastAccountWarningTitle'),
+                    description: Lang.queryJS('settings.authAccountLogout.lastAccountWarningMessage'),
+                    acknowledge: Lang.queryJS('settings.authAccountLogout.confirmButton'),
+                    dismiss: Lang.queryJS('settings.authAccountLogout.cancelButton'),
+                    destructive: true
+                })
                 setOverlayHandler(() => {
                     processLogOut(val, isLastAccount)
                     toggleOverlay(false)
@@ -698,11 +715,14 @@ ipcRenderer.on(MSFT_OPCODE.REPLY_LOGOUT, (_, ...arguments_) => {
             }
 
             // Unexpected error.
-            setOverlayContent(
-                Lang.queryJS('settings.msftLogout.errorTitle'),
-                Lang.queryJS('settings.msftLogout.errorMessage'),
-                Lang.queryJS('settings.msftLogout.okButton')
-            )
+            setOverlayContent({
+                tone: 'danger',
+                icon: 'signOut',
+                kicker: Lang.queryJS('settings.msftLogout.kicker'),
+                title: Lang.queryJS('settings.msftLogout.errorTitle'),
+                description: Lang.queryJS('settings.msftLogout.errorMessage'),
+                acknowledge: Lang.queryJS('settings.msftLogout.okButton')
+            })
             setOverlayHandler(() => {
                 toggleOverlay(false)
             })
@@ -1133,11 +1153,14 @@ function bindDropinModsRemoveButton(){
             if(res){
                 document.getElementById(fullName).remove()
             } else {
-                setOverlayContent(
-                    Lang.queryJS('settings.dropinMods.deleteFailedTitle', { fullName }),
-                    Lang.queryJS('settings.dropinMods.deleteFailedMessage'),
-                    Lang.queryJS('settings.dropinMods.okButton')
-                )
+                setOverlayContent({
+                    tone: 'danger',
+                    icon: 'mod',
+                    kicker: Lang.queryJS('settings.dropinMods.kicker'),
+                    title: Lang.queryJS('settings.dropinMods.deleteFailedTitle', { fullName: escapeHtml(fullName) }),
+                    description: Lang.queryJS('settings.dropinMods.deleteFailedMessage'),
+                    acknowledge: Lang.queryJS('settings.dropinMods.okButton')
+                })
                 setOverlayHandler(null)
                 toggleOverlay(true)
             }
@@ -1188,11 +1211,14 @@ function saveDropinModConfiguration(){
             if(DropinModUtil.isDropinModEnabled(dropin.fullName) != dropinUIEnabled){
                 DropinModUtil.toggleDropinMod(CACHE_SETTINGS_MODS_DIR, dropin.fullName, dropinUIEnabled).catch(err => {
                     if(!isOverlayVisible()){
-                        setOverlayContent(
-                            Lang.queryJS('settings.dropinMods.failedToggleTitle'),
-                            err.message,
-                            Lang.queryJS('settings.dropinMods.okButton')
-                        )
+                        setOverlayContent({
+                            tone: 'danger',
+                            icon: 'mod',
+                            kicker: Lang.queryJS('settings.dropinMods.kicker'),
+                            title: Lang.queryJS('settings.dropinMods.failedToggleTitle'),
+                            description: escapeHtml(err.message),
+                            acknowledge: Lang.queryJS('settings.dropinMods.okButton')
+                        })
                         setOverlayHandler(null)
                         toggleOverlay(true)
                     }

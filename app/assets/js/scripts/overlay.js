@@ -58,6 +58,85 @@ function bindOverlayKeys(state, content, dismissable){
     }
 }
 
+/* Dialogs (dialog.css) */
+
+/** The icons a dialog can show in its tile, as the inside of a 24×24 stroked SVG. */
+const DIALOG_ICONS = {
+    info: '<circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/>',
+    alert: '<path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/>',
+    error: '<circle cx="12" cy="12" r="9"/><path d="m15 9-6 6M9 9l6 6"/>',
+    java: '<path d="M10 2v2M14 2v2M6 2v2"/><path d="M16 8a1 1 0 0 1 1 1v8a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V9a1 1 0 0 1 1-1h14a4 4 0 1 1 0 8h-1"/>',
+    account: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+    signOut: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5M21 12H9"/>',
+    offline: '<path d="M12 20h.01M8.5 16.43a5 5 0 0 1 7 0M5 12.86a10 10 0 0 1 5.17-2.69M19 12.86a10 10 0 0 0-2-1.52M2 8.82a15 15 0 0 1 4.18-2.64M22 8.82a15 15 0 0 0-11.29-3.76"/><path d="m2 2 20 20"/>',
+    download: '<path d="M12 15V3M7 10l5 5 5-5"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>',
+    file: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M10 12l4 4M14 12l-4 4"/>',
+    mod: '<path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5M12 13v8"/>',
+    lock: '<rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+    server: '<rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 7.5h.01M7 16.5h.01"/>',
+    star: '<path d="M12 3 14.4 9.6 21 12l-6.6 2.4L12 21l-2.4-6.6L3 12l6.6-2.4z"/>',
+    check: '<path d="M20 6 9 17l-5-5"/>'
+}
+
+/**
+ * The SVG for a dialog icon.
+ *
+ * @param {string} name A key of DIALOG_ICONS.
+ * @returns {string} The icon's markup.
+ */
+function dialogIcon(name){
+    return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${DIALOG_ICONS[name] ?? DIALOG_ICONS.info}</svg>`
+}
+
+/**
+ * The head of a dialog card: its icon tile and kicker.
+ *
+ * @param {string} icon A key of DIALOG_ICONS.
+ * @param {string} kicker The kicker text (escaped by the caller).
+ * @returns {string} The head's markup.
+ */
+function dialogHead(icon, kicker){
+    return `<div class="dlg-head"><span class="dlg-icon">${dialogIcon(icon)}</span><span class="dlg-kicker">${kicker}</span></div>`
+}
+
+/** Show a .dlg backdrop and let its card rise in. */
+function openDialog(root){
+    root.hidden = false
+    void root.offsetWidth  // start the entrance from the hidden state
+    root.classList.add('is-open')
+}
+
+/**
+ * Fade a .dlg backdrop out, then hide it.
+ *
+ * @param {HTMLElement} root The .dlg element.
+ * @param {function} [after] Called once it is hidden, unless it was opened again meanwhile.
+ */
+function closeDialog(root, after){
+    root.classList.remove('is-open')
+    setTimeout(() => {
+        if(root.classList.contains('is-open')) return
+        root.hidden = true
+        after?.()
+    }, 220)
+}
+
+for(const el of document.querySelectorAll('#overlayContainer [data-dialog-icon]')){
+    el.innerHTML = dialogIcon(el.dataset.dialogIcon)
+}
+
+/**
+ * Show only the given content card of the overlay.
+ *
+ * @param {string} content The id of the content card.
+ * @param {boolean} dismissable Whether the message card shows its dismiss button.
+ */
+function showOverlayContent(content, dismissable){
+    $('#' + content).parent().children('.dlg-card').hide()
+    $('#' + content).show()
+    $('#overlayDismiss').toggle(!!dismissable)
+}
+
 /**
  * Toggle the visibility of the overlay.
  * 
@@ -74,46 +153,18 @@ function toggleOverlay(toggleState, dismissable = false, content = 'overlayConte
         dismissable = false
     }
     bindOverlayKeys(toggleState, content, dismissable)
+    const container = document.getElementById('overlayContainer')
     if(toggleState){
         document.getElementById('main').setAttribute('overlay', true)
         // Make things untabbable.
         $('#main *').attr('tabindex', '-1')
-        $('#' + content).parent().children().hide()
-        $('#' + content).show()
-        if(dismissable){
-            $('#overlayDismiss').show()
-        } else {
-            $('#overlayDismiss').hide()
-        }
-        $('#overlayContainer').fadeIn({
-            duration: 250,
-            start: () => {
-                if(getCurrentView() === VIEWS.settings){
-                    document.getElementById('settingsContainer').style.backgroundColor = 'transparent'
-                }
-            }
-        })
+        showOverlayContent(content, dismissable)
+        openDialog(container)
     } else {
         document.getElementById('main').removeAttribute('overlay')
         // Make things tabbable.
         $('#main *').removeAttr('tabindex')
-        $('#overlayContainer').fadeOut({
-            duration: 250,
-            start: () => {
-                if(getCurrentView() === VIEWS.settings){
-                    document.getElementById('settingsContainer').style.backgroundColor = 'rgba(0, 0, 0, 0.50)'
-                }
-            },
-            complete: () => {
-                $('#' + content).parent().children().hide()
-                $('#' + content).show()
-                if(dismissable){
-                    $('#overlayDismiss').show()
-                } else {
-                    $('#overlayDismiss').hide()
-                }
-            }
-        })
+        closeDialog(container, () => showOverlayContent(content, dismissable))
     }
 }
 
@@ -123,18 +174,31 @@ async function toggleServerSelection(toggleState){
 }
 
 /**
- * Set the content of the overlay.
+ * Set the content of the overlay's message card.
+ *
+ * Takes either the four strings below, or one object:
+ * { tone, icon, kicker, title, description, acknowledge, dismiss, destructive }.
+ * tone is 'info' (the default), 'warn', 'danger' or 'good' and colours the card; icon is a key of
+ * DIALOG_ICONS; destructive paints the acknowledge button red. Titles and descriptions are HTML.
  * 
- * @param {string} title Overlay title text.
+ * @param {string|Object} title Overlay title text, or the whole content.
  * @param {string} description Overlay description text.
  * @param {string} acknowledge Acknowledge button text.
  * @param {string} dismiss Dismiss button text.
  */
-function setOverlayContent(title, description, acknowledge, dismiss = Lang.queryJS('overlay.dismiss')){
-    document.getElementById('overlayTitle').innerHTML = title
-    document.getElementById('overlayDesc').innerHTML = description
-    document.getElementById('overlayAcknowledge').innerHTML = acknowledge
-    document.getElementById('overlayDismiss').innerHTML = dismiss
+function setOverlayContent(title, description, acknowledge, dismiss){
+    const c = typeof title === 'object' ? title : { title, description, acknowledge, dismiss }
+    const tone = c.tone ?? 'info'
+    document.getElementById('overlayContent').dataset.tone = tone
+    document.getElementById('overlayIcon').innerHTML = dialogIcon(c.icon ?? { warn: 'alert', danger: 'error', good: 'check' }[tone] ?? 'info')
+    document.getElementById('overlayKicker').textContent = c.kicker ?? Lang.queryJS(`overlay.kicker.${tone}`)
+    document.getElementById('overlayTitle').innerHTML = c.title
+    document.getElementById('overlayDesc').innerHTML = c.description
+    const ack = document.getElementById('overlayAcknowledge')
+    ack.innerHTML = c.acknowledge
+    ack.classList.toggle('dlg-primary', !c.destructive)
+    ack.classList.toggle('dlg-danger', !!c.destructive)
+    document.getElementById('overlayDismiss').innerHTML = c.dismiss ?? Lang.queryJS('overlay.dismiss')
 }
 
 /**
@@ -184,7 +248,7 @@ document.getElementById('serverSelectConfirm').addEventListener('click', async (
     }
     // None are selected? Not possible right? Meh, handle it.
     if(listings.length > 0){
-        const serv = (await DistroAPI.getDistribution()).getServerById(listings[i].getAttribute('servid'))
+        const serv = (await DistroAPI.getDistribution()).getServerById(listings[0].getAttribute('servid'))
         updateSelectedServer(serv)
         toggleOverlay(false)
     }
@@ -225,6 +289,7 @@ document.getElementById('serverSelectCancel').addEventListener('click', () => {
 
 document.getElementById('accountSelectCancel').addEventListener('click', () => {
     $('#accountSelectContent').fadeOut(250, () => {
+        bindOverlayKeys(true, 'overlayContent', true)
         $('#overlayContent').fadeIn(250)
     })
 })
@@ -273,26 +338,16 @@ async function populateServerListings(){
     const servers = distro.servers
     let htmlString = ''
     for(const serv of servers){
-        htmlString += `<button class="serverListing" servid="${serv.rawServer.id}" ${serv.rawServer.id === giaSel ? 'selected' : ''}>
-            <img class="serverListingImg" src="${serv.rawServer.icon}"/>
-            <div class="serverListingDetails">
-                <span class="serverListingName">${serv.rawServer.name}</span>
-                <span class="serverListingDescription">${serv.rawServer.description}</span>
-                <div class="serverListingInfo">
-                    <div class="serverListingVersion">${serv.rawServer.minecraftVersion}</div>
-                    <div class="serverListingRevision">${serv.rawServer.version}</div>
-                    ${serv.rawServer.mainServer ? `<div class="serverListingStarWrapper">
-                        <svg id="Layer_1" viewBox="0 0 107.45 104.74" width="20px" height="20px">
-                            <defs>
-                                <style>.cls-1{fill:#fff;}.cls-2{fill:none;stroke:#fff;stroke-miterlimit:10;}</style>
-                            </defs>
-                            <path class="cls-1" d="M100.93,65.54C89,62,68.18,55.65,63.54,52.13c2.7-5.23,18.8-19.2,28-27.55C81.36,31.74,63.74,43.87,58.09,45.3c-2.41-5.37-3.61-26.52-4.37-39-.77,12.46-2,33.64-4.36,39-5.7-1.46-23.3-13.57-33.49-20.72,9.26,8.37,25.39,22.36,28,27.55C39.21,55.68,18.47,62,6.52,65.55c12.32-2,33.63-6.06,39.34-4.9-.16,5.87-8.41,26.16-13.11,37.69,6.1-10.89,16.52-30.16,21-33.9,4.5,3.79,14.93,23.09,21,34C70,86.84,61.73,66.48,61.59,60.65,67.36,59.49,88.64,63.52,100.93,65.54Z"/>
-                            <circle class="cls-2" cx="53.73" cy="53.9" r="38"/>
-                        </svg>
-                        <span class="serverListingStarTooltip">${Lang.queryJS('settings.serverListing.mainServer')}</span>
-                    </div>` : ''}
-                </div>
-            </div>
+        const raw = serv.rawServer
+        const meta = [raw.minecraftVersion, raw.version, raw.mainServer ? Lang.queryJS('settings.serverListing.mainServer') : null].filter(Boolean).map(escapeHtml).join(' · ')
+        htmlString += `<button class="serverListing dlg-row" servid="${escapeHtml(raw.id)}" ${raw.id === giaSel ? 'selected' : ''}>
+            <img class="dlg-row-img" src="${escapeHtml(raw.icon)}" alt=""/>
+            <span class="dlg-row-main">
+                <span class="dlg-row-title">${escapeHtml(raw.name)}</span>
+                <span class="dlg-row-sub">${escapeHtml(raw.description ?? '')}</span>
+                <span class="dlg-row-meta">${meta}</span>
+            </span>
+            <span class="dlg-row-check">${dialogIcon('check')}</span>
         </button>`
     }
     document.getElementById('serverSelectListScrollable').innerHTML = htmlString
@@ -304,9 +359,10 @@ function populateAccountListings(){
     const accounts = Array.from(Object.keys(accountsObj), v=>accountsObj[v])
     let htmlString = ''
     for(let i=0; i<accounts.length; i++){
-        htmlString += `<button class="accountListing" uuid="${accounts[i].uuid}" ${i===0 ? 'selected' : ''}>
-            <img src="https://mc-heads.net/head/${accounts[i].uuid}/40">
-            <div class="accountListingName">${accounts[i].displayName}</div>
+        htmlString += `<button class="accountListing dlg-row" uuid="${escapeHtml(accounts[i].uuid)}" ${i===0 ? 'selected' : ''}>
+            <img class="dlg-row-img" src="https://mc-heads.net/avatar/${escapeHtml(accounts[i].uuid)}/36" alt=""/>
+            <span class="dlg-row-main"><span class="dlg-row-title accountListingName">${escapeHtml(accounts[i].displayName)}</span></span>
+            <span class="dlg-row-check">${dialogIcon('check')}</span>
         </button>`
     }
     document.getElementById('accountSelectListScrollable').innerHTML = htmlString

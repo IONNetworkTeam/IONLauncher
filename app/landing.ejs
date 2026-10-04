@@ -55,21 +55,21 @@
         </button>
     </div>
 
-    <div id="forceClose" class="fc" hidden>
-        <div class="fc-card" role="alertdialog" aria-modal="true" aria-labelledby="forceCloseTitle" aria-describedby="forceCloseBody">
-            <div class="fc-head">
-                <span class="fc-icon"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg></span>
-                <span class="fc-kicker mono"><%= lang('forceClose.kicker') %></span>
+    <div id="forceClose" class="dlg" hidden>
+        <div class="dlg-card" data-tone="danger" role="alertdialog" aria-modal="true" aria-labelledby="forceCloseTitle" aria-describedby="forceCloseBody">
+            <div class="dlg-head">
+                <span class="dlg-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg></span>
+                <span class="dlg-kicker"><%= lang('forceClose.kicker') %></span>
             </div>
-            <h2 id="forceCloseTitle" class="fc-title"><%= lang('forceClose.title') %></h2>
-            <p id="forceCloseBody" class="fc-body"><%= lang('forceClose.body') %></p>
-            <ul class="fc-risks">
+            <h2 id="forceCloseTitle" class="dlg-title"><%= lang('forceClose.title') %></h2>
+            <p id="forceCloseBody" class="dlg-body"><%= lang('forceClose.body') %></p>
+            <ul class="dlg-points">
                 <li><i></i><%= lang('forceClose.riskProgress') %></li>
                 <li><i></i><%= lang('forceClose.riskCorruption') %></li>
             </ul>
-            <div class="fc-actions">
-                <button type="button" class="fc-btn fc-cancel" data-fc="cancel"><%= lang('forceClose.cancel') %></button>
-                <button type="button" class="fc-btn fc-kill" data-fc="kill"><%= lang('forceClose.confirm') %></button>
+            <div class="dlg-actions">
+                <button type="button" class="dlg-btn dlg-ghost" data-fc="cancel"><%= lang('forceClose.cancel') %></button>
+                <button type="button" class="dlg-btn dlg-danger" data-fc="kill"><%= lang('forceClose.confirm') %></button>
             </div>
         </div>
     </div>

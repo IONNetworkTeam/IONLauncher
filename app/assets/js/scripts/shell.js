@@ -227,7 +227,7 @@ function promptForAccount(){
     }
     if(accountPromptOffered || localStorage.getItem(ACCOUNT_PROMPT_KEY)) return
     // Wait for the Play view, and for the website's password prompt to be answered.
-    if(getCurrentView() !== VIEWS.landing || (authDialog && !authDialog.classList.contains('hidden'))){
+    if(getCurrentView() !== VIEWS.landing || (authDialog && !authDialog.hidden)){
         setTimeout(promptForAccount, 2000)
         return
     }
@@ -235,19 +235,26 @@ function promptForAccount(){
 
     const t = key => escapeHtml(Lang.queryJS(`shell.account.${key}`))
     accountPrompt = document.createElement('div')
-    accountPrompt.className = 'ion-shell fixed inset-0 z-[90] flex items-center justify-center bg-black/70'
+    accountPrompt.className = 'dlg'
+    accountPrompt.hidden = true
     accountPrompt.innerHTML = `
-        <div class="ion-rise w-[400px] rounded-xl border border-white/10 bg-ionGray p-6 text-white shadow-[0_22px_45px_-14px_rgba(0,0,0,0.8)]">
-            <h2 class="text-lg font-bold">${t('title')}</h2>
-            <p class="mt-2 text-sm text-neutral-400">${t('description')}</p>
-            <div class="mt-6 flex justify-end gap-2">
-                <button type="button" data-account="dismiss" class="rounded-lg px-4 py-2 text-sm text-neutral-300 hover:bg-white/10">${t('dismiss')}</button>
-                <button type="button" data-account="register" class="rounded-lg bg-white/10 px-4 py-2 text-sm text-white hover:bg-white/20">${t('register')}</button>
-                <button type="button" data-account="login" class="play-button rounded-lg px-4 py-2 text-sm font-semibold text-white">${t('login')}</button>
+        <div class="dlg-card is-wide" role="dialog" aria-modal="true" aria-labelledby="accountPromptTitle">
+            ${dialogHead('star', t('kicker'))}
+            <h2 id="accountPromptTitle" class="dlg-title">${t('title')}</h2>
+            <p class="dlg-body">${t('description')}</p>
+            <p class="dlg-note">${t('later')}</p>
+            <div class="dlg-actions">
+                <button type="button" data-account="dismiss" class="dlg-btn dlg-quiet">${t('dismiss')}</button>
+                <span class="dlg-spacer"></span>
+                <button type="button" data-account="register" class="dlg-btn dlg-ghost">${t('register')}</button>
+                <button type="button" data-account="login" class="dlg-btn dlg-primary">${t('login')}</button>
             </div>
-            <p class="mt-4 text-xs text-neutral-500">${t('later')}</p>
         </div>`
-    const close = () => { accountPrompt.remove(); accountPrompt = null }
+    const prompt = accountPrompt
+    const close = () => {
+        accountPrompt = null
+        closeDialog(prompt, () => prompt.remove())
+    }
     accountPrompt.querySelector('[data-account="dismiss"]').onclick = () => {
         localStorage.setItem(ACCOUNT_PROMPT_KEY, new Date().toISOString())
         close()
@@ -255,6 +262,7 @@ function promptForAccount(){
     accountPrompt.querySelector('[data-account="register"]').onclick = () => { close(); showTab('challenges', '/auth/register') }
     accountPrompt.querySelector('[data-account="login"]').onclick = () => { close(); showTab('challenges', '/auth/login') }
     document.body.appendChild(accountPrompt)
+    openDialog(accountPrompt)
 }
 
 function showToast(text, href){
@@ -310,20 +318,21 @@ let authDialog = null
 function showAuthDialog({ host, failed }){
     if(!authDialog){
         const t = key => escapeHtml(Lang.queryJS(`shell.auth.${key}`))
-        const input = 'mt-1 block w-full rounded-md border border-white/10 bg-ionGrayer px-3 py-2 text-sm text-white outline-none focus:border-[#6E8CF0]'
         authDialog = document.createElement('div')
-        authDialog.className = 'ion-shell fixed inset-0 z-[100] flex items-center justify-center bg-black/70'
+        authDialog.className = 'dlg'
+        authDialog.hidden = true
         authDialog.innerHTML = `
-            <form class="ion-rise w-[380px] rounded-xl border border-white/10 bg-ionGray p-6 text-white shadow-[0_22px_45px_-14px_rgba(0,0,0,0.8)]" autocomplete="off">
-                <h2 class="text-lg font-bold" data-auth="title"></h2>
-                <p class="mt-1 text-sm text-neutral-400">${t('description')}</p>
-                <p data-auth="error" class="mt-3 hidden rounded-md bg-ionCritical/15 px-3 py-2 text-sm text-[#f1a19b]">${t('error')}</p>
-                <label class="mt-4 block text-xs font-medium text-neutral-400">${t('username')}<input name="username" required class="${input}"></label>
-                <label class="mt-3 block text-xs font-medium text-neutral-400">${t('password')}<input name="password" type="password" class="${input}"></label>
-                <label class="mt-4 flex items-center gap-2 text-sm text-neutral-300"><input name="remember" type="checkbox" checked class="accent-[#6E8CF0]"> ${t('remember')}</label>
-                <div class="mt-6 flex justify-end gap-2">
-                    <button type="button" data-auth="cancel" class="rounded-lg px-4 py-2 text-sm text-neutral-300 hover:bg-white/10">${t('cancel')}</button>
-                    <button type="submit" data-auth="submit" class="play-button rounded-lg px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">${t('submit')}</button>
+            <form class="dlg-card" role="dialog" aria-modal="true" aria-labelledby="authDialogTitle" autocomplete="off">
+                ${dialogHead('lock', t('kicker'))}
+                <h2 id="authDialogTitle" class="dlg-title" data-auth="title"></h2>
+                <p class="dlg-body">${t('description')}</p>
+                <p data-auth="error" class="dlg-alert" hidden>${t('error')}</p>
+                <label class="dlg-field">${t('username')}<input name="username" required class="dlg-input"></label>
+                <label class="dlg-field">${t('password')}<input name="password" type="password" class="dlg-input"></label>
+                <label class="dlg-check"><input name="remember" type="checkbox" checked> ${t('remember')}</label>
+                <div class="dlg-actions">
+                    <button type="button" data-auth="cancel" class="dlg-btn dlg-ghost">${t('cancel')}</button>
+                    <button type="submit" data-auth="submit" class="dlg-btn dlg-primary">${t('submit')}</button>
                 </div>
             </form>`
         const form = authDialog.querySelector('form')
@@ -340,16 +349,16 @@ function showAuthDialog({ host, failed }){
         document.body.appendChild(authDialog)
     }
     authDialog.querySelector('[data-auth="title"]').textContent = Lang.queryJS('shell.auth.title', { host })
-    authDialog.querySelector('[data-auth="error"]').classList.toggle('hidden', !failed)
+    authDialog.querySelector('[data-auth="error"]').hidden = !failed
     authDialog.querySelector('[data-auth="submit"]').disabled = false
-    authDialog.classList.remove('hidden')
+    openDialog(authDialog)
     const form = authDialog.querySelector('form')
     if(failed) form.password.select()
     else (form.username.value ? form.password : form.username).focus()
 }
 
 function hideAuthDialog(){
-    authDialog?.classList.add('hidden')
+    if(authDialog && !authDialog.hidden) closeDialog(authDialog)
 }
 
 ipcRenderer.on('web:authRequest', (_e, request) => showAuthDialog(request))

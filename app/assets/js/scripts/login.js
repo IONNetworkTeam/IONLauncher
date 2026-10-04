@@ -223,7 +223,14 @@ loginButton.addEventListener('click', () => {
             actualDisplayableError = Lang.queryJS('login.error.unknown')
         }
 
-        setOverlayContent(actualDisplayableError.title, actualDisplayableError.desc, Lang.queryJS('login.tryAgain'))
+        setOverlayContent({
+            tone: 'danger',
+            icon: 'account',
+            kicker: Lang.queryJS('login.errorKicker'),
+            title: actualDisplayableError.title,
+            description: actualDisplayableError.desc,
+            acknowledge: Lang.queryJS('login.tryAgain')
+        })
         setOverlayHandler(() => {
             formDisabled(false)
             toggleOverlay(false)

@@ -1,0 +1,97 @@
+/*
+ * Dialogs: every popup in the launcher (overlay.js, the force close warning, the website's password
+ * prompt, the ION account prompt, the manual mod downloads). One card, coloured by its tone: a glowing
+ * line across the top, an icon tile and a mono kicker in the tone, then the title, the body and the
+ * actions. The tone says what kind of message it is; the buttons stay ION violet unless the action
+ * destroys something.
+ *
+ * Markup: .dlg (the backdrop, [hidden] until shown, .is-open while visible) > .dlg-card[data-tone].
+ * Tones: info (default), warn, danger, good.
+ */
+.dlg{position:fixed;top:var(--frame-h,36px);left:0;right:0;bottom:0;z-index:500;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;background:rgba(5,6,9,.55);backdrop-filter:blur(6px);opacity:0;transition:opacity .2s;font-family:'Geist',system-ui,sans-serif;color:#fff;text-align:left}
+.dlg[hidden]{display:none}
+.dlg.is-open{opacity:1}
+.dlg button,.dlg input{font-family:inherit}
+
+.dlg-card{--t:#7777DF;--t-hi:#A9A9F2;--t-rgb:119,119,223;position:relative;display:flex;flex-direction:column;width:380px;max-width:100%;max-height:100%;padding:22px 22px 18px;box-sizing:border-box;border-radius:18px;overflow:hidden;background:rgba(16,18,24,.96);backdrop-filter:blur(20px) saturate(1.3);box-shadow:inset 0 0 0 1px rgba(255,255,255,.1),0 40px 90px -24px rgba(0,0,0,.9);transform:translateY(10px) scale(.96);transition:transform .35s cubic-bezier(.3,1.4,.5,1)}
+.dlg.is-open .dlg-card{transform:none}
+.dlg-card[data-tone=warn]{--t:#D99A2B;--t-hi:#F0C070;--t-rgb:217,154,43}
+.dlg-card[data-tone=danger]{--t:#DE4E45;--t-hi:#F08A84;--t-rgb:222,78,69}
+.dlg-card[data-tone=good]{--t:#25AB90;--t-hi:#7FD9C4;--t-rgb:37,171,144}
+.dlg-card.is-wide{width:460px}
+.dlg-card.is-wider{width:620px}
+.dlg-card::before{content:'';position:absolute;left:0;right:0;top:0;height:2px;background:linear-gradient(90deg,transparent,var(--t) 30%,var(--t-hi) 50%,var(--t) 70%,transparent);box-shadow:0 0 18px rgba(var(--t-rgb),.8)}
+
+.dlg-head{display:flex;flex-shrink:0;align-items:center;gap:12px}
+.dlg-icon{display:flex;flex-shrink:0;align-items:center;justify-content:center;width:38px;height:38px;border-radius:11px;background:rgba(var(--t-rgb),.14);box-shadow:inset 0 0 0 1px rgba(var(--t-rgb),.35);color:var(--t-hi)}
+.dlg-icon svg{width:20px;height:20px}
+.dlg-kicker{font:500 10.5px 'Geist Mono',ui-monospace,monospace;letter-spacing:.22em;text-transform:uppercase;color:var(--t-hi)}
+.dlg-title{flex-shrink:0;margin:16px 0 0;font:700 20px/1.25 'Geist',system-ui,sans-serif;letter-spacing:-.01em;color:#fff}
+.dlg-body{flex-shrink:0;margin:8px 0 0;font-size:13.5px;line-height:1.55;color:rgba(255,255,255,.62);-webkit-user-select:text;overflow-wrap:anywhere}
+.dlg-body strong{font-weight:600;color:#fff}
+.dlg-body a{color:var(--t-hi);text-decoration:underline;text-underline-offset:2px}
+.dlg-body a:hover,.dlg-body a:focus-visible{color:#fff}
+.dlg-note{flex-shrink:0;margin:12px 0 0;font-size:12px;line-height:1.5;color:rgba(255,255,255,.4)}
+
+/* A short list of consequences under the body (the force close warning) */
+.dlg-points{flex-shrink:0;margin:16px 0 0;padding:4px 14px;list-style:none;border-radius:11px;background:rgba(255,255,255,.04);box-shadow:inset 0 0 0 1px rgba(255,255,255,.07)}
+.dlg-points li{display:flex;align-items:center;gap:10px;padding:9px 0;font-size:12.5px;color:rgba(255,255,255,.8)}
+.dlg-points li+li{border-top:1px solid rgba(255,255,255,.06)}
+.dlg-points i{flex-shrink:0;width:6px;height:6px;border-radius:50%;background:var(--t);box-shadow:0 0 8px rgba(var(--t-rgb),.8)}
+
+/* An inline error inside a card (a refused password) */
+.dlg-alert{flex-shrink:0;margin:14px 0 0;padding:9px 12px;border-radius:10px;background:rgba(222,78,69,.12);box-shadow:inset 0 0 0 1px rgba(222,78,69,.3);font-size:12.5px;line-height:1.45;color:#F08A84}
+.dlg-alert[hidden]{display:none}
+
+/* Form fields */
+.dlg-field{display:block;margin-top:14px;font:500 10.5px 'Geist Mono',ui-monospace,monospace;letter-spacing:.16em;text-transform:uppercase;color:rgba(255,255,255,.45)}
+.dlg-input{display:block;width:100%;height:38px;margin-top:6px;padding:0 12px;box-sizing:border-box;border:0;border-radius:10px;outline:none;background:rgba(255,255,255,.05);box-shadow:inset 0 0 0 1px rgba(255,255,255,.1);font:400 13.5px 'Geist',system-ui,sans-serif;letter-spacing:normal;text-transform:none;color:#fff;transition:box-shadow .2s,background .2s}
+.dlg-input:focus{background:rgba(255,255,255,.07);box-shadow:inset 0 0 0 1px var(--t-hi),0 0 0 3px rgba(var(--t-rgb),.22)}
+.dlg-check{display:flex;align-items:center;gap:9px;margin-top:14px;font-size:13px;color:rgba(255,255,255,.75);cursor:pointer}
+.dlg-check input{width:15px;height:15px;margin:0;accent-color:var(--t)}
+
+/* A scrolling list of rows (accounts, servers, manual downloads) */
+.dlg-list{display:flex;flex:0 1 auto;flex-direction:column;gap:2px;min-height:0;margin:16px 0 0;padding:4px;overflow-y:auto;list-style:none;border-radius:12px;background:rgba(255,255,255,.04);box-shadow:inset 0 0 0 1px rgba(255,255,255,.07)}
+.dlg-list::-webkit-scrollbar{width:6px}
+.dlg-list::-webkit-scrollbar-track{background:none}
+.dlg-list::-webkit-scrollbar-thumb{border:2px solid transparent;border-radius:999px;background:rgba(255,255,255,.18) padding-box}
+.dlg-row{display:flex;flex-shrink:0;align-items:center;gap:12px;width:100%;min-height:52px;margin:0;padding:8px 10px;box-sizing:border-box;border:0;border-radius:9px;background:none;color:rgba(255,255,255,.8);font:500 13.5px 'Geist',system-ui,sans-serif;text-align:left;transition:background .2s,box-shadow .2s,color .2s,opacity .2s}
+button.dlg-row{cursor:pointer}
+button.dlg-row:hover{background:rgba(255,255,255,.05);color:#fff}
+button.dlg-row:focus-visible{outline:2px solid rgba(255,255,255,.6);outline-offset:-2px}
+.dlg-row[selected]{background:rgba(var(--t-rgb),.16);box-shadow:inset 0 0 0 1px rgba(var(--t-rgb),.5);color:#fff;cursor:default}
+.dlg-row.is-done{opacity:.6}
+.dlg-row-img{flex-shrink:0;width:36px;height:36px;border-radius:8px;object-fit:cover;image-rendering:pixelated;background:rgba(255,255,255,.06)}
+.dlg-row-main{display:flex;flex:1;flex-direction:column;gap:3px;min-width:0}
+.dlg-row-title{overflow:hidden;font-weight:600;white-space:nowrap;text-overflow:ellipsis;color:inherit}
+.dlg-row-sub{overflow:hidden;font-size:12px;font-weight:400;white-space:nowrap;text-overflow:ellipsis;color:rgba(255,255,255,.5)}
+.dlg-row-meta{overflow:hidden;font:500 10.5px 'Geist Mono',ui-monospace,monospace;letter-spacing:.06em;white-space:nowrap;text-overflow:ellipsis;color:rgba(255,255,255,.4)}
+.dlg-row-check{flex-shrink:0;width:18px;height:18px;color:var(--t-hi);opacity:0;transition:opacity .2s}
+.dlg-row[selected] .dlg-row-check{opacity:1}
+
+/* A status pill in a row */
+.dlg-pill{flex-shrink:0;padding:3px 8px;border-radius:999px;font:500 10.5px 'Geist Mono',ui-monospace,monospace;letter-spacing:.06em;white-space:nowrap;background:rgba(217,154,43,.14);box-shadow:inset 0 0 0 1px rgba(217,154,43,.35);color:#F0C070}
+.dlg-pill[data-state=good]{background:rgba(37,171,144,.14);box-shadow:inset 0 0 0 1px rgba(37,171,144,.35);color:#7FD9C4}
+.dlg-pill[data-state=bad]{background:rgba(222,78,69,.14);box-shadow:inset 0 0 0 1px rgba(222,78,69,.35);color:#F08A84}
+.dlg-pill.is-accent{background:rgba(var(--t-rgb),.14);box-shadow:inset 0 0 0 1px rgba(var(--t-rgb),.35);color:var(--t-hi)}
+
+/* Actions */
+.dlg-actions{display:flex;flex-shrink:0;align-items:center;justify-content:flex-end;gap:8px;margin-top:20px}
+.dlg-actions .dlg-spacer{flex:1}
+.dlg-btn{height:38px;padding:0 16px;border:0;border-radius:10px;font:600 13px 'Geist',system-ui,sans-serif;color:#fff;white-space:nowrap;cursor:pointer;transition:background .2s,transform .15s,box-shadow .2s,opacity .2s}
+.dlg-btn:active:not(:disabled){transform:translateY(1px) scale(.98)}
+.dlg-btn:focus-visible{outline:2px solid rgba(255,255,255,.6);outline-offset:2px}
+.dlg-btn:disabled{opacity:.4;cursor:default}
+.dlg-btn.is-small{height:30px;padding:0 12px;border-radius:8px;font-size:12px}
+.dlg-ghost{background:rgba(255,255,255,.07)}
+.dlg-ghost:hover:not(:disabled){background:rgba(255,255,255,.12)}
+.dlg-quiet{background:none;color:rgba(255,255,255,.6)}
+.dlg-quiet:hover:not(:disabled){background:rgba(255,255,255,.07);color:#fff}
+.dlg-primary{background:linear-gradient(135deg,#8585E6,#5F5FB8);box-shadow:0 12px 28px -10px rgba(119,119,223,.8)}
+.dlg-primary:hover:not(:disabled){background:linear-gradient(135deg,#9696EC,#7777DF);box-shadow:0 16px 34px -10px rgba(119,119,223,.95)}
+.dlg-danger{background:linear-gradient(135deg,#E5574E,#B83A32);box-shadow:0 12px 28px -10px rgba(222,78,69,.8)}
+.dlg-danger:hover:not(:disabled){background:linear-gradient(135deg,#EE6A62,#DE4E45);box-shadow:0 16px 34px -10px rgba(222,78,69,.95)}
+
+@media (prefers-reduced-motion: reduce){
+    .dlg,.dlg-card{transition:none}
+}

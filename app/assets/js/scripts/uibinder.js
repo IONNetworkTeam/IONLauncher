@@ -136,11 +136,14 @@ function showFatalStartupError(){
     setTimeout(() => {
         $('#loadingContainer').fadeOut(250, () => {
             document.getElementById('overlayContainer').style.background = 'none'
-            setOverlayContent(
-                Lang.queryJS('uibinder.startup.fatalErrorTitle'),
-                Lang.queryJS('uibinder.startup.fatalErrorMessage'),
-                Lang.queryJS('uibinder.startup.closeButton')
-            )
+            setOverlayContent({
+                tone: 'danger',
+                icon: 'offline',
+                kicker: Lang.queryJS('uibinder.startup.kicker'),
+                title: Lang.queryJS('uibinder.startup.fatalErrorTitle'),
+                description: Lang.queryJS('uibinder.startup.fatalErrorMessage'),
+                acknowledge: Lang.queryJS('uibinder.startup.closeButton')
+            })
             setOverlayHandler(() => {
                 const window = remote.getCurrentWindow()
                 window.close()
@@ -353,14 +356,17 @@ async function validateSelectedAccount(){
             ConfigManager.removeAuthAccount(selectedAcc.uuid)
             ConfigManager.save()
             const accLen = Object.keys(ConfigManager.getAuthAccounts()).length
-            setOverlayContent(
-                Lang.queryJS('uibinder.validateAccount.failedMessageTitle'),
-                accLen > 0
-                    ? Lang.queryJS('uibinder.validateAccount.failedMessage', { 'account': selectedAcc.displayName })
-                    : Lang.queryJS('uibinder.validateAccount.failedMessageSelectAnotherAccount', { 'account': selectedAcc.displayName }),
-                Lang.queryJS('uibinder.validateAccount.loginButton'),
-                Lang.queryJS('uibinder.validateAccount.selectAnotherAccountButton')
-            )
+            setOverlayContent({
+                tone: 'warn',
+                icon: 'account',
+                kicker: Lang.queryJS('uibinder.validateAccount.kicker'),
+                title: Lang.queryJS('uibinder.validateAccount.failedMessageTitle'),
+                description: accLen > 0
+                    ? Lang.queryJS('uibinder.validateAccount.failedMessage', { 'account': escapeHtml(selectedAcc.displayName) })
+                    : Lang.queryJS('uibinder.validateAccount.failedMessageSelectAnotherAccount', { 'account': escapeHtml(selectedAcc.displayName) }),
+                acknowledge: Lang.queryJS('uibinder.validateAccount.loginButton'),
+                dismiss: Lang.queryJS('uibinder.validateAccount.selectAnotherAccountButton')
+            })
             setOverlayHandler(() => {
 
                 const isMicrosoft = selectedAcc.type === 'microsoft'
