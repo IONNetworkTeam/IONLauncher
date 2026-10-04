@@ -111,6 +111,7 @@ const noteLine = key => notes.get(key) ? `<span class="fr-note">${esc(notes.get(
 
 /** Party invites to me, then my party (or "Start a party"). */
 function partySection(){
+    if(!status.session) return ''
     const p = model.party
     const pending = model.partyInvites
     let out = ''
@@ -118,12 +119,12 @@ function partySection(){
         out += sec('sectionPartyInvites') + pending.map(i => `<div class="fr-row">
             <span class="fr-head" style="${headStyle(i.from.headUrl)}"></span>
             <span style="min-width:0"><span class="fr-name">${esc(i.from.name)}</span><span class="fr-act">${esc(t('partyMembers', { n: i.members }))}</span></span>
-            <span class="fr-acts"><button class="fr-ghost is-shown" data-act="pDecline" data-party="${esc(i.partyId)}">${esc(t('decline'))}</button><button class="fr-join" data-act="pAccept" data-party="${esc(i.partyId)}">${esc(t('joinParty'))}</button></span>
+            <span class="fr-acts"><button class="fr-ghost is-shown" data-act="pDecline" data-party="${esc(i.partyId)}" ${stale() ? 'disabled' : ''}>${esc(t('decline'))}</button><button class="fr-join" data-act="pAccept" data-party="${esc(i.partyId)}" ${stale() ? 'disabled' : ''}>${esc(t('joinParty'))}</button></span>
             ${noteLine(i.partyId)}
         </div>`).join('')
     }
     if(!p){
-        return `${out}${sec('sectionPartyEmpty')}<div class="fr-row fp-start"><button class="fr-ghost is-shown" data-act="pCreate">${esc(t('partyStart'))}</button>${noteLine('party')}</div>`
+        return `${out}${sec('sectionPartyEmpty')}<div class="fr-row fp-start"><button class="fr-ghost is-shown" data-act="pCreate" ${stale() ? 'disabled' : ''}>${esc(t('partyStart'))}</button>${noteLine('party')}</div>`
     }
     const leader = model.amLeader()
     const idle = model.idleDisbandIn()
@@ -143,12 +144,12 @@ function partySection(){
         let acts = ''
         if(self){
             acts = partyConfirm === 'leave'
-                ? `<button class="fr-ghost is-shown" data-act="pCancel">${esc(t('cancel'))}</button><button class="fr-join fr-danger" data-act="pLeave">${esc(t('partyLeave'))}</button>`
-                : `<button class="fr-ghost" data-act="pLeave">${esc(t('partyLeave'))}</button>`
+                ? `<button class="fr-ghost is-shown" data-act="pCancel">${esc(t('cancel'))}</button><button class="fr-join fr-danger" data-act="pLeave" ${stale() ? 'disabled' : ''}>${esc(t('partyLeave'))}</button>`
+                : `<button class="fr-ghost" data-act="pLeave" ${stale() ? 'disabled' : ''}>${esc(t('partyLeave'))}</button>`
         } else if(leader){
             acts = partyConfirm === `kick:${m.uuid}`
-                ? `<button class="fr-ghost is-shown" data-act="pCancel">${esc(t('cancel'))}</button><button class="fr-join fr-danger" data-act="pKick" data-uuid="${esc(m.uuid)}">${esc(t('partyKick'))}</button>`
-                : `<button class="fr-ghost" data-act="pPromote" data-uuid="${esc(m.uuid)}">${esc(t('partyPromote'))}</button><button class="fr-ghost" data-act="pKick" data-uuid="${esc(m.uuid)}">${esc(t('partyKick'))}</button>`
+                ? `<button class="fr-ghost is-shown" data-act="pCancel">${esc(t('cancel'))}</button><button class="fr-join fr-danger" data-act="pKick" data-uuid="${esc(m.uuid)}" ${stale() ? 'disabled' : ''}>${esc(t('partyKick'))}</button>`
+                : `<button class="fr-ghost" data-act="pPromote" data-uuid="${esc(m.uuid)}" ${stale() ? 'disabled' : ''}>${esc(t('partyPromote'))}</button><button class="fr-ghost" data-act="pKick" data-uuid="${esc(m.uuid)}" ${stale() ? 'disabled' : ''}>${esc(t('partyKick'))}</button>`
         }
         return `<div class="fr-row${m.where === 'away' ? ' is-off' : ''}">
             <span class="fr-head" style="${headStyle(m.headUrl)}"></span>

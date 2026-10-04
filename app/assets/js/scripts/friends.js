@@ -62,6 +62,7 @@ const Friends = (() => {
     let releasesSent = ''
     let partyCard = null        // 'menu' | 'invite' | null: the card the bracket's ⋯ or + opened
     let partyConfirm = null     // 'leave' | 'kick:<uuid>': armed by the first click, confirmed by the second (confirmStep)
+    const partyBusy = new Set() // party changes sent from the card and not answered yet, by op:uuid
     let partyTick = null        // redraws "Disbands in N min" while I am in a party; cleared when the party goes
     let strip, card, addCard, pcard, inv, showBtn
 
@@ -83,7 +84,7 @@ const Friends = (() => {
         if(!url) return ''
         try { return new URL(url, FriendsWeb.url).href } catch { return '' }
     }
-    const headStyle = url => headUrl(url) ? `background-image:url('${escapeHtml(headUrl(url))}')` : ''
+    const headStyle = url => headUrl(url) ? `background-image:url('${escapeHtml(headUrl(url).replace(/'/g, '%27').replace(/\)/g, '%29'))}')` : ''
     const line = f => activityLine(f.presence, releaseName, TEXTS)
     const inGame = () => GameState.state === 'running' || GameState.state === 'starting' || model.me?.presence.status === 'playing'
     const kickerOf = f => f.presence.status === 'playing' ? t('kickerPlaying') : f.presence.status === 'launcher' ? t('kickerLauncher') : f.presence.status === 'online' ? t('kickerOnline') : t('kickerOffline')
@@ -493,7 +494,7 @@ const Friends = (() => {
                 let acts = ''
                 if(leader && !self){
                     acts = partyConfirm === `kick:${m.uuid}`
-                        ? `<button class="fr-ghost" data-act="pCancel">${h('cancel')}</button><button class="fr-join fr-danger" data-act="pKick" data-uuid="${escapeHtml(m.uuid)}">${h('partyKick')}</button>`
+                        ? `<button class="fr-ghost" data-act="pCancel">${h('cancel')}</button><button class="fr-join fr-danger" data-act="pKick" data-uuid="${escapeHtml(m.uuid)}" ${off}>${h('partyKick')}</button>`
                         : `<button class="fr-ghost" data-act="pPromote" data-uuid="${escapeHtml(m.uuid)}" ${off}>${h('partyPromote')}</button><button class="fr-ghost" data-act="pKick" data-uuid="${escapeHtml(m.uuid)}" ${off}>${h('partyKick')}</button>`
                 }
                 return `<div class="fp-row${m.leader ? ' is-leader' : ''}">
@@ -505,14 +506,15 @@ const Friends = (() => {
         }
         const idle = model.idleDisbandIn()
         const n = notes.get('party')
-        pcard.innerHTML = `
+        const html = `
             <span class="fr-kicker">${partyCard === 'invite' ? h('partyInviteTitle') : h('partyCardTitle', { n: p.members.length })}</span>
             ${partyCard === 'menu' && idle != null ? `<p class="fp-idle-line">${h('partyDisbandsIn', { n: idle })}</p>` : ''}
             <div class="fp-rows">${rows}</div>
             ${partyCard === 'menu' ? `<div class="fcard-actions">${partyConfirm === 'leave'
-        ? `<button class="fr-ghost" data-act="pCancel">${h('cancel')}</button><button class="fr-join fr-danger" data-act="pLeave">${h('partyLeave')}</button>`
+        ? `<button class="fr-ghost" data-act="pCancel">${h('cancel')}</button><button class="fr-join fr-danger" data-act="pLeave" ${off}>${h('partyLeave')}</button>`
         : `<button class="fr-ghost" data-act="pLeave" ${off}>${h('partyLeave')}</button>`}</div>` : ''}
             ${n ? `<p class="fcard-note${n.good ? ' is-good' : ''}">${escapeHtml(n.text)}</p>` : ''}`
+        if(pcard.dataset.html !== html){ pcard.innerHTML = html; pcard.dataset.html = html }
         const anchor = strip.querySelector('.fp')
         if(anchor){
             const box = anchor.getBoundingClientRect()
@@ -524,9 +526,14 @@ const Friends = (() => {
 
     /** A party change from the card; its failure shows on the card. The new party arrives as a `party` event. */
     async function partyAct(op, uuid){
-        const res = await ipcRenderer.invoke(`friends:${op}`, ...(uuid ? [uuid] : [])).catch(() => null)
-        if(!res?.ok) note('party', failText(res))
-        return res
+        const key = `${op}:${uuid ?? ''}`
+        if(partyBusy.has(key)) return null
+        partyBusy.add(key)
+        try {
+            const res = await ipcRenderer.invoke(`friends:${op}`, ...(uuid ? [uuid] : [])).catch(() => null)
+            if(!res?.ok) note('party', failText(res))
+            return res
+        } finally { partyBusy.delete(key) }
     }
 
     /** Leave and Kick take two clicks: the first arms the button, the second on the same target does it. */
@@ -760,6 +767,8 @@ const Friends = (() => {
         pcard.addEventListener('click', e => {
             const b = e.target.closest('[data-act]')
             if(!b || b.disabled) return
+            // A double-click must not arm and confirm in one go.
+            if(e.detail > 1 && (b.dataset.act === 'pLeave' || b.dataset.act === 'pKick')) return
             const uuid = b.dataset.uuid
             switch(b.dataset.act){
                 case 'pInvite': partyAct('partyInvite', uuid); break

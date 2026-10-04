@@ -84,3 +84,18 @@ test('a party read that was in flight when a party event arrived is not broadcas
     await handlers.party({})
     assert.equal(sent.length, 1)
 })
+
+test('a party change bumps the epoch, so a read already in flight cannot overwrite its newer answer', async () => {
+    let epoch = 0
+    let release
+    const gate = new Promise(r => { release = r })
+    const sent = []
+    const v5 = { ok: true, status: 200, data: { party: { id: P, version: 5 }, invites: [] } }
+    const api = { party: () => gate, partyAccept: () => Promise.resolve(v5) }
+    const handlers = createPartyHandlers({ api, isId: UUID_GUARD, note: r => r, broadcast: (e, p) => sent.push([e, p]), epoch: () => epoch, bumpEpoch: () => { epoch++ } })
+    const read = handlers.party({})
+    await handlers.partyAccept({}, P)
+    release({ ok: true, status: 200, data: { party: null, invites: [] } }) // the older answer: no party yet
+    await read
+    assert.deepEqual(sent, [['party', { party: { id: P, version: 5 }, invites: [] }]])
+})

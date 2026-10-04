@@ -15,29 +15,34 @@ const badRequest = () => ({ ok: false, status: 400, code: 'BAD_REQUEST', error: 
  * @param {(v: *) => boolean} deps.isId index.js's uuid guard, so the pattern lives in one place.
  * @param {(res: Object) => Object} deps.note index.js's session/reachability bookkeeping; returns its argument.
  * @param {(event: string, payload: Object) => void} deps.broadcast To every window.
+ * @param {() => void} [deps.bumpEpoch] Moves the same count; every party change bumps it before its call, so a
+ *   `party` read already out is older than the change's answer and is not broadcast.
  * @param {() => number} [deps.epoch] Counts the pushed party events. A `party` read whose answer
  *   arrives after the count moved is older than the push, so it is returned but not broadcast.
  */
-function createPartyHandlers({ api, isId, note, broadcast, epoch = () => 0 }){
+function createPartyHandlers({ api, isId, note, broadcast, epoch: readEpoch, bumpEpoch }){
+    let own = 0
+    const epoch = readEpoch ?? (() => own)
+    const bump = bumpEpoch ?? (() => { own++ })
     function publish(res){
         if(res?.ok && res.data && typeof res.data === 'object'){
             broadcast('party', { party: res.data.party ?? null, invites: Array.isArray(res.data.invites) ? res.data.invites : [] })
         }
         return res
     }
-    const run = promise => promise.then(note).then(publish)
-    const withId = fn => (_e, id) => isId(id) ? run(fn(id)) : badRequest()
+    const run = call => { bump(); return call().then(note).then(publish) }
+    const withId = fn => (_e, id) => isId(id) ? run(() => fn(id)) : badRequest()
 
     return {
         party: () => {
             const at = epoch()
             return api.party().then(note).then(res => epoch() === at ? publish(res) : res)
         },
-        partyCreate: () => run(api.partyCreate()),
+        partyCreate: () => run(() => api.partyCreate()),
         partyInvite: withId(uuid => api.partyInvite(uuid)),
         partyAccept: withId(partyId => api.partyAccept(partyId)),
         partyDecline: withId(partyId => api.partyDecline(partyId)),
-        partyLeave: () => run(api.partyLeave()),
+        partyLeave: () => run(() => api.partyLeave()),
         partyKick: withId(uuid => api.partyKick(uuid)),
         partyPromote: withId(uuid => api.partyPromote(uuid)),
         partyFollow: () => api.partyFollow().then(note)
