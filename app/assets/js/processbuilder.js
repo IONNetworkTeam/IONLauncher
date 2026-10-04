@@ -9,6 +9,7 @@ const os                    = require('os')
 const path                  = require('path')
 
 const ConfigManager            = require('./configmanager')
+const LaunchProfile            = require('./launchprofile')
 
 const logger = LoggerUtil.getLogger('ProcessBuilder')
 
@@ -35,6 +36,8 @@ class ProcessBuilder {
         this.fmlDir = path.join(this.gameDir, 'forgeModList.json')
         this.llDir = path.join(this.gameDir, 'liteloaderModList.json')
         this.libPath = path.join(this.commonDir, 'libraries')
+        // ION: servers[].ion.launch, e.g. Forge 1.8.9 on Java 21 (see launchprofile.js)
+        this.launchProfile = LaunchProfile.getLaunchProfile(distroServer.rawServer)
 
         this.usingLiteLoader = false
         this.usingFabricLoader = false
@@ -46,6 +49,7 @@ class ProcessBuilder {
      */
     build(){
         fs.ensureDirSync(this.gameDir)
+        this.applyLaunchProfileOptions()
         const tempNativePath = path.join(os.tmpdir(), ConfigManager.getTempNativeFolder(), crypto.pseudoRandomBytes(16).toString('hex'))
         process.throwDeprecation = true
         this.setupLiteLoader()
@@ -355,6 +359,33 @@ class ProcessBuilder {
     }
 
     /**
+     * The main class to launch: the server's launch profile can replace the one from the
+     * Forge/Fabric version manifest (RetroFuturaBootstrap instead of LaunchWrapper).
+     *
+     * @returns {string}
+     */
+    getMainClass(){
+        return this.launchProfile?.mainClass ?? this.modManifest.mainClass
+    }
+
+    /**
+     * Write the launch profile's forced options.txt values. Runs on every launch, after the
+     * player's own options were restored and synced, so neither can undo them.
+     */
+    applyLaunchProfileOptions(){
+        if(this.launchProfile == null || Object.keys(this.launchProfile.options).length === 0){
+            return
+        }
+        const file = path.join(this.gameDir, 'options.txt')
+        const current = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : ''
+        const updated = LaunchProfile.applyOptions(current, this.launchProfile.options)
+        if(updated !== current){
+            fs.writeFileSync(file, updated, 'utf8')
+            logger.info('Applied launch profile options:', Object.keys(this.launchProfile.options).join(', '))
+        }
+    }
+
+    /**
      * Construct the argument array that will be passed to the JVM process.
      * This function is for 1.12 and below.
      * 
@@ -378,10 +409,11 @@ class ProcessBuilder {
         args.push('-Xmx' + ConfigManager.getMaxRAM(this.server.rawServer.id))
         args.push('-Xms' + ConfigManager.getMinRAM(this.server.rawServer.id))
         args = args.concat(ConfigManager.getJVMOptions(this.server.rawServer.id))
+        args = args.concat(LaunchProfile.jvmArgsFor(this.launchProfile, process.platform))
         args.push('-Djava.library.path=' + tempNativePath)
 
         // Main Java Class
-        args.push(this.modManifest.mainClass)
+        args.push(this.getMainClass())
 
         // Forge Arguments
         args = args.concat(this._resolveForgeArgs())
@@ -429,9 +461,10 @@ class ProcessBuilder {
         args.push('-Xmx' + ConfigManager.getMaxRAM(this.server.rawServer.id))
         args.push('-Xms' + ConfigManager.getMinRAM(this.server.rawServer.id))
         args = args.concat(ConfigManager.getJVMOptions(this.server.rawServer.id))
+        args = args.concat(LaunchProfile.jvmArgsFor(this.launchProfile, process.platform))
 
         // Main Java Class
-        args.push(this.modManifest.mainClass)
+        args.push(this.getMainClass())
 
         // Vanilla Arguments
         args = args.concat(this.vanillaManifest.arguments.game)
@@ -721,6 +754,9 @@ class ProcessBuilder {
         fs.ensureDirSync(tempNativePath)
         for(let i=0; i<libArr.length; i++){
             const lib = libArr[i]
+            if(LaunchProfile.isLibraryExcluded(this.launchProfile, lib.name)){
+                continue
+            }
             if(isLibraryCompatible(lib.rules, lib.natives)){
 
                 // Pre-1.19 has a natives object.
@@ -840,6 +876,9 @@ class ProcessBuilder {
         for(let mdl of mdls){
             const type = mdl.rawModule.type
             if(type === Type.ForgeHosted || type === Type.Fabric || type === Type.Library){
+                if(type === Type.Library && LaunchProfile.isLibraryExcluded(this.launchProfile, mdl.rawModule.id)){
+                    continue
+                }
                 libs[mdl.getVersionlessMavenIdentifier()] = mdl.getPath()
                 if(mdl.subModules.length > 0){
                     const res = this._resolveModuleLibraries(mdl)
@@ -873,7 +912,7 @@ class ProcessBuilder {
         for(let sm of mdl.subModules){
             if(sm.rawModule.type === Type.Library){
 
-                if(sm.rawModule.classpath ?? true) {
+                if((sm.rawModule.classpath ?? true) && !LaunchProfile.isLibraryExcluded(this.launchProfile, sm.rawModule.id)) {
                     libs[sm.getVersionlessMavenIdentifier()] = sm.getPath()
                 }
             }
