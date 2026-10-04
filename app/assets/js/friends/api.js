@@ -12,6 +12,8 @@
  *   UNAVAILABLE   503: the backend is down, keep the last view and try again later
  *   RATE_LIMITED  429, with `retryAfter` seconds when the site said
  *
+ * The party routes (`/party/**`) answer a PartyResponse, except `/party/follow`, which answers a JoinResult.
+ *
  * A 401 means the session was refused: it is dropped and minted once more, silently, then the call
  * is repeated once.
  *
@@ -89,6 +91,18 @@ function createFriendsApi({ fetchJson, session, account, logger = silent }){
         putPresence: presence => call('PUT', '/me/presence', presence),
         /** `{ticket, expiresIn}` for the live channel; single use, fetched right before connecting. */
         wsTicket: () => call('POST', '/ws-ticket'),
+        /** `PartyResponse{party: PartyView|null, invites: [PartyInviteView]}`: my party and the invites addressed to me. */
+        party: () => call('GET', '/party'),
+        partyCreate: () => call('POST', '/party'),
+        /** Friends only; creates the party when I have none. 403 NOT_FRIENDS · REFUSES_INVITES · NOT_LEADER, 409 IN_A_PARTY · FULL, 404 OFFLINE, 400 SELF. */
+        partyInvite: uuid => call('POST', `/party/invite/${seg(uuid)}`),
+        partyAccept: partyId => call('POST', `/party/invites/${seg(partyId)}/accept`),
+        partyDecline: partyId => call('POST', `/party/invites/${seg(partyId)}/decline`),
+        partyLeave: () => call('POST', '/party/leave'),
+        partyKick: uuid => call('POST', `/party/kick/${seg(uuid)}`),
+        partyPromote: uuid => call('POST', `/party/leader/${seg(uuid)}`),
+        /** A `JoinResult` with the leader as target: `moved` / `launch` / `pack` / `refused`. */
+        partyFollow: () => call('POST', '/party/follow'),
         /** The site path of a player's head picture. */
         headPath: uuid => `${BASE}/head/${seg(uuid)}`
     }

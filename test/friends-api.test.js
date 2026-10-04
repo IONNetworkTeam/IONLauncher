@@ -113,3 +113,38 @@ test('a gate challenge to a bearer request is reported as GATE and keeps the ses
     assert.deepEqual(h.invalidated, [])
     assert.equal(h.calls.length, 1)
 })
+
+test('the party routes send the contract\'s method and path', async () => {
+    const ok = { ok: true, status: 200, data: { party: null, invites: [] } }
+    const h = harness(Array(9).fill(ok))
+    await h.api.party()
+    await h.api.partyCreate()
+    await h.api.partyInvite('u/1')
+    await h.api.partyAccept('p1')
+    await h.api.partyDecline('p 2')
+    await h.api.partyLeave()
+    await h.api.partyKick('u3')
+    await h.api.partyPromote('u4')
+    await h.api.partyFollow()
+    assert.deepEqual(h.calls.map(c => [c.method, c.path, c.body]), [
+        ['GET', `${BASE}/party`, undefined],
+        ['POST', `${BASE}/party`, undefined],
+        ['POST', `${BASE}/party/invite/u%2F1`, undefined],
+        ['POST', `${BASE}/party/invites/p1/accept`, undefined],
+        ['POST', `${BASE}/party/invites/p%202/decline`, undefined],
+        ['POST', `${BASE}/party/leave`, undefined],
+        ['POST', `${BASE}/party/kick/u3`, undefined],
+        ['POST', `${BASE}/party/leader/u4`, undefined],
+        ['POST', `${BASE}/party/follow`, undefined]
+    ])
+    assert.ok(h.calls.every(c => c.bearer === 't1'))
+})
+
+test('a party error keeps the site\'s code and sentence', async () => {
+    const h = harness([{ ok: false, status: 409, code: 'IN_A_PARTY', error: 'Leave your party first.', data: { error: 'Leave your party first.', code: 'IN_A_PARTY' } }])
+    const r = await h.api.partyAccept('p1')
+    assert.equal(r.ok, false)
+    assert.equal(r.status, 409)
+    assert.equal(r.code, 'IN_A_PARTY')
+    assert.equal(r.error, 'Leave your party first.')
+})
