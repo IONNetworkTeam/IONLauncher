@@ -16,13 +16,18 @@
  *   friends:status                                             {account, session, live}
  *   friends:releases [list]                                    the launcher window's releases, for the friends window (no list: read them)
  *   friends:openWindow · friends:window op                    the friends window (friends.ejs): open; pin, putBack, minimize, close
- *   friends:act op, uuid                                       from the friends window: join or challenge, run in the launcher window
+ *   friends:act op, uuid                                       from the friends window: join, challenge or partyFollow, run in the launcher window
+ *   friends:party · friends:partyCreate · friends:partyInvite uuid · friends:partyAccept partyId
+ *   friends:partyDecline partyId · friends:partyLeave · friends:partyKick uuid · friends:partyPromote uuid
+ *   friends:partyFollow                                        a JoinResult, like friends:join
  *
  * Main → renderer (`friends:event`, to every window): `{event, ...payload}` for the pushed events
  * of the contract (presence, request, request_resolved, friend_added, friend_removed, invite,
  * invite_expired), `snapshot` {friends} from the presence poll, `view` {view} after a change made
  * here, `status` {session, live, reason}, `window` {open} and `releases` {releases}. The launcher
- * window alone gets `friends:do` {op, uuid} for a Join or Challenge pressed in the friends window.
+ * window alone gets `friends:do` {op, uuid} for a Join, Challenge or Follow pressed in the friends window.
+ * `party` {party, invites} follows every party answer, the start and each poll; the pushed party frames
+ * arrive as party_invite, party_invite_expired, party_updated, party_disbanded and party_follow.
  *
  * Everything degrades: without a session the answers say NO_SESSION and nothing is retried in a
  * loop; a 503 keeps the last view; the Play button never waits for any of this.
@@ -36,6 +41,7 @@ const { createSessionStore } = require('./session')
 const { createFriendsApi } = require('./api')
 const { createPresence } = require('./presence')
 const { createLiveChannel } = require('./live')
+const { createPartyHandlers } = require('./party')
 
 const SESSION_FILE = 'friends-session.bin'
 const NAME = /^[A-Za-z0-9_]{3,16}$/
@@ -44,6 +50,16 @@ const UUID = /^[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}$
 let initialised = false
 let hostWin = null
 let friendsWin = null
+
+/**
+ * The message a pushed frame becomes for the renderer. Party frames reuse friends event names
+ * (`invite`, `invite_expired`), so they travel as `party_<event>`. The name is set last, so the
+ * frame's own `event` key can never override it.
+ */
+function rendererMessage(event, frame){
+    const name = frame?.type === 'party' ? `party_${event}` : event
+    return { ...frame, event: name }
+}
 
 /**
  * @param {Object} deps
@@ -57,16 +73,6 @@ let friendsWin = null
  * @param {Electron.BrowserWindow} deps.host The launcher window, where Join and Challenge run.
  * @param {Object} deps.logger
  */
-/**
- * The message a pushed frame becomes for the renderer. Party frames reuse friends event names
- * (`invite`, `invite_expired`), so they travel as `party_<event>`. The name is set last, so the
- * frame's own `event` key can never override it.
- */
-function rendererMessage(event, frame){
-    const name = frame?.type === 'party' ? `party_${event}` : event
-    return { ...frame, event: name }
-}
-
 function init({ app, ipcMain, BrowserWindow, safeStorage, webAuth, web, appDir, host, logger }){
     hostWin = host
     if(initialised) return
@@ -100,6 +106,12 @@ function init({ app, ipcMain, BrowserWindow, safeStorage, webAuth, web, appDir, 
     let status = { session: false, live: false, reason: null }
 
     const api = createFriendsApi({ fetchJson: webAuth.fetchJson, session, account: () => account, logger })
+
+    /** Counts the pushed party events, so a GET /party that was in flight when one landed is dropped. */
+    let partyEpoch = 0
+    const party = createPartyHandlers({ api, note, broadcast, epoch: () => partyEpoch })
+    /** The party, read again: on start and beside every presence poll, so a missed frame heals within a minute. */
+    const refreshParty = () => { party.party().catch(() => {}) }
 
     function broadcast(event, payload = {}){
         for(const w of BrowserWindow.getAllWindows()){
@@ -145,10 +157,11 @@ function init({ app, ipcMain, BrowserWindow, safeStorage, webAuth, web, appDir, 
 
     const live = createLiveChannel({
         ticket: () => api.wsTicket().then(note),
-        poll: () => api.presence().then(note),
+        poll: () => { refreshParty(); return api.presence().then(note) },
         url: web.url.replace(/^http/, 'ws') + '/api/launcher/friends/ws',
         onEvent: (event, frame) => {
             const msg = rendererMessage(event, frame)
+            if(msg.event.startsWith('party_')) partyEpoch++
             logger.info(`Friends: ${msg.event} pushed.`)
             broadcast(msg.event, msg)
         },
@@ -166,7 +179,7 @@ function init({ app, ipcMain, BrowserWindow, safeStorage, webAuth, web, appDir, 
     async function start(){
         if(!account) return
         const first = await view()
-        if(first.ok) broadcast('view', { view: first.data })
+        if(first.ok){ broadcast('view', { view: first.data }); refreshParty() }
         if(!account || first.code === 'NO_SESSION' || first.code === 'GATE') return
         presence.start()
         live.start()
@@ -188,6 +201,8 @@ function init({ app, ipcMain, BrowserWindow, safeStorage, webAuth, web, appDir, 
             if(account) presence.gone().catch(() => {})
             if(account) await session.end(account.uuid)
             lastView = null
+            partyEpoch++
+            broadcast('party', { party: null, invites: [] })
         }
         account = clean
         if(switched || !status.session) start().catch(err => logger.warn('Friends did not start.', err))
@@ -204,7 +219,7 @@ function init({ app, ipcMain, BrowserWindow, safeStorage, webAuth, web, appDir, 
         account: (_e, a) => setAccount(a),
         signOut: async (_e, uuid) => {
             if(!guard(uuid)) return
-            if(account?.uuid === uuid){ stop(); account = null; lastView = null }
+            if(account?.uuid === uuid){ stop(); account = null; lastView = null; partyEpoch++; broadcast('party', { party: null, invites: [] }) }
             await session.end(uuid)
         },
         status: () => ({ ...status, account: account?.uuid ?? null }),
@@ -250,7 +265,7 @@ function init({ app, ipcMain, BrowserWindow, safeStorage, webAuth, web, appDir, 
             return true
         },
         act: (e, op, uuid) => {
-            if(BrowserWindow.fromWebContents(e.sender) !== friendsWin || !guard(uuid) || !['join', 'challenge'].includes(op)) return false
+            if(BrowserWindow.fromWebContents(e.sender) !== friendsWin || !guard(uuid) || !['join', 'challenge', 'partyFollow'].includes(op)) return false
             const target = hostWin && !hostWin.isDestroyed() ? hostWin : BrowserWindow.getAllWindows().find(w => w !== friendsWin && !w.isDestroyed())
             target?.webContents.send('friends:do', { op, uuid })
             if(target && !target.isDestroyed()) target.focus()
@@ -274,6 +289,7 @@ function init({ app, ipcMain, BrowserWindow, safeStorage, webAuth, web, appDir, 
         return true
     }
     const badUuid = () => ({ ok: false, status: 400, code: 'BAD_REQUEST', error: null })
+    Object.assign(handlers, party)
     for(const [name, fn] of Object.entries(handlers)) ipcMain.handle(`friends:${name}`, fn)
 
     // Best effort: the server forgets a silent launcher after 90 s anyway.
