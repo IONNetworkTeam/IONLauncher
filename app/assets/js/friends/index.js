@@ -17,6 +17,7 @@
  *   friends:releases [list]                                    the launcher window's releases, for the friends window (no list: read them)
  *   friends:openWindow · friends:window op                    the friends window (friends.ejs): open; pin, putBack, minimize, close
  *   friends:act op, uuid                                       from the friends window: join, challenge or partyFollow, run in the launcher window
+ *   friends:windowNote scope, text                             from the launcher window: forwarded to the friends window as a `note` event
  *   friends:party · friends:partyCreate · friends:partyInvite uuid · friends:partyAccept partyId
  *   friends:partyDecline partyId · friends:partyLeave · friends:partyKick uuid · friends:partyPromote uuid
  *   friends:partyFollow                                        a JoinResult, like friends:join
@@ -270,6 +271,14 @@ function init({ app, ipcMain, BrowserWindow, safeStorage, webAuth, web, appDir, 
             target?.webContents.send('friends:do', { op, uuid })
             if(target && !target.isDestroyed()) target.focus()
             return !!target
+        },
+        /** A launcher-window answer for the friends window (a Follow pressed there that did not work). */
+        windowNote: (e, scope, text) => {
+            if(friendsWin && !friendsWin.isDestroyed() && BrowserWindow.fromWebContents(e.sender) !== friendsWin && typeof scope === 'string' && typeof text === 'string'){
+                friendsWin.webContents.send('friends:event', { event: 'note', scope: scope.slice(0, 40), text: text.slice(0, 300) })
+                return true
+            }
+            return false
         }
     }
 

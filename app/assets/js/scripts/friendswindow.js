@@ -204,6 +204,7 @@ ipcRenderer.on('friends:event', (_e, f) => {
     if(f.event === 'releases'){ releases = Array.isArray(f.releases) ? f.releases : []; render(); return }
     if(f.event === 'launcher'){ launcherState = { busy: !!f.busy, release: f.release ?? null }; render(); return }
     if(f.event === 'window') return
+    if(f.event === 'note'){ if(typeof f.text === 'string') note(String(f.scope), f.text); return }
     model.apply(f.event, f)
 })
 model.subscribe(render)

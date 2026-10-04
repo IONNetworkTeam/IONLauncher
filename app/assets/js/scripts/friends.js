@@ -12,7 +12,7 @@
  * (showTab, escapeHtml, onSelectedServerChanged), slices.js (Slices), panels.js (Panels).
  */
 /* global ConfigManager, ipcRenderer, Lang, LoggerUtil, GameState, Slices, Panels, showTab, escapeHtml, getCurrentView, VIEWS, validateSelectedAccount */
-const { createFriendsModel, activityLine, ago, toastMs, followPlace, MODES: FRIEND_MODES, NAME: FRIEND_NAME } = require('./assets/js/friendsmodel')
+const { createFriendsModel, activityLine, ago, toastMs, followPlace, followKey, modeLabel, MODES: FRIEND_MODES, NAME: FRIEND_NAME } = require('./assets/js/friendsmodel')
 const FriendsWeb = require('./assets/js/weburl')
 
 const Friends = (() => {
@@ -230,10 +230,14 @@ const Friends = (() => {
     }
 
     /** Follow the party leader: the same outcomes as a Join, routed to the leader by the website. */
-    async function follow(item, key){
-        const fail = text => key ? toastFail(key, text) : undefined
+    async function follow(item, fromWindow = false){
+        const key = followKey(item)
+        const fail = text => {
+            if(fromWindow) ipcRenderer.invoke('friends:windowNote', 'party', text).catch(() => {})
+            else toastFail(key, text)
+        }
         if(!GameState.canSwitch()) return fail(t('noteClosePlaying'))
-        if(await joined(await ipcRenderer.invoke('friends:partyFollow'), fail)) model.clearFollow()
+        if(await joined(await ipcRenderer.invoke('friends:partyFollow'), fail) && model.partyFollow === item) model.clearFollow()
     }
 
     /** Open a release and press Play, as the user would. */
@@ -436,7 +440,7 @@ const Friends = (() => {
         const r = a?.kind === 'network' ? netRelease() : releases().find(x => x.id === a?.release) ?? null
         const icon = a?.kind === 'network' && a.gamemode && a.gamemode !== 'lobby' ? modeIcon(a.gamemode) : null
         const where = a?.kind === 'network'
-            ? t('inviteNetwork', { where: a.gamemode && a.gamemode !== 'lobby' ? (FRIEND_MODES[a.gamemode] || a.gamemode) : t('inTheHub') })
+            ? t('inviteNetwork', { where: a.gamemode && a.gamemode !== 'lobby' ? modeLabel(a.gamemode) : t('inTheHub') })
             : (releaseName(a?.release) ?? t('playing'))
         inv.style.setProperty('--acc-text', ringOf(r))
         return `
@@ -524,7 +528,6 @@ const Friends = (() => {
         const ms = pick.kind === 'party' ? toastMs(pick.item.expiresAt) : pick.kind === 'follow' ? FOLLOW_MS : pick.kind === 'kicked' ? KICKED_MS : INVITE_MS
         toastKey = pick.key
         toastItem = pick.item
-        inv.dataset.kind = pick.kind
         const draw = { party: partyToast, kicked: kickedToast, follow: followToast }[pick.kind] ?? roundToast
         inv.innerHTML = draw(pick.item, toastNotes.get(pick.key))
         inv.style.setProperty('--inv-ms', `${ms}ms`)
@@ -578,7 +581,7 @@ const Friends = (() => {
         let text
         if(r.net){
             const mode = first.presence.activity?.gamemode
-            const modeName = mode && mode !== 'lobby' ? (FRIEND_MODES[mode] || mode) : t('inTheHub')
+            const modeName = mode && mode !== 'lobby' ? modeLabel(mode) : t('inTheHub')
             text = here.length > 1 ? t('isInModeMore', { name: first.name, mode: modeName, n: here.length - 1 }) : t('isInMode', { name: first.name, mode: modeName })
         } else {
             text = here.length > 1 ? t('isPlayingMore', { name: first.name, n: here.length - 1 }) : t('isPlaying', { name: first.name })
@@ -666,7 +669,7 @@ const Friends = (() => {
                     break
                 case 'fFollow':
                     hideToast()
-                    follow(item, key)
+                    follow(item)
                     break
             }
         })
@@ -703,8 +706,7 @@ const Friends = (() => {
     ipcRenderer.on('friends:do', (_e, m) => {
         if(m?.op === 'partyFollow') {
             // The friends window's Follow: the same path as the follow toast's button.
-            const pick = model.pickToast(new Set())
-            if(model.partyFollow) follow(model.partyFollow, pick?.kind === 'follow' ? pick.key : null)
+            if(model.partyFollow) follow(model.partyFollow, true)
             return
         }
         if(!m || typeof m.uuid !== 'string') return

@@ -307,3 +307,9 @@ test('shared helpers both renderers use: place keys, crown, idle minutes, two-cl
     assert.deepEqual(confirmStep('kick:a', 'kick:b'), { confirmed: false, next: 'kick:b' })
     assert.deepEqual(confirmStep('leave', 'kick:a'), { confirmed: false, next: 'kick:a' })
 })
+
+test('followKey is the key pickToast uses for a follow frame', () => {
+    const { followKey } = require('../app/assets/js/friendsmodel')
+    assert.equal(followKey({ partyId: 'p1', where: { gamemode: 'bedwars', release: 'r1' } }), 'follow:p1:bedwars:r1')
+    assert.equal(followKey({ partyId: 'p1', where: { gamemode: 'lobby' } }), 'follow:p1:lobby:')
+})

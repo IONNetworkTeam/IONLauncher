@@ -151,6 +151,11 @@ function partyWhereKey(where){
     return typeof where === 'string' && Object.hasOwn(PARTY_WHERE_KEYS, where) ? PARTY_WHERE_KEYS[where] : PARTY_WHERE_KEYS.away
 }
 
+/** The toast key of a follow frame: a move to another mode or release is a new key, so it shows again. */
+function followKey(frame){
+    return `follow:${frame.partyId}:${frame.where.gamemode}:${frame.where.release ?? ''}`
+}
+
 /** A gamemode key from the wire as a label; an unknown key is shown as sent. `Object.hasOwn` keeps "__proto__" and friends from matching. */
 function modeLabel(gamemode){
     return Object.hasOwn(MODES, gamemode) ? MODES[gamemode] : gamemode
@@ -493,7 +498,7 @@ function createFriendsModel(){
             }
             if(partyFollow){
                 // A move to another mode (or release) is a new key, so it shows again.
-                const key = `follow:${partyFollow.partyId}:${partyFollow.where.gamemode}:${partyFollow.where.release ?? ''}`
+                const key = followKey(partyFollow)
                 if(!dismissed.has(key)) return { kind: 'follow', key, item: partyFollow }
             }
             for(const i of invites){
@@ -542,4 +547,4 @@ function createFriendsModel(){
     return api
 }
 
-module.exports = { createFriendsModel, cleanPresence, compareFriends, activityLine, ago, toMs, toastMs, followPlace, modeLabel, partyWhereKey, idleDisbandMinutes, confirmStep, cleanPartyView, cleanPartyInvite, CROWN_SVG, PARTY_TICK_MS, PARTY_WHERE_KEYS, MODES, NAME, TEXTS }
+module.exports = { createFriendsModel, cleanPresence, compareFriends, activityLine, ago, toMs, toastMs, followPlace, followKey, modeLabel, partyWhereKey, idleDisbandMinutes, confirmStep, cleanPartyView, cleanPartyInvite, CROWN_SVG, PARTY_TICK_MS, PARTY_WHERE_KEYS, MODES, NAME, TEXTS }
