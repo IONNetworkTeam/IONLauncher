@@ -185,6 +185,8 @@ const Slices = (() => {
         document.getElementById('libMosaic').innerHTML = releases.slice(0, 8)
             .map(r => `<img src="${escapeHtml(cycles.get(r.id).current || BUNDLED[0])}" alt="">`).join('')
         libStrip.querySelector('.lib-total').textContent = String(releases.length).padStart(2, '0')
+        // With every release already on the shelf the library has nothing more to show.
+        libStrip.hidden = releases.length <= SHELF_MAX
         update()
     }
 
@@ -335,9 +337,10 @@ const Slices = (() => {
             if(full > 0) nodes.get(picked())?.style.setProperty('--open-w', `${full}px`)
             return
         }
-        const gaps = parseFloat(css.columnGap || 0) * ids.length
+        const strip = libStrip.hidden ? 0 : LIB_STRIP_W
+        const gaps = parseFloat(css.columnGap || 0) * (libStrip.hidden ? ids.length - 1 : ids.length)
         // The stage's Play width (it animates there from the settings band)
-        const free = stage.parentElement.clientWidth - LIB_STRIP_W - gaps
+        const free = stage.parentElement.clientWidth - strip - gaps
         if(free <= 0) return  // the Play view is hidden; measured again on the next update or resize
         for(const id of ids){
             // Flex layout with the slices' min-width: strips that would get less are frozen at it.
