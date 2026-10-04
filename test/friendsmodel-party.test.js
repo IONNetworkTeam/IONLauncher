@@ -148,15 +148,28 @@ test('versions: a late pre-join update (without me) does not clear a newer party
     assert.equal(m.party.version, 7)
 })
 
-test('versions: a late update after the party ended is dropped; a newer version of it is accepted', () => {
+test('versions: a pushed update after the party ended is dropped whatever its version; a party response shows it again', () => {
     const m = loaded()
     m.apply('party', { party: partyView({ version: 7 }), invites: [] })
     m.apply('party_disbanded', { partyId: 'p1', reason: 'idle' })
     m.apply('party_updated', { party: partyView({ version: 7 }) })
     m.apply('party_updated', { party: partyView({ version: 3 }) })
-    assert.equal(m.party, null)
     m.apply('party_updated', { party: partyView({ version: 8 }) })
+    assert.equal(m.party, null)
+    m.apply('party', { party: partyView({ version: 8 }), invites: [] })
     assert.equal(m.party.version, 8)
+    m.apply('party_updated', { party: partyView({ version: 9 }) })     // revived: pushes work again
+    assert.equal(m.party.version, 9)
+})
+
+test('a party response naming another party ends the held one (remembered); follow needs my party', () => {
+    const m = loaded()
+    m.apply('party_follow', { partyId: 'p1', leader: { uuid: 'd', name: 'Dan' }, where: { gamemode: 'lobby', release: null } })
+    assert.equal(m.partyFollow, null)                                  // not in any party
+    m.apply('party', { party: partyView({ version: 2 }), invites: [] })
+    m.apply('party', { party: partyView({ id: 'p2', version: 1 }), invites: [] })
+    m.apply('party_updated', { party: partyView({ version: 5 }) })     // p1 was ended by the switch
+    assert.equal(m.party.id, 'p2')
 })
 
 test('versions: the ended memory is bounded', () => {

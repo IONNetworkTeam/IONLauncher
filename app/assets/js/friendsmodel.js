@@ -223,11 +223,9 @@ function createFriendsModel(){
         party = null
         partyFollow = null
     }
-    /** A view older than what I hold for that party, or than where it ended, is a late frame: ignore it. */
+    /** A view older than what I hold for that party is a late frame: ignore it. */
     function staleView(p){
-        if(party && party.id === p.id && p.version != null && party.version != null && p.version < party.version) return true
-        if(ended.has(p.id) && p.version != null && p.version <= ended.get(p.id)) return true
-        return false
+        return !!party && party.id === p.id && p.version != null && party.version != null && p.version < party.version
     }
     const listeners = new Set()
 
@@ -304,6 +302,8 @@ function createFriendsModel(){
                     if(party) endParty()
                     partyFollow = null
                 } else if(!staleView(p)){
+                    // An answer from the website (or to my own change) may show an ended party again.
+                    if(party && party.id !== p.id) endParty()
                     party = p
                     ended.delete(p.id)
                     partyKicked = null
@@ -324,7 +324,8 @@ function createFriendsModel(){
             }
             case 'party_updated': {
                 const p = cleanPartyView(frame.party)
-                if(!p || staleView(p)) return
+                // A pushed view of a party that ended is a late frame whatever its version: only a `party` response revives it.
+                if(!p || ended.has(p.id) || staleView(p)) return
                 if(me?.uuid && !p.members.some(m => uid(m.uuid) === uid(me.uuid))){
                     // Safety net: my party, without me. The removed member normally gets a
                     // `disbanded` (left | kicked) frame instead. Any other party is not mine to show.
@@ -354,7 +355,7 @@ function createFriendsModel(){
             }
             case 'party_follow': {
                 const f = cleanFollow(frame)
-                if(!f || uid(f.leader.uuid) === uid(me?.uuid) || (party && party.id !== f.partyId)) return
+                if(!f || uid(f.leader.uuid) === uid(me?.uuid) || party?.id !== f.partyId) return
                 partyFollow = f
                 break
             }
