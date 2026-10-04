@@ -85,7 +85,7 @@ function validatePassword(value){
         }
     } else {
         lp = false
-        showError(loginPasswordError, Lang.queryJS('login.error.invalidValue'))
+        showError(loginPasswordError, Lang.queryJS('login.error.requiredValue'))
         loginDisabled(true)
     }
 }

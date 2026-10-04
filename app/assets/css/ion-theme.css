@@ -135,9 +135,6 @@ body {
  ******************************************************************************/
 
 /* The ION card. Used wherever the stock theme had a bare rgba(0,0,0,.25) box. */
-#welcomeContent,
-#loginForm,
-.loginOptionsMainContent,
 #settingsAboutCurrentContainer,
 .settingsChangelogContainer,
 #settingsUpdateStatusContainer,
@@ -151,10 +148,6 @@ body {
 }
 
 /* Full-screen view backdrops: ION grayer wash instead of flat black. */
-#welcomeContainer,
-#loginContainer,
-#waitingContainer,
-#loginOptionsContainer,
 #overlayContainer {
     background: rgba(var(--ion-grayer-rgb), 0.72) !important;
     backdrop-filter: blur(4px);
@@ -162,8 +155,6 @@ body {
 
 /* The primary action: a filled aqua pill. This is the one loud element per
    view; everything around it stays glass. */
-#welcomeButton,
-#loginButton,
 #overlayAcknowledge,
 #serverSelectConfirm,
 #accountSelectConfirm {
@@ -174,8 +165,6 @@ body {
     box-shadow: var(--ion-shadow-aqua);
     transition: var(--ion-ease);
 }
-#welcomeButton:hover, #welcomeButton:focus,
-#loginButton:hover:not(:disabled), #loginButton:focus:not(:disabled),
 #overlayAcknowledge:hover, #overlayAcknowledge:focus,
 #serverSelectConfirm:hover, #serverSelectConfirm:focus,
 #accountSelectConfirm:hover, #accountSelectConfirm:focus {
@@ -184,8 +173,6 @@ body {
     text-shadow: none;
     transform: translateY(-1px);
 }
-#welcomeButton:active,
-#loginButton:active,
 #overlayAcknowledge:active,
 #serverSelectConfirm:active,
 #accountSelectConfirm:active {
@@ -195,277 +182,18 @@ body {
     text-shadow: none;
     transform: translateY(0);
 }
-#welcomeButton:disabled,
-#loginButton:disabled {
-    background: rgba(var(--ion-gray-rgb), 0.7);
-    border-color: var(--ion-line-quiet);
-    color: var(--ion-text-dim);
-    box-shadow: none;
-}
-
 /* The secondary action: quiet text, aqua on hover. */
 #overlayDismiss,
 #serverSelectCancel,
-#accountSelectCancel,
-#loginOptionCancelButton {
+#accountSelectCancel {
     color: var(--ion-text-dim);
     transition: var(--ion-ease);
 }
 #overlayDismiss:hover, #overlayDismiss:focus,
 #serverSelectCancel:hover, #serverSelectCancel:focus,
-#accountSelectCancel:hover, #accountSelectCancel:focus,
-#loginOptionCancelButton:hover, #loginOptionCancelButton:focus {
+#accountSelectCancel:hover, #accountSelectCancel:focus {
     color: var(--ion-aqua);
     text-shadow: none;
-}
-
-/*******************************************************************************
- *                                                                             *
- * Welcome View                                                                *
- *                                                                             *
- ******************************************************************************/
-
-#welcomeContent {
-    width: 58%;
-    max-width: 620px;
-    padding: 28px 40px 36px;
-    top: -6%;
-}
-
-#welcomeImageSeal {
-    margin-top: 0;
-    margin-bottom: 20px;
-    height: 96px;
-    width: 96px;
-    border: 2px solid rgba(var(--ion-aqua-rgb), 0.45);
-    box-shadow: 0 0 40px -6px rgba(var(--ion-aqua-rgb), 0.65);
-}
-
-#welcomeHeader {
-    font-size: 22px;
-    margin-bottom: 18px;
-    text-shadow: none;
-}
-
-#welcomeDescription,
-#welcomeDescCTA {
-    color: var(--ion-text-soft);
-    text-shadow: none;
-    line-height: 1.6;
-}
-
-#welcomeButton {
-    right: 0;
-    margin: 26px 0 0;
-    padding: 11px 26px;
-    font-size: 13px;
-    letter-spacing: 1.5px;
-}
-#welcomeButton:hover #welcomeSVG,
-#welcomeButton:focus #welcomeSVG {
-    -webkit-filter: none;
-    transform: rotate(90deg) translateY(-3px);
-}
-#welcomeSVG {
-    margin-left: 14px;
-    width: 16px;
-    height: 16px;
-}
-
-/*******************************************************************************
- *                                                                             *
- * Login View                                                                  *
- *                                                                             *
- ******************************************************************************/
-
-/* The form runs nearly the full height of a 552px window, so this view is
-   tighter than the others: smaller seal, less air between fields. */
-#loginForm {
-    padding: 24px 40px 22px;
-}
-
-#loginImageSeal {
-    height: 80px;
-    width: 80px;
-    margin-bottom: 14px;
-    border: 2px solid rgba(var(--ion-aqua-rgb), 0.45);
-    background: rgba(var(--ion-grayer-rgb), 0.5);
-    box-shadow: 0 0 40px -6px rgba(var(--ion-aqua-rgb), 0.65);
-}
-
-#loginSubheader {
-    color: var(--ion-text-soft);
-    margin-bottom: 18px;
-}
-
-/* Fields become filled ION inputs rather than a single underline. */
-.loginField {
-    background: var(--ion-surface-sunken);
-    border-width: 1px;
-    border-color: var(--ion-line);
-    border-radius: var(--ion-radius-sm);
-    color: var(--ion-text);
-    padding: 10px 12px;
-    margin-bottom: 16px;
-    font-size: 11px;
-    transition: var(--ion-ease);
-}
-.loginField:hover {
-    border-color: var(--ion-line-hover);
-}
-.loginField:focus {
-    border-color: var(--ion-aqua);
-    box-shadow: 0 0 0 3px rgba(var(--ion-aqua-rgb), 0.18);
-}
-.loginField::-webkit-input-placeholder {
-    color: var(--ion-text-dim);
-}
-
-.loginSVG {
-    fill: var(--ion-aqua);
-}
-
-.loginErrorSpan {
-    color: var(--ion-critical);
-    font-size: 9px;
-    top: 2px;
-}
-
-.loginSpanDim {
-    color: var(--ion-text-dim);
-}
-
-/* 7px is not readable. This is legal text people should be able to read. */
-.loginDisclaimerText {
-    color: var(--ion-text-dim);
-    font-size: 9px;
-    line-height: 1.5;
-}
-
-#loginForm a {
-    color: var(--ion-text-dim);
-}
-#loginForm a:hover,
-#loginForm a:focus {
-    color: var(--ion-aqua);
-}
-#loginForm a:active {
-    color: var(--ion-aquaer);
-}
-
-#loginButton {
-    right: 0;
-    margin: 14px 0 12px;
-    padding: 11px 26px;
-    font-size: 13px;
-    letter-spacing: 1.5px;
-}
-#loginButton:hover #loginSVG,
-#loginButton:focus #loginSVG {
-    -webkit-filter: none;
-    transform: rotate(90deg) translateY(-3px);
-}
-#loginSVG {
-    margin-left: 14px;
-    width: 16px;
-    height: 16px;
-}
-
-/* Checkbox. */
-.loginCheckmark {
-    border-color: var(--ion-line-hover);
-    border-radius: 3px;
-    height: 12px;
-    width: 12px;
-}
-#checkmarkContainer:hover input ~ *,
-#checkmarkContainer input:focus ~ * {
-    color: var(--ion-text-soft);
-    border-color: var(--ion-aqua);
-}
-#checkmarkContainer input:checked ~ .loginCheckmark {
-    background: var(--ion-aqua);
-    border-color: var(--ion-aqua);
-}
-#checkmarkContainer .loginCheckmark:after {
-    border-color: #fff;
-    left: 4px;
-    top: 1px;
-    height: 6px;
-}
-
-/* Cancel affordance in the corner. */
-#loginCancelIcon {
-    border-color: var(--ion-line-hover);
-    color: var(--ion-text-soft);
-}
-#loginCancelButton:hover #loginCancelIcon,
-#loginCancelButton:focus #loginCancelIcon {
-    box-shadow: 0 0 20px -4px rgba(var(--ion-aqua-rgb), 0.8);
-    border-color: var(--ion-aqua);
-    color: var(--ion-aqua);
-}
-#loginCancelButton:hover #loginCancelText,
-#loginCancelButton:focus #loginCancelText {
-    text-shadow: none;
-    color: var(--ion-aqua);
-}
-
-.circle-loader {
-    border-color: rgba(255, 255, 255, 0.35);
-    border-left-color: #fff;
-}
-
-/*******************************************************************************
- *                                                                             *
- * Waiting View                                                                *
- *                                                                             *
- ******************************************************************************/
-
-.waitingSpinner:before,
-.waitingSpinner:after {
-    filter: drop-shadow(0 0 12px rgba(var(--ion-aqua-rgb), 0.55));
-}
-
-#waitingTextContainer h2 {
-    color: var(--ion-text-soft);
-    font-family: 'Avenir Medium';
-    font-weight: normal;
-    letter-spacing: 1px;
-}
-
-/*******************************************************************************
- *                                                                             *
- * Login Options View                                                          *
- *                                                                             *
- ******************************************************************************/
-
-.loginOptionsMainContent {
-    padding: 26px 34px 30px;
-}
-
-.loginOptionsMainContent h2 {
-    font-family: 'Avenir Medium';
-    font-weight: normal;
-    font-size: 20px;
-    letter-spacing: 0.5px;
-    margin: 0 0 22px;
-}
-
-.loginOptionButton {
-    background: var(--ion-surface-soft);
-    border: 1px solid var(--ion-line);
-    border-radius: var(--ion-radius-sm);
-    column-gap: 10px;
-    padding: 0 20px;
-}
-.loginOptionButton:hover,
-.loginOptionButton:focus {
-    background: rgba(var(--ion-aqua-rgb), 0.16);
-    border-color: var(--ion-line-hover);
-    text-shadow: none;
-    transform: translateY(-1px);
-    box-shadow: var(--ion-shadow-lifted);
 }
 
 /*******************************************************************************

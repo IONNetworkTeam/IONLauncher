@@ -563,7 +563,7 @@ ipcRenderer.on(MSFT_OPCODE.REPLY_LOGIN, (_, ...arguments_) => {
             const authCode = queryMap.code
             AuthManager.addMicrosoftAccount(authCode).then(value => {
                 updateSelectedAccount(value)
-                switchView(getCurrentView(), viewOnClose, 500, 500, async () => {
+                switchView(getCurrentView(), IonAccount.after(viewOnClose), 500, 500, async () => {
                     await prepareSettings()
                 })
             })
@@ -828,6 +828,67 @@ function prepareAccountsTab() {
     populateAuthAccounts()
     bindAuthAccountSelect()
     bindAuthAccountLogOut()
+}
+
+/**
+ * ION Account Tab
+ *
+ * The website login the web tabs share, as the website last reported it (shell.js webState).
+ */
+
+/** Leave settings for a page of the website in the Challenges tab. */
+function openIonPage(path){
+    fullSettingsSave()
+    switchView(getCurrentView(), VIEWS.landing, 500, 500, () => showTab('challenges', path))
+}
+
+/** Draw the ION Account tab. Called by shell.js whenever the website reports. */
+function renderIonAccountTab(){
+    const status = document.getElementById('settingsIonStatus')
+    const detail = document.getElementById('settingsIonDetail')
+    const head = document.getElementById('settingsIonHead')
+    const show = (id, visible) => { document.getElementById(id).style.display = visible ? '' : 'none' }
+    const known = webState != null
+    const loggedIn = !!webState?.loggedIn
+
+    if(!known){
+        status.textContent = Lang.queryJS('settings.ion.checking')
+        detail.textContent = Lang.queryJS('settings.ion.checkingDetail')
+        checkWebSession()
+    } else if(loggedIn){
+        status.textContent = Lang.queryJS('settings.ion.signedIn', { name: webState.username ?? webState.minecraftName ?? '' })
+        detail.textContent = webState.minecraftName
+            ? Lang.queryJS('settings.ion.minecraft', { name: webState.minecraftName })
+            : Lang.queryJS('settings.ion.noMinecraft')
+    } else {
+        status.textContent = Lang.queryJS('settings.ion.signedOut')
+        detail.textContent = Lang.queryJS('settings.ion.signedOutDetail')
+    }
+
+    const mc = loggedIn ? webState.minecraftName : null
+    if(mc) head.src = `https://mc-heads.net/avatar/${encodeURIComponent(mc)}/40`
+    head.style.display = mc ? '' : 'none'
+
+    show('settingsIonOpen', loggedIn)
+    show('settingsIonSignOut', loggedIn)
+    show('settingsIonLogin', known && !loggedIn)
+    show('settingsIonRegister', known && !loggedIn)
+}
+
+document.getElementById('settingsIonOpen').onclick = () => openIonPage('/account')
+document.getElementById('settingsIonLogin').onclick = () => openIonPage('/auth/login')
+document.getElementById('settingsIonRegister').onclick = () => openIonPage('/auth/register')
+document.getElementById('settingsIonSignOut').onclick = async e => {
+    const button = e.currentTarget
+    button.disabled = true
+    try {
+        await signOutOfWebsite()
+    } catch (err) {
+        LoggerUtil.getLogger('Settings').error('Could not sign out of the website.', err)
+        document.getElementById('settingsIonDetail').textContent = Lang.queryJS('settings.ion.signOutFailed')
+    } finally {
+        button.disabled = false
+    }
 }
 
 /**
@@ -1750,6 +1811,7 @@ async function prepareSettings(first = false) {
     await prepareSettingsSyncList()
     await prepareSharedPacksList()
     prepareAccountsTab()
+    renderIonAccountTab()
     await prepareJavaTab()
     prepareAboutTab()
 }

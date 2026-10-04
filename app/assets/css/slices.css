@@ -346,7 +346,7 @@
 .peek:hover .peek-cta{color:#fff}
 .tb-drag{flex:1;align-self:stretch}
 .tb-coins{display:flex;align-items:center;gap:7px;height:28px;padding:0 9px;border-radius:7px;font:400 12px 'Geist Mono',ui-monospace,monospace;color:rgba(255,255,255,.85)}
-.tb-coins img{width:12px;height:12px}
+.tb-coins img{width:16px;height:16px;image-rendering:pixelated}
 .tb-coins.hidden{display:none}
 .tb-gear-wrap{position:relative}
 .tb-icon{color:rgba(255,255,255,.7)}
@@ -357,6 +357,9 @@
 .tb-sep{width:1px;height:18px;margin:0 6px 0 10px;background:rgba(255,255,255,.1)}
 .am{opacity:0;transform:translateY(-6px) scale(.96);pointer-events:none}
 .am.is-open{opacity:1;transform:none;pointer-events:auto}
+.am [hidden]{display:none}
+/* Loading, welcome and login views (uibinder.js syncFrameControls; frame.ejs starts bare): only the brand and the window controls. */
+.tb.is-bare :is(#ionNav,#frameCoins,#image_seal_container,#avatarOverlay){visibility:hidden;pointer-events:none}
 .am-me{display:flex;align-items:center;gap:12px;padding:8px 8px 12px}
 .am-me-head{width:44px;height:44px;border-radius:8px}
 .am-me-name{display:block;font-size:15px;font-weight:700}

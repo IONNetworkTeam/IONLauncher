@@ -109,6 +109,9 @@ textarea {
 
 /* Play button. */
 .play-button {
+    /* Holds the absolutely positioned gloss and shine below. */
+    position: relative;
+    overflow: hidden;
     background-image: var(--ion-signal-deep);
     box-shadow:
         0 14px 34px -12px rgba(79, 110, 224, 0.9),

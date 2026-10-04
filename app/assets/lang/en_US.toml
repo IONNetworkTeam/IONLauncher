@@ -23,26 +23,55 @@ maximize = "Maximize"
 close = "Close"
 
 [ejs.login]
-loginCancelText = "Cancel"
-loginSubheader = "MINECRAFT LOGIN"
-loginEmailError = "* Invalid Value"
-loginEmailPlaceholder = "EMAIL OR USERNAME"
-loginPasswordError = "* Required"
-loginPasswordPlaceholder = "PASSWORD"
+loginCancelText = "Back"
+loginSubheader = "Sign in with Mojang"
+loginEmailError = "Not a valid email or username"
+loginEmailPlaceholder = "Email or username"
+loginPasswordError = "Required"
+loginPasswordPlaceholder = "Password"
 loginForgotPasswordLink = "https://minecraft.net/password/forgot/"
-loginForgotPasswordText = "forgot password?"
-loginRememberMeText = "remember me?"
-loginButtonText = "LOGIN"
+loginForgotPasswordText = "Forgot password?"
+loginRememberMeText = "Keep me signed in"
+loginButtonText = "Sign in"
 loginNeedAccountLink = "https://minecraft.net/store/minecraft-java-edition/"
-loginNeedAccountText = "Need an Account?"
-loginPasswordDisclaimer1 = "Your password is sent directly to mojang and never stored."
+loginNeedAccountText = "No Minecraft account yet? Buy the game"
+loginPasswordDisclaimer1 = "Your password goes straight to Mojang and is never stored."
 loginPasswordDisclaimer2 = "{appName} is not affiliated with Mojang AB."
 
 [ejs.loginOptions]
-loginOptionsTitle = "Login Options"
-loginWithMicrosoft = "Login with Microsoft"
-loginWithMojang = "Login with Mojang"
-cancelButton = "Cancel"
+loginOptionsTitle = "Sign in to play"
+loginWithMicrosoft = "Microsoft account"
+loginWithMicrosoftSub = "Opens Microsoft's sign-in window"
+loginOptionsDescription = "Use the account you play Minecraft: Java Edition with."
+cancelButton = "Back"
+
+[ejs.ionAccount]
+registerTitle = "Create your ION account"
+registerDescription = "One account for your coins, challenges, stats and friends."
+loginTitle = "Sign in to ION"
+loginDescription = "Use your ION account's email or name."
+twofaTitle = "Enter your code"
+twofaDescription = "Your account has two-factor sign-in. Enter the 6-digit code from your authenticator app."
+nameNote = "Becomes your ION name"
+email = "Email"
+identifier = "Email or name"
+password = "Password"
+backToLogin = "Use a different account"
+show = "Show"
+code = "Code"
+consent = "I agree to the {privacy}."
+privacy = "privacy policy"
+forgot = "Forgot password?"
+register = "Create account"
+login = "Sign in"
+verify = "Verify"
+play = "Start playing"
+haveAccount = "Already have an ION account?"
+toLogin = "Sign in"
+newHere = "New to ION?"
+toRegister = "Create an account"
+skip = "Skip for now"
+discord = "Continue with Discord"
 
 [ejs.overlay]
 serverSelectHeader = "Available Servers"
@@ -149,10 +178,11 @@ whatsNew = "What's New"
 updateReleaseNotes = "Update Release Notes"
 
 [ejs.waiting]
-waitingText = "Waiting for Microsoft.."
+waitingText = "Continue in the Microsoft window"
+waitingDescription = "Sign in there. This screen moves on by itself once you are done."
 
 [ejs.welcome]
-continueButton = "CONTINUE"
+continueButton = "Get started"
 
 
 [js.discord]
@@ -161,17 +191,18 @@ state = "Server: {shortId}"
 
 [js.index]
 microsoftLoginTitle = "Microsoft Login"
+discordLoginTitle = "Sign in with Discord"
 microsoftLogoutTitle = "Microsoft Logout"
 
 [js.login]
-login = "LOGIN"
-loggingIn = "LOGGING IN"
-success = "SUCCESS"
+login = "Sign in"
+loggingIn = "Signing in"
+success = "Signed in"
 tryAgain = "Try Again"
 
 [js.login.error]
-invalidValue = "* Invalid Value"
-requiredValue = "* Required"
+invalidValue = "Not a valid email or username"
+requiredValue = "Required"
 
 [js.login.error.unknown]
 title = "Unknown Error During Login"
@@ -276,6 +307,37 @@ remember = "Remember on this computer"
 cancel = "Cancel"
 submit = "Sign in"
 
+[js.shell.account]
+title = "Sign in to your ION account"
+description = "Your account keeps your coins, challenges and stats. New to ION? Creating an account takes a minute."
+login = "Sign in"
+register = "Create account"
+dismiss = "Don't ask again"
+later = "You can always sign in from the Challenges tab."
+
+[js.ionAccount]
+show = "Show"
+passwordHint = "At least 8 characters"
+hide = "Hide"
+doneTitle = "Welcome back, {name}"
+doneText = "You are signed in. Your coins, challenges and stats are waiting in the Challenges and Stats tabs."
+doneRegisteredTitle = "Welcome to ION, {name}"
+doneRegisteredText = "Your account is ready. Join the network and type /register in the chat to confirm it is your Minecraft account."
+confirmTitle = "Check your inbox"
+confirmText = "We sent a link to {email}. Open it to confirm your address, then sign in from the Challenges tab."
+
+[js.ionAccount.error]
+email = "Enter a valid email address."
+password = "Use at least 8 characters for your password."
+passwordEmpty = "Enter your password."
+consent = "Agree to the privacy policy to create an account."
+identifier = "Enter your email or name."
+code = "Enter the 6-digit code from your authenticator app."
+gate = "The website needs its password first. Enter it and try again."
+discordOpen = "The Discord window is already open."
+discordNoToken = "Discord did not finish the sign-in. Try again."
+unavailable = "Could not reach ION right now. Check your connection and try again."
+
 [js.overlay]
 dismiss = "Dismiss"
 
@@ -318,6 +380,16 @@ lastAccountWarningTitle = "Warning<br>This is Your Last Account"
 lastAccountWarningMessage = "In order to use the launcher you must be logged into at least one account. You will need to login again after.<br><br>Are you sure you want to log out?"
 confirmButton = "I'm Sure"
 cancelButton = "Cancel"
+
+[js.settings.ion]
+checking = "Checking…"
+checkingDetail = "Waiting for the website to say who is signed in."
+signedIn = "Signed in as {name}"
+minecraft = "Linked Minecraft account: {name}"
+noMinecraft = "No Minecraft account linked yet."
+signedOut = "Not signed in"
+signedOutDetail = "Sign in to collect coins, take on challenges and keep your stats."
+signOutFailed = "Could not sign out. Try again."
 
 [js.settings.authAccountPopulate]
 username = "Username"
@@ -519,6 +591,16 @@ noModpacks = "No modpacks yet."
 
 [js.titlebar]
 switch = "SWITCH"
+signedInMicrosoft = "Microsoft · signed in"
+signedInMojang = "Mojang · signed in"
+
+[ejs.settings.ion]
+section = "ION Account"
+open = "Open account"
+register = "Create account"
+login = "Sign in"
+signOut = "Sign out"
+note = "Your ION account is your login on the ION Network website, which the Challenges, Stats and News tabs show. It is separate from your Minecraft accounts."
 
 [ejs.settings.friends]
 section = "Friends"

@@ -449,6 +449,115 @@ app.on('ready', () => {
     web.setUserAgent(`${web.getUserAgent()} IONLauncher/${app.getVersion()}`)
 })
 
+// Sign out of the website: it keeps its login in localStorage, mirrored into the ion_session
+// cookie (the site's src/lib/auth/session.ts). The web tabs are reloaded by the renderer after.
+// Whether the website's session cookie is there at all. Without it the site is signed out; with
+// it, who is signed in is left to the site's own report (shell.js).
+ipcMain.handle('web:hasSession', async () => {
+    const cookies = await session.fromPartition(Web.partition).cookies.get({ url: Web.url, name: 'ion_session' })
+    return cookies.some(c => c.value)
+})
+
+ipcMain.handle('web:signOut', async () => {
+    const web = session.fromPartition(Web.partition)
+    await web.cookies.remove(Web.url, 'ion_session')
+    await web.clearStorageData({ origin: Web.origin, storages: ['localstorage', 'cookies'] })
+})
+
+// Sign in to the website from the onboarding's own forms (ionaccount.js) through the site's
+// /api/launcher/account/* routes. A session is handed to the web tabs as the ion_session cookie,
+// which the site adopts into its localStorage; the token itself never reaches the renderer.
+const ACCOUNT_ROUTES = {
+    login: '/api/launcher/account/login',
+    register: '/api/launcher/account/register',
+    twoFactor: '/api/launcher/account/2fa',
+    discord: '/api/launcher/account/discord'
+}
+
+async function accountRequest(action, body){
+    let res
+    try {
+        res = await WebAuth.fetchJson(ACCOUNT_ROUTES[action], { method: 'POST', body })
+    } catch {
+        return { ok: false, code: 'UNAVAILABLE' }
+    }
+    const data = res.data || {}
+    if(!res.ok) return { ok: false, status: res.status, error: res.error, code: res.code, gate: res.gate }
+    if(data.requires2fa) return { ok: true, requires2fa: true, tempToken: data.tempToken }
+    if(typeof data.jwt !== 'string') return { ok: true, confirmEmail: !!data.confirmEmail }
+    await session.fromPartition(Web.partition).cookies.set({
+        url: Web.url,
+        name: 'ion_session',
+        value: encodeURIComponent(data.jwt),
+        path: '/',
+        secure: Web.url.startsWith('https:'),
+        sameSite: 'lax',
+        // Thirty days, as the site writes it (src/lib/auth/session.ts).
+        expirationDate: Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 30
+    })
+    return { ok: true, username: data.username || null }
+}
+
+ipcMain.handle('web:account', (_e, action, body) => {
+    if(!ACCOUNT_ROUTES[action] || action === 'discord' || body == null || typeof body !== 'object') return { ok: false, error: 'Unknown request.' }
+    return accountRequest(action, body)
+})
+
+/**
+ * Sign in with Discord: a window runs Strapi's Discord connect, started by the site's
+ * /api/launcher/account/discord/start. Strapi sends the window back to the site's
+ * /auth/discord/callback?access_token=…; the token is taken from that address before the page
+ * loads, and traded for a session like the password sign-in.
+ */
+let discordWindow = null
+ipcMain.handle('web:discord', () => new Promise(resolve => {
+    if(discordWindow){
+        discordWindow.focus()
+        return resolve({ ok: false, code: 'ALREADY_OPEN' })
+    }
+    const callback = Web.url + '/auth/discord/callback'
+    let settled = false
+    // Set once the callback is caught: closing the window then is not a cancel.
+    let handedOff = false
+    const settle = result => {
+        if(settled) return
+        settled = true
+        resolve(result)
+    }
+    discordWindow = new BrowserWindow({
+        parent: win,
+        title: LangLoader.queryJS('index.discordLoginTitle'),
+        backgroundColor: '#1E1F22',
+        width: 520,
+        height: 760,
+        icon: getPlatformIcon('SealCircle'),
+        // Its own short-lived session: Discord's login is not kept, and the site's tabs are not touched.
+        webPreferences: { partition: 'ionlauncher-discord', sandbox: true, contextIsolation: true, nodeIntegration: false }
+    })
+    discordWindow.removeMenu()
+    const catchCallback = (event, url) => {
+        if(!url.startsWith(callback)) return
+        event.preventDefault()
+        const params = new URL(url).searchParams
+        const token = params.get('access_token')
+        handedOff = true
+        discordWindow.close()
+        if(!token){
+            settle({ ok: false, code: params.get('error') === 'access_denied' ? 'CANCELLED' : 'NO_TOKEN' })
+            return
+        }
+        accountRequest('discord', { accessToken: token }).then(settle)
+    }
+    discordWindow.webContents.on('will-redirect', catchCallback)
+    discordWindow.webContents.on('will-navigate', catchCallback)
+    discordWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
+    discordWindow.on('closed', () => {
+        discordWindow = null
+        if(!handedOff) settle({ ok: false, code: 'CANCELLED' })
+    })
+    discordWindow.loadURL(Web.url + '/api/launcher/account/discord/start')
+}))
+
 // Basic auth challenges from the website are answered by webauth.js.
 app.on('login', (event, _webContents, details, authInfo, callback) => {
     if(authInfo.isProxy || authInfo.scheme.toLowerCase() !== 'basic') return

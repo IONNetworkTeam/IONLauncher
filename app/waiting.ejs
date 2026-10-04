@@ -1,8 +1,10 @@
-<div id="waitingContainer" style="display: none;">
-    <div id="waitingContent">
-        <div class="waitingSpinner"></div>
-        <div id="waitingTextContainer">
-            <h2><%- lang('waiting.waitingText') %></h2>
-        </div>
+<div id="waitingContainer" class="ob-view" style="display: none;">
+    <div class="ob-body" role="status">
+        <span class="ob-wait" aria-hidden="true">
+            <img class="ob-wait-star" src="assets/images/ion/star.svg" alt="">
+            <img class="ob-wait-ring" src="assets/images/ion/ring.svg" alt="">
+        </span>
+        <h1 class="ob-title"><%- lang('waiting.waitingText') %></h1>
+        <p class="ob-lede"><%- lang('waiting.waitingDescription') %></p>
     </div>
 </div>
