@@ -41,7 +41,7 @@ const Library = (() => {
             : ''
         grid.innerHTML = items.length
             ? section(`<img src="assets/images/ion/star.svg" alt="">${t('networkHeading')}`, net) + section(t('otherHeading'), other)
-            : `<p class="lib-empty">${t('noMatch', { q: search.value })}</p>`
+            : `<p class="lib-empty">${q ? t('noMatch', { q: search.value }) : t(filter === 'gameserver' ? 'noGameServers' : 'noModpacks')}</p>`
         root.querySelectorAll('[data-filter]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.filter === filter)))
         root.querySelector('.lib-count').textContent = String(Slices.releases().length).padStart(2, '0')
     }

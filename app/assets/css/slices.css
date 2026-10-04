@@ -204,14 +204,29 @@
 .slice-title.is-net{font-size:clamp(40px,4.1vw,84px)}
 .slice-edition{margin-left:.2em;font-size:.46em;font-weight:500;letter-spacing:-.03em;color:var(--acc-text)}
 .slice-desc{margin:18px 0 0;max-width:44ch;font-size:15.5px;line-height:1.45;color:rgba(255,255,255,.72)}
-.slice-extra{pointer-events:auto}
-.modes{margin-top:24px;display:flex;flex-wrap:wrap;gap:8px}
-.mode{display:flex;flex-direction:column;align-items:center;gap:6px;width:74px;padding:10px 0 8px;border:0;border-radius:11px;background:rgba(9,10,14,.5);backdrop-filter:blur(10px);color:#fff;font:600 10.5px 'Geist',system-ui,sans-serif;cursor:pointer;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);transition:transform .35s cubic-bezier(.3,1.5,.5,1),background .2s}
+/*
+ * The mode tiles stay on one row. --u is a pixel at full size, shrunk when the row of --n tiles
+ * (74px each, 8px apart) would be wider than the hero, so the tiles scale down together.
+ */
+.slice-extra{pointer-events:auto;container-type:inline-size}
+.modes{--u:min(1px,100cqi / (var(--n,5) * 82 - 8));margin-top:24px;display:flex;flex-wrap:nowrap;gap:calc(8 * var(--u))}
+.mode{display:flex;flex-direction:column;align-items:center;gap:calc(6 * var(--u));flex:none;width:calc(74 * var(--u));padding:calc(10 * var(--u)) 0 calc(8 * var(--u));border:0;border-radius:calc(11 * var(--u));background:rgba(9,10,14,.5);backdrop-filter:blur(10px);color:#fff;font:600 calc(10.5 * var(--u)) 'Geist',system-ui,sans-serif;white-space:nowrap;cursor:pointer;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);transition:transform .35s cubic-bezier(.3,1.5,.5,1),background .2s}
 .mode:hover{transform:translateY(-5px);background:rgba(9,10,14,.75)}
-.mode img{width:28px;height:28px;image-rendering:pixelated}
+.mode img{width:calc(28 * var(--u));height:calc(28 * var(--u));image-rendering:pixelated}
 .mode-bar{display:block;width:16px;height:2px;border-radius:2px;transition:width .35s cubic-bezier(.3,1.5,.5,1)}
 .mode:hover .mode-bar{width:30px}
 .slice-side{display:flex;flex-direction:column;align-items:stretch;gap:14px;flex-shrink:0;pointer-events:auto}
+/*
+ * The panel and the mode tiles blur what is behind them, and a backdrop-filter sees nothing past an
+ * ancestor that is fading: while the reveal ran, the blur was gone. Their two reveals only rise, and
+ * what is inside them fades itself. Leaving, it is gone at once, before the closing slice sweeps over it.
+ */
+.slice-side.reveal,.slice-extra.reveal{opacity:1 !important}
+.slice-side>:not(.slice-panel),.slice-panel>*{opacity:0;transition:opacity .15s}
+.mode{opacity:0;transition:transform .35s cubic-bezier(.3,1.5,.5,1),background .2s,opacity .15s}
+.is-open .slice-side>:not(.slice-panel),.is-open .slice-panel>*{opacity:1;transition:opacity .5s .75s}
+.is-open .mode{opacity:1;transition:transform .35s cubic-bezier(.3,1.5,.5,1),background .2s,opacity .5s .75s}
+.is-mini .slice-side>:not(.slice-panel),.is-mini .slice-panel>*,.is-mini .mode{opacity:0 !important;transition-delay:0s !important}
 .ann{position:absolute;top:26px;left:48px}
 .ann-dot{background:var(--acc-text)}
 .ann-date{flex-shrink:0;font-size:10.5px;letter-spacing:.18em;color:var(--acc-text)}

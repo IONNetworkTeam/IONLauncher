@@ -514,6 +514,8 @@ kindModpack = "Modpack"
 networkHeading = "ION NETWORK · GAME SERVERS"
 otherHeading = "MODPACKS"
 noMatch = "No release matches “{q}”."
+noGameServers = "No game servers yet."
+noModpacks = "No modpacks yet."
 
 [js.titlebar]
 switch = "SWITCH"
