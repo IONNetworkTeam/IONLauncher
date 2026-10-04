@@ -12,7 +12,7 @@
  * (showTab, escapeHtml, onSelectedServerChanged), slices.js (Slices), panels.js (Panels).
  */
 /* global ConfigManager, ipcRenderer, Lang, LoggerUtil, GameState, Slices, Panels, showTab, escapeHtml, getCurrentView, VIEWS, validateSelectedAccount */
-const { createFriendsModel, activityLine, ago, toastMs, followPlace, followKey, modeLabel, MODES: FRIEND_MODES, NAME: FRIEND_NAME } = require('./assets/js/friendsmodel')
+const { createFriendsModel, activityLine, ago, toastMs, followPlace, followKey, modeLabel, partyWhereKey, confirmStep, CROWN_SVG, PARTY_TICK_MS, MODES: FRIEND_MODES, NAME: FRIEND_NAME } = require('./assets/js/friendsmodel')
 const FriendsWeb = require('./assets/js/weburl')
 
 const Friends = (() => {
@@ -60,7 +60,10 @@ const Friends = (() => {
     let lastAccountKey = null
     let accountRefreshAt = 0
     let releasesSent = ''
-    let strip, card, addCard, inv, showBtn
+    let partyCard = null        // 'menu' | 'invite' | null: the card the bracket's ⋯ or + opened
+    let partyConfirm = null     // 'leave' | 'kick:<uuid>': armed by the first click, confirmed by the second (confirmStep)
+    let partyTick = null        // redraws "Disbands in N min" while I am in a party; cleared when the party goes
+    let strip, card, addCard, pcard, inv, showBtn
 
     /* Releases */
 
@@ -120,11 +123,15 @@ const Friends = (() => {
                 <button type="submit" class="fr-join" style="--join-bg:var(--acc)" disabled>${h('send')}</button>
             </form>
             <p class="fcard-note" hidden></p>`
+        pcard = document.createElement('div')
+        pcard.className = 'fcard fpcard'
+        pcard.setAttribute('role', 'dialog')
+        pcard.setAttribute('aria-label', t('partyLabel'))
         inv = document.createElement('div')
         inv.className = 'inv'
         inv.setAttribute('role', 'status')
         inv.setAttribute('aria-live', 'polite')
-        main.append(strip, card, addCard, inv)
+        main.append(strip, card, addCard, pcard, inv)
 
         showBtn = document.createElement('button')
         showBtn.className = 'fr-show app-no-drag is-gone'
@@ -144,7 +151,10 @@ const Friends = (() => {
         if(!mounted) return
         mounted = false
         document.body.classList.remove('has-friends', 'friends-folded')
-        for(const el of [strip, card, addCard, inv, showBtn]) el?.remove()
+        for(const el of [strip, card, addCard, pcard, inv, showBtn]) el?.remove()
+        partyCard = null
+        partyConfirm = null
+        syncPartyTick()
         document.querySelectorAll('.tag-friends, .mode-friends, .slice-friendline').forEach(el => el.remove())
         lastAccountKey = null
         ipcRenderer.invoke('friends:account', null).catch(() => {})
@@ -301,9 +311,18 @@ const Friends = (() => {
         if(!mounted) return
         renderStrip()
         renderCard()
+        renderPartyCard()
         renderToast()
         decorateSlices()
         pushReleases()
+        syncPartyTick()
+    }
+
+    /** "Disbands in N min" counts down without any event arriving: a tick while I am in a party, none otherwise. */
+    function syncPartyTick(){
+        const want = mounted && !!model.party
+        if(want && !partyTick) partyTick = setInterval(render, PARTY_TICK_MS)
+        else if(!want && partyTick){ clearInterval(partyTick); partyTick = null }
     }
 
     /** The slices fold into a band in the settings workspace; the strip goes with them. */
@@ -333,8 +352,11 @@ const Friends = (() => {
         // Heads: playing with the release's ring and the mode, then the launcher, a rule, then offline.
         const list = strip.querySelector('.fs-list')
         const all = status.session || model.loaded ? model.friends() : []
+        const party = model.party
+        // Party members sit first, inside the bracket, and are not repeated below it.
+        const rest = party ? all.filter(f => !model.isInMyParty(f.uuid)) : all
         let ruled = false
-        const html = all.map(f => {
+        const html = (party ? partyBracket(party) : '') + rest.map(f => {
             const st = f.presence.status
             const r = releaseFor(f)
             const a = f.presence.activity
@@ -343,10 +365,36 @@ const Friends = (() => {
             const rule = st === 'offline' && !ruled ? (ruled = true, '<span class="fs-rule"></span>') : ''
             return `${rule}<button class="fs-head${st === 'offline' ? ' is-off' : ''}${hot === f.uuid ? ' is-hot' : ''}" data-head="${escapeHtml(f.uuid)}" aria-label="${escapeHtml(f.name)} · ${escapeHtml(line(f))}" style="${headStyle(f.headUrl)};${ring}">${icon ? `<span class="fs-badge"><img src="${icon}" alt=""></span>` : ''}${st === 'launcher' || st === 'online' ? '<span class="fs-dot"></span>' : ''}</button>`
         }).join('')
-        const shown = all.length ? html : emptyState(unavailable)
-        strip.classList.toggle('is-empty', !all.length)
+        const shown = all.length || party ? html : emptyState(unavailable)
+        strip.classList.toggle('is-empty', !all.length && !party)
         if(list.dataset.html !== shown){ list.innerHTML = shown; list.dataset.html = shown }
         updateAddCard()
+    }
+
+    /**
+     * The party at the top of the strip: one bracket, the leader crowned and first, members who
+     * are not my friends included (no card for them, only their name), an invite "+" for the
+     * leader, the ⋯ menu, and "Disbands in N min" once the party has been idle 10 min.
+     */
+    function partyBracket(p){
+        const heads = p.members.map(m => {
+            const f = model.friend(m.uuid)
+            const self = model.isMe(m.uuid)
+            const crown = m.leader ? `<span class="fp-crown">${CROWN_SVG}</span>` : ''
+            const label = `${self ? t('you') : m.name}${m.leader ? ` · ${t('partyLeader')}` : ''} · ${t(partyWhereKey(m.where))}`
+            const cls = `fs-head fp-head${m.leader ? ' is-leader' : ''}${m.where === 'away' ? ' is-away' : ''}${self ? ' is-me' : ''}`
+            if(f && !self) return `<button class="${cls}${hot === f.uuid ? ' is-hot' : ''}" data-head="${escapeHtml(f.uuid)}" aria-label="${escapeHtml(label)}" style="${headStyle(m.headUrl ?? f.headUrl)}">${crown}</button>`
+            return `<span class="${cls} is-member" role="img" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}" style="${headStyle(m.headUrl)}">${crown}</span>`
+        }).join('')
+        const idle = model.idleDisbandIn()
+        return `<div class="fp${idle != null ? ' is-idle' : ''}" role="group" aria-label="${h('partyLabel')}">
+            ${heads}
+            <span class="fp-tools">
+                ${model.amLeader() ? `<button class="fp-btn" data-act="partyInvite" aria-expanded="${partyCard === 'invite'}" title="${h('partyInviteMore')}" aria-label="${h('partyInviteMore')}">+</button>` : ''}
+                <button class="fp-btn" data-act="partyMenu" aria-expanded="${partyCard === 'menu'}" title="${h('partyMenu')}" aria-label="${h('partyMenu')}">⋯</button>
+            </span>
+            ${idle != null ? `<span class="fp-idle">${h('partyDisbandsIn', { n: idle })}</span>` : ''}
+        </div>`
     }
 
     /**
@@ -415,6 +463,78 @@ const Friends = (() => {
             card.style.top = `${top}px`
         }
         card.classList.add('is-open')
+    }
+
+    /** The card from the bracket: ⋯ lists the members (Make leader, Kick, Leave); + lists friends to invite. */
+    function renderPartyCard(){
+        const p = model.party
+        if(!p){ partyCard = null; partyConfirm = null }
+        if(!p || !partyCard || stripHidden || windowOpen || away()){
+            pcard.classList.remove('is-open')
+            return
+        }
+        const leader = model.amLeader()
+        const stale = model.stale || !status.session
+        const off = stale ? 'disabled' : ''
+        let rows
+        if(partyCard === 'invite'){
+            const can = model.friends().filter(f => model.inviteAction(f.uuid, inGame()) === 'party')
+            rows = can.map(f => {
+                const done = model.invitedToMyParty(f.uuid)
+                return `<div class="fp-row">
+                    <span class="fr-head" style="${headStyle(f.headUrl)}"></span>
+                    <span style="min-width:0"><span class="fr-name">${escapeHtml(f.name)}</span><span class="fr-act"><span>${escapeHtml(line(f))}</span></span></span>
+                    <button class="fr-join${done ? ' is-done' : ''}" data-act="pInvite" data-uuid="${escapeHtml(f.uuid)}" style="--join-bg:var(--acc)" ${done || stale ? 'disabled' : ''}>${h(done ? 'invited' : 'invite')}</button>
+                </div>`
+            }).join('') || `<p class="fp-empty">${h('partyNobodyToInvite')}</p>`
+        } else {
+            rows = p.members.map(m => {
+                const self = model.isMe(m.uuid)
+                let acts = ''
+                if(leader && !self){
+                    acts = partyConfirm === `kick:${m.uuid}`
+                        ? `<button class="fr-ghost" data-act="pCancel">${h('cancel')}</button><button class="fr-join fr-danger" data-act="pKick" data-uuid="${escapeHtml(m.uuid)}">${h('partyKick')}</button>`
+                        : `<button class="fr-ghost" data-act="pPromote" data-uuid="${escapeHtml(m.uuid)}" ${off}>${h('partyPromote')}</button><button class="fr-ghost" data-act="pKick" data-uuid="${escapeHtml(m.uuid)}" ${off}>${h('partyKick')}</button>`
+                }
+                return `<div class="fp-row${m.leader ? ' is-leader' : ''}">
+                    <span class="fr-head${m.where === 'away' ? ' is-off' : ''}" style="${headStyle(m.headUrl)}"></span>
+                    <span style="min-width:0"><span class="fr-name">${escapeHtml(self ? t('you') : m.name)}${m.leader ? `<span class="fp-lead" title="${h('partyLeader')}">${CROWN_SVG}</span>` : ''}</span><span class="fr-act"><span>${h(partyWhereKey(m.where))}${model.friend(m.uuid) || self ? '' : ` · ${h('partyNotFriend')}`}</span></span></span>
+                    <span class="fr-acts">${acts}</span>
+                </div>`
+            }).join('')
+        }
+        const idle = model.idleDisbandIn()
+        const n = notes.get('party')
+        pcard.innerHTML = `
+            <span class="fr-kicker">${partyCard === 'invite' ? h('partyInviteTitle') : h('partyCardTitle', { n: p.members.length })}</span>
+            ${partyCard === 'menu' && idle != null ? `<p class="fp-idle-line">${h('partyDisbandsIn', { n: idle })}</p>` : ''}
+            <div class="fp-rows">${rows}</div>
+            ${partyCard === 'menu' ? `<div class="fcard-actions">${partyConfirm === 'leave'
+        ? `<button class="fr-ghost" data-act="pCancel">${h('cancel')}</button><button class="fr-join fr-danger" data-act="pLeave">${h('partyLeave')}</button>`
+        : `<button class="fr-ghost" data-act="pLeave" ${off}>${h('partyLeave')}</button>`}</div>` : ''}
+            ${n ? `<p class="fcard-note${n.good ? ' is-good' : ''}">${escapeHtml(n.text)}</p>` : ''}`
+        const anchor = strip.querySelector('.fp')
+        if(anchor){
+            const box = anchor.getBoundingClientRect()
+            const base = main.getBoundingClientRect()
+            pcard.style.top = `${Math.max(8, Math.min(base.height - pcard.offsetHeight - 8, box.top - base.top))}px`
+        }
+        pcard.classList.add('is-open')
+    }
+
+    /** A party change from the card; its failure shows on the card. The new party arrives as a `party` event. */
+    async function partyAct(op, uuid){
+        const res = await ipcRenderer.invoke(`friends:${op}`, ...(uuid ? [uuid] : [])).catch(() => null)
+        if(!res?.ok) note('party', failText(res))
+        return res
+    }
+
+    /** Leave and Kick take two clicks: the first arms the button, the second on the same target does it. */
+    function confirmThen(target, run){
+        const step = confirmStep(partyConfirm, target)
+        partyConfirm = step.next
+        if(step.confirmed) run()
+        render()
     }
 
     function hideToast(){
@@ -604,10 +724,20 @@ const Friends = (() => {
             if(act === 'add'){ adding = !adding; hot = null; render() }
             else if(act === 'hide') setStripHidden(true)
             else if(act === 'window') openWindow()
+            else if(act === 'partyMenu' || act === 'partyInvite'){
+                const want = act === 'partyMenu' ? 'menu' : 'invite'
+                partyCard = partyCard === want ? null : want
+                partyConfirm = null
+                hot = null
+                adding = false
+                render()
+            }
         })
         strip.addEventListener('mouseover', e => {
             const head = e.target.closest('[data-head]')
             if(!head || head.dataset.head === hot) return
+            // The hover card never covers an open party card.
+            if(partyCard) return
             clearTimeout(leaveTimer)
             hot = head.dataset.head; adding = false
             render()
@@ -626,6 +756,21 @@ const Friends = (() => {
             if(act === 'join') join(hot)
             else if(act === 'challenge') challenge(hot)
             else if(act === 'invite') invite(hot)
+        })
+        pcard.addEventListener('click', e => {
+            const b = e.target.closest('[data-act]')
+            if(!b || b.disabled) return
+            const uuid = b.dataset.uuid
+            switch(b.dataset.act){
+                case 'pInvite': partyAct('partyInvite', uuid); break
+                case 'pPromote': partyAct('partyPromote', uuid); break
+                case 'pKick': confirmThen(`kick:${uuid}`, () => partyAct('partyKick', uuid)); break
+                case 'pLeave': confirmThen('leave', () => partyAct('partyLeave')); break
+                case 'pCancel':
+                    partyConfirm = null
+                    render()
+                    break
+            }
         })
         const form = addCard.querySelector('form')
         form.addEventListener('submit', e => {
@@ -674,10 +819,15 @@ const Friends = (() => {
             }
         })
         document.addEventListener('mousedown', e => {
-            if(adding && !addCard.contains(e.target) && !e.target.closest('.fs-top')){ adding = false; render() }
+            let changed = false
+            if(adding && !addCard.contains(e.target) && !e.target.closest('.fs-top')){ adding = false; changed = true }
+            if(partyCard && !pcard.contains(e.target) && !e.target.closest('.fp-btn')){ partyCard = null; partyConfirm = null; changed = true }
+            if(changed) render()
         })
         document.addEventListener('keydown', e => {
-            if(e.key === 'Escape' && (adding || hot)){ adding = false; hot = null; render() }
+            if(e.key !== 'Escape') return
+            if(partyConfirm){ partyConfirm = null; render(); return }
+            if(adding || hot || partyCard){ adding = false; hot = null; partyCard = null; render() }
         })
     }
 
