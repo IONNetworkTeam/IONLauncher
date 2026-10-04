@@ -36,6 +36,9 @@ const Friends = (() => {
     }
 
     const landing = document.getElementById('landingContainer')
+    // The Play view clips its children (overflow: hidden) and is 64px narrower while friends are
+    // shown, so the strip and its transient cards hang in #main, beside it.
+    const main = document.getElementById('main')
     const stage = document.getElementById('stage')
     let mounted = false
     let status = { session: false, live: false, reason: null }
@@ -115,7 +118,7 @@ const Friends = (() => {
         inv.className = 'inv'
         inv.setAttribute('role', 'status')
         inv.setAttribute('aria-live', 'polite')
-        landing.append(strip, card, addCard, inv)
+        main.append(strip, card, addCard, inv)
 
         showBtn = document.createElement('button')
         showBtn.className = 'fr-show app-no-drag is-gone'
@@ -273,13 +276,16 @@ const Friends = (() => {
         pushReleases()
     }
 
+    /** The slices fold into a band in the settings workspace; the strip goes with them. */
+    const away = () => stage.classList.contains('is-mini') || getComputedStyle(landing).display === 'none'
+
     function renderStrip(){
         const online = model.onlineCount()
         const unavailable = status.reason === 'unavailable' || status.reason === 'offline' || status.reason === 'gate'
-        strip.classList.toggle('is-hidden', stripHidden || windowOpen)
+        strip.classList.toggle('is-hidden', stripHidden || windowOpen || away())
         strip.classList.toggle('is-stale', model.stale || unavailable)
-        strip.setAttribute('aria-hidden', String(stripHidden || windowOpen))
-        showBtn.classList.toggle('is-gone', !stripHidden || windowOpen)
+        strip.setAttribute('aria-hidden', String(stripHidden || windowOpen || away()))
+        showBtn.classList.toggle('is-gone', !stripHidden || windowOpen || away())
         showBtn.title = t('show', { n: online })
         showBtn.setAttribute('aria-label', t('show', { n: online }))
         showBtn.querySelector('.fr-show-n').textContent = String(online)
@@ -315,14 +321,14 @@ const Friends = (() => {
         const valid = FRIEND_NAME.test(input.value.trim())
         addCard.querySelector('.fr-preview').classList.toggle('is-valid', valid)
         addCard.querySelector('button[type="submit"]').disabled = !valid || !status.session
-        addCard.classList.toggle('is-open', adding && !stripHidden && !windowOpen)
+        addCard.classList.toggle('is-open', adding && !stripHidden && !windowOpen && !away())
         if(adding && !addCard.dataset.focused){ addCard.dataset.focused = '1'; setTimeout(() => input.focus(), 60) }
         if(!adding) delete addCard.dataset.focused
     }
 
     function renderCard(){
         const f = hot ? model.friend(hot) : null
-        if(!f || stripHidden || windowOpen){
+        if(!f || stripHidden || windowOpen || away()){
             card.classList.remove('is-open')
             return
         }
@@ -355,7 +361,7 @@ const Friends = (() => {
         const head = strip.querySelector(`[data-head="${CSS.escape(f.uuid)}"]`)
         if(head){
             const box = head.getBoundingClientRect()
-            const base = landing.getBoundingClientRect()
+            const base = main.getBoundingClientRect()
             const top = Math.max(8, Math.min(base.height - card.offsetHeight - 8, box.top - base.top - 10))
             card.style.top = `${top}px`
         }
@@ -370,7 +376,7 @@ const Friends = (() => {
 
     function renderInvite(){
         const i = model.invites.find(x => !dismissed.has(x.from.uuid))
-        if(!i || stripHidden || windowOpen || getCurrentView() !== VIEWS.landing){ hideInvite(); return }
+        if(!i || stripHidden || windowOpen || away()){ hideInvite(); return }
         if(inv.dataset.from === i.from.uuid) return
         const a = i.activity
         const r = a?.kind === 'network' ? netRelease() : releases().find(x => x.id === a?.release) ?? null
@@ -549,6 +555,10 @@ const Friends = (() => {
     window.onSelectedAccountChanged = (...a) => { prevAccount?.(...a); sendAccount() }
     // The slices rebuild their nodes and panels on their own schedule; the decorations follow.
     new MutationObserver(() => { if(mounted) requestAnimationFrame(decorateSlices) }).observe(stage, { childList: true, subtree: true })
+    // Entering or leaving the settings workspace only changes the stage's class (slices.js).
+    new MutationObserver(() => { if(mounted) render() }).observe(stage, { attributes: true, attributeFilter: ['class'] })
+    // The views fade in and out by their inline display (uibinder.js), the Play view included.
+    new MutationObserver(() => { if(mounted) render() }).observe(landing, { attributes: true, attributeFilter: ['style'] })
     // The flag (Settings › Launcher) and a refreshed account token are picked up here.
     setInterval(() => {
         if(enabled() !== mounted) (enabled() ? mount : unmount)()

@@ -28,6 +28,8 @@ let releases = []
 let launcherState = { busy: false, release: null }
 const notes = new Map()
 const invited = new Set()
+/** The friend whose Remove button is showing; nothing is removed without that second click. */
+let confirming = null
 const root = document.getElementById('friendsWindow')
 const body = document.getElementById('fwBody')
 const $ = id => document.getElementById(id)
@@ -72,7 +74,10 @@ function row(f, section){
         const done = invited.has(f.uuid)
         acts = `<button class="fr-join${done ? ' is-done' : ''}" data-act="invite" data-uuid="${esc(f.uuid)}" ${done ? 'disabled' : ''}>${esc(t(done ? 'invited' : 'invite'))}</button>`
     } else if(section === 'offline'){
-        acts = `<button class="fr-ghost" data-act="remove" data-uuid="${esc(f.uuid)}" aria-label="${esc(t('more', { name: f.name }))}" title="${esc(t('remove'))}">⋯</button>`
+        // The board's "More": it only reveals Remove, which takes a second, deliberate click.
+        acts = confirming === f.uuid
+            ? `<button class="fr-ghost is-shown" data-act="cancel" data-uuid="${esc(f.uuid)}">${esc(t('cancel'))}</button><button class="fr-join fr-danger" data-act="remove" data-uuid="${esc(f.uuid)}">${esc(t('remove'))}</button>`
+            : `<button class="fr-ghost" data-act="more" data-uuid="${esc(f.uuid)}" aria-label="${esc(t('more', { name: f.name }))}" aria-expanded="false">⋯</button>`
     }
     return `<div class="fr-row${st === 'offline' ? ' is-off' : ''}">
         <span class="fr-head${st === 'offline' ? ' is-off' : ''}" style="${headStyle(f.headUrl)}${st === 'playing' ? `;box-shadow:0 0 0 2px #0e0f14,0 0 0 3.5px ${esc(ring)}` : ''}">${st !== 'offline' ? `<span class="fr-dot" style="background:${esc(ring)};box-shadow:0 0 0 3px #0e0f14"></span>` : ''}</span>
@@ -128,9 +133,24 @@ async function act(op, uuid){
             if(res.ok){ invited.add(uuid); render() } else note(uuid, failText(res))
             break
         }
-        case 'accept':
-        case 'decline':
+        case 'more':
+            confirming = uuid
+            render()
+            break
+        case 'cancel':
+            confirming = null
+            render()
+            break
         case 'remove': {
+            if(confirming !== uuid) return
+            confirming = null
+            render()
+            const res = await ipcRenderer.invoke('friends:remove', uuid)
+            if(!res.ok) note(uuid, failText(res))
+            break
+        }
+        case 'accept':
+        case 'decline': {
             const res = await ipcRenderer.invoke(`friends:${op}`, uuid)
             if(!res.ok) note(uuid, failText(res))
             break
@@ -141,6 +161,7 @@ async function act(op, uuid){
 body.addEventListener('click', e => {
     const b = e.target.closest('[data-act]')
     if(b) act(b.dataset.act, b.dataset.uuid)
+    else if(confirming){ confirming = null; render() }
 })
 $('fwAdd').addEventListener('submit', async e => {
     e.preventDefault()
@@ -171,7 +192,11 @@ $('fwPin').addEventListener('click', async () => {
 $('fwPutBack').addEventListener('click', () => ipcRenderer.invoke('friends:window', 'putBack'))
 $('fwMinimize').addEventListener('click', () => ipcRenderer.invoke('friends:window', 'minimize'))
 $('fwClose').addEventListener('click', () => ipcRenderer.invoke('friends:window', 'close'))
-document.addEventListener('keydown', e => { if(e.key === 'Escape') ipcRenderer.invoke('friends:window', 'close') })
+document.addEventListener('keydown', e => {
+    if(e.key !== 'Escape') return
+    if(confirming){ confirming = null; render(); return }
+    ipcRenderer.invoke('friends:window', 'close')
+})
 
 ipcRenderer.on('friends:event', (_e, f) => {
     if(!f || typeof f.event !== 'string') return
