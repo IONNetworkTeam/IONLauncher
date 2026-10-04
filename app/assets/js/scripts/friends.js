@@ -856,7 +856,8 @@ const Friends = (() => {
     ipcRenderer.on('friends:do', (_e, m) => {
         if(m?.op === 'partyFollow') {
             // The friends window's Follow: the same path as the follow toast's button.
-            if(model.partyFollow) follow(model.partyFollow, true)
+            // POST /party/follow needs no frame: without one (already answered, or expired) run it with a bare item.
+            follow(model.partyFollow || { partyId: '', leader: { uuid: '', name: '' }, where: { gamemode: 'network', release: null } }, true)
             return
         }
         if(!m || typeof m.uuid !== 'string') return

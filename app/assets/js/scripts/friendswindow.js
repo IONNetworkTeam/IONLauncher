@@ -29,6 +29,8 @@ let releases = []
 let launcherState = { busy: false, release: null }
 const notes = new Map()
 const invited = new Set()
+/** Party invites sent from here, shown as Invited until the next `party` event says what happened. */
+const partyPending = new Set()
 /** The friend whose Remove button is showing; nothing is removed without that second click. */
 let confirming = null
 /** 'leave' or 'kick:<uuid>': Leave and Kick take a second, deliberate click (confirmStep). */
@@ -72,7 +74,7 @@ function row(f, section){
     const canJoin = st === 'playing' && (f.presence.join.play || f.presence.join.spectate)
     const ring = st === 'playing' ? ringOf(r) : '#25AB90'
     const kind = model.inviteAction(f.uuid, inGame())
-    const inviteDone = kind === 'round' ? invited.has(f.uuid) : kind === 'party' && model.invitedToMyParty(f.uuid)
+    const inviteDone = kind === 'round' ? invited.has(f.uuid) : kind === 'party' && (model.invitedToMyParty(f.uuid) || partyPending.has(f.uuid))
     const inviteBtn = kind ? `<button class="fr-join${inviteDone ? ' is-done' : ''}" data-act="invite" data-uuid="${esc(f.uuid)}" title="${esc(t(kind === 'party' ? 'partyInviteHint' : 'roundInviteHint', { name: f.name }))}" ${inviteDone ? 'disabled' : ''}>${esc(t(inviteDone ? 'invited' : 'invite'))}</button>` : ''
     let acts = ''
     if(section === 'playing'){
@@ -160,7 +162,7 @@ function partySection(){
 /** One tick while I am in a party, none otherwise: "Disbands in N min" counts down without an event. */
 function syncPartyTick(){
     const want = !!model.party
-    if(want && !partyTick) partyTick = setInterval(render, PARTY_TICK_MS)
+    if(want && !partyTick) partyTick = setInterval(() => { if(model.idleDisbandIn() != null) render() }, PARTY_TICK_MS)
     else if(!want && partyTick){ clearInterval(partyTick); partyTick = null }
 }
 
@@ -200,8 +202,10 @@ async function act(op, uuid, partyId){
         case 'invite': {
             const kind = model.inviteAction(uuid, inGame())
             if(kind === 'party'){
+                partyPending.add(uuid)
+                render()
                 const res = await ipcRenderer.invoke('friends:partyInvite', uuid)
-                if(!res.ok) note(uuid, failText(res))
+                if(!res.ok){ partyPending.delete(uuid); note(uuid, failText(res)) }
             } else if(kind === 'round'){
                 const res = await ipcRenderer.invoke('friends:invite', uuid)
                 if(res.ok){ invited.add(uuid); render() } else note(uuid, failText(res))
@@ -237,6 +241,7 @@ async function act(op, uuid, partyId){
         case 'pFollow':
             // The launcher window runs the follow (where the Play view is); a failure comes back as a party note.
             await ipcRenderer.invoke('friends:act', 'partyFollow', uuid)
+            model.clearFollow()
             break
         case 'pKick': return confirmThen(`kick:${uuid}`, () => partyCall('partyKick', uuid, 'party'))
         case 'pLeave': return confirmThen('leave', () => partyCall('partyLeave', null, 'party'))
@@ -311,6 +316,7 @@ ipcRenderer.on('friends:event', (_e, f) => {
     if(f.event === 'launcher'){ launcherState = { busy: !!f.busy, release: f.release ?? null }; render(); return }
     if(f.event === 'window') return
     if(f.event === 'note'){ if(typeof f.text === 'string') note(String(f.scope), f.text); return }
+    if(f.event === 'party') partyPending.clear()
     model.apply(f.event, f)
     // Kicked: say so once, as the party section's short note (this window's model is its own).
     if(model.partyKicked){ note('party', t('partyRemoved')); model.clearKicked() }
