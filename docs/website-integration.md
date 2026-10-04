@@ -114,7 +114,7 @@ provides them for development.
 ## Friends
 
 The launcher can show the player's friends: a strip beside the Play view and a window of their own,
-turned on in Settings › Launcher › Friends (`settings.launcher.friends`, or `ION_FRIENDS=1` for a
+on by default and switched in Settings › Launcher › Friends (`settings.launcher.friends`, or `ION_FRIENDS=1` for a
 development run). They read the site's `/api/launcher/friends/*` routes, from the main process like
 the feed, and open one WebSocket at `wss://<site>/api/launcher/friends/ws`.
 

@@ -93,7 +93,7 @@ const DEFAULT_CONFIG = {
         launcher: {
             allowPrerelease: false,
             dataDirectory: dataPath,
-            friends: false
+            friends: true
         }
     },
     newsCache: {
