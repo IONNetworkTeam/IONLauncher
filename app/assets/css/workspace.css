@@ -52,6 +52,7 @@
 
 /* Sections: a mono heading with a rule; an action may sit at its end */
 #settingsContainer .gh{display:flex;align-items:center;gap:14px;margin:36px 0 2px}
+#settingsContainer .gh[hidden]{display:none}
 #settingsContainer .gh h3{margin:0;font:500 11px 'Geist Mono',ui-monospace,monospace;letter-spacing:.24em;color:rgba(255,255,255,.6);text-transform:uppercase;white-space:nowrap}
 #settingsContainer .gh i{flex:1;height:1px;background:rgba(255,255,255,.13)}
 
@@ -137,10 +138,14 @@
 #settingsContainer .settingsAuthAccountLeft{flex-shrink:0}
 #settingsContainer .settingsAuthAccountImage{height:60px;image-rendering:pixelated}
 #settingsContainer .settingsAuthAccountRight{flex:1;display:flex;align-items:center;justify-content:space-between;gap:16px;min-width:0}
-#settingsContainer .settingsAuthAccountDetails{display:flex;gap:28px;min-width:0}
+#settingsContainer .settingsAuthAccountDetails{display:flex;flex-direction:row;gap:28px;width:auto;min-width:0;margin:0}
+#settingsContainer .settingsAuthAccountDetails>*{margin:0}
 #settingsContainer .settingsAuthAccountDetailTitle{display:block;font:500 10.5px 'Geist Mono',ui-monospace,monospace;letter-spacing:.2em;text-transform:uppercase;color:rgba(255,255,255,.5)}
 #settingsContainer .settingsAuthAccountDetailValue{display:block;margin-top:4px;font-size:13.5px;color:#fff;word-break:break-all}
-#settingsContainer .settingsAuthAccountActions{display:flex;gap:8px;flex-shrink:0}
+#settingsContainer .settingsAuthAccountActions{display:flex;flex-direction:row;align-items:center;gap:8px;flex-shrink:0;padding:0}
+/* Helios hides an account's actions until its row is hovered; here they rest dimmed instead. */
+#settingsContainer .settingsAuthAccountSelect,#settingsContainer .settingsAuthAccountLogOut{opacity:.6}
+#settingsContainer .settingsAuthAccount:is(:hover,:focus-within) :is(.settingsAuthAccountSelect,.settingsAuthAccountLogOut){opacity:1}
 #settingsContainer .settingsAuthAccountWrapper{display:flex;gap:8px}
 #settingsContainer .settingsAuthAccountSelect[selected]{border-color:transparent;background:var(--acc);color:#fff;opacity:1}
 

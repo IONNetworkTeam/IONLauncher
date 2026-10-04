@@ -867,6 +867,8 @@ async function resolveModsForUI(){
 
     document.getElementById('settingsReqModsContent').innerHTML = modStr.reqMods
     document.getElementById('settingsOptModsContent').innerHTML = modStr.optMods
+    // Most releases have no optional mods: no heading over an empty section.
+    document.getElementById('settingsOptModsHeader').hidden = !modStr.optMods
 }
 
 /**
@@ -1436,21 +1438,19 @@ function bindRangeSlider(){
             // Move slider according to the mouse position.
             document.onmousemove = (e) => {
 
-                // Distance from the beginning of the bar in pixels.
-                const diff = e.pageX - v.offsetLeft - track.offsetWidth/2
-                
-                // Don't move the track off the bar.
-                if(diff >= 0 && diff <= v.offsetWidth-track.offsetWidth/2){
+                // Distance from the beginning of the bar in pixels. Measured against the
+                // bar's on-screen box: offsetLeft is relative to the offsetParent, which
+                // in the settings workspace is not the page, so the thumb jumped.
+                const rect = v.getBoundingClientRect()
+                const diff = Math.min(Math.max(e.clientX - rect.left - track.offsetWidth/2, 0), rect.width)
 
-                    // Convert the difference to a percentage.
-                    const perc = (diff/v.offsetWidth)*100
-                    // Calculate the percentage of the closest notch.
-                    const notch = Number(perc/sliderMeta.inc).toFixed(0)*sliderMeta.inc
+                // Convert the difference to a percentage, then snap to the closest notch.
+                const perc = (diff/rect.width)*100
+                const notch = Math.round(perc/sliderMeta.inc)*sliderMeta.inc
+                const value = sliderMeta.min+(sliderMeta.step*Math.round(notch/sliderMeta.inc))
 
-                    // If we're close to that notch, stick to it.
-                    if(Math.abs(perc-notch) < sliderMeta.inc/2){
-                        updateRangedSlider(v, sliderMeta.min+(sliderMeta.step*(notch/sliderMeta.inc)), notch)
-                    }
+                if(value !== Number(v.getAttribute('value'))){
+                    updateRangedSlider(v, value, notch)
                 }
             }
         }
