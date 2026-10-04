@@ -3,6 +3,8 @@ const { LoggerUtil } = require('helios-core')
 const os   = require('os')
 const path = require('path')
 
+const JvmFlags = require('./jvmflags')
+
 const logger = LoggerUtil.getLogger('ConfigManager')
 
 const sysRoot = process.env.APPDATA || (process.platform == 'darwin' ? process.env.HOME + '/Library/Application Support' : process.env.HOME)
@@ -654,6 +656,12 @@ function defaultJavaConfig17(ram) {
 exports.ensureJavaConfig = function(serverid, effectiveJavaOptions, ram) {
     if(!Object.prototype.hasOwnProperty.call(config.javaConfig, serverid)) {
         config.javaConfig[serverid] = defaultJavaConfig(effectiveJavaOptions, ram)
+    } else if(effectiveJavaOptions.suggestedMajor > 8 && JvmFlags.hasJava8Defaults(config.javaConfig[serverid].jvmOptions)) {
+        // The server moved to a newer Java after its Java 8 defaults were saved (the Forge 1.8.9 server
+        // went to Java 21). Java 14+ won't start with the CMS flags in those, so swap in the defaults
+        // for modern Java once. RAM and the chosen Java executable stay as they are.
+        logger.info(`Replacing the Java 8 JVM options of ${serverid}, which now needs Java ${effectiveJavaOptions.suggestedMajor}.`)
+        config.javaConfig[serverid].jvmOptions = defaultJavaConfig17(ram).jvmOptions
     }
 }
 
