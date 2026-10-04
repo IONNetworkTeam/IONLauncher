@@ -511,6 +511,15 @@ async function dlAsync(login = true) {
     const versionData = await mojangIndexProcessor.getVersionJson()
 
     if(login) {
+        // The Minecraft token lasts 24 hours and is otherwise only checked when the launcher starts, so
+        // a launcher left open longer would hand the game an expired token and every online server
+        // would refuse it ("Invalid session"). This refreshes it, or asks the player to sign in again.
+        if(await validateSelectedAccount() !== true){
+            loggerLaunchSuite.warn('The selected account could not be refreshed, not launching.')
+            toggleLaunchArea(false)
+            GameState.failed()
+            return
+        }
         const authUser = ConfigManager.getSelectedAccount()
         loggerLaunchSuite.info(`Sending selected account (${authUser.displayName}) to ProcessBuilder.`)
         let pb = new ProcessBuilder(serv, versionData, modLoaderData, authUser, remote.app.getVersion())
