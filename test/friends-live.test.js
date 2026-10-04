@@ -164,3 +164,19 @@ test('stop closes everything and nothing fires afterwards', async () => {
     h.sockets[0].drop()
     assert.equal(h.sockets.length, 1)
 })
+
+test('passes party frames too, by their own event set', async () => {
+    const h = harness()
+    h.live.start(); await flush()
+    const s = h.sockets[0]
+    s.open(); s.receive({ type: 'auth_ok' })
+    s.receive({ channel: CHANNEL, data: { type: 'party', event: 'invite', invite: { partyId: 'p1' } } })
+    s.receive({ channel: CHANNEL, data: { type: 'party', event: 'updated', party: { id: 'p1' } } })
+    s.receive({ channel: CHANNEL, data: { type: 'party', event: 'presence' } })
+    s.receive({ channel: CHANNEL, data: { type: '__proto__', event: 'invite' } })
+    s.receive({ channel: CHANNEL, data: { type: 'party', event: 'invite_expired', partyId: 'p1', reason: 'expired' } })
+    s.receive({ channel: CHANNEL, data: { type: 'party', event: 'disbanded', partyId: 'p1', reason: 'idle' } })
+    s.receive({ channel: CHANNEL, data: { type: 'party', event: 'disbanded', partyId: 'p1', reason: 'kicked' } })
+    s.receive({ channel: CHANNEL, data: { type: 'party', event: 'follow', partyId: 'p1', leader: { uuid: 'l', name: 'L' }, where: { gamemode: 'bowbash', release: 'ion_net' } } })
+    assert.deepEqual(h.events.map(([e, f]) => `${f.type}:${e}`), ['party:invite', 'party:updated', 'party:invite_expired', 'party:disbanded', 'party:disbanded', 'party:follow'])
+})

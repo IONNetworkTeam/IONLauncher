@@ -6,9 +6,11 @@
  *   → {type: "auth", ticket}                    ← {type: "auth_ok"} | {type: "auth_error", message}
  *   → {type: "subscribe", channel: "user:notifications"}
  *   → {type: "ping"} every 30 s                 ← {type: "pong"}
- *   ← {channel: "user:notifications", data: {type: "friends", event, …}}
+ *   ← {channel: "user:notifications", data: {type: "friends" | "party", event, …}}
  *
- * Only frames whose `data.type` is "friends" are dispatched, by `event`. A ticket is single use
+ * Frames whose `data.type` is "friends" or "party" are dispatched by `event`. The two types share
+ * the names `invite` and `invite_expired`, so the caller tells them apart by `data.type`
+ * (index.js renames party events to `party_<event>`). A ticket is single use
  * and short-lived, so one is fetched right before every connect. The socket reconnects with a
  * backoff from 1 s doubling to 30 s. The poll (`GET …/presence`) runs every 60 s regardless.
  *
@@ -19,7 +21,11 @@ const POLL_MS = 60000
 const MIN_BACKOFF_MS = 1000
 const MAX_BACKOFF_MS = 30000
 const CHANNEL = 'user:notifications'
-const EVENTS = new Set(['presence', 'request', 'request_resolved', 'friend_added', 'friend_removed', 'invite', 'invite_expired'])
+/** The events dispatched, per `data.type`. A Map, so a type such as "__proto__" finds nothing. */
+const EVENTS = new Map([
+    ['friends', new Set(['presence', 'request', 'request_resolved', 'friend_added', 'friend_removed', 'invite', 'invite_expired'])],
+    ['party', new Set(['invite', 'invite_expired', 'updated', 'disbanded', 'follow'])]
+])
 
 const silent = { info(){}, warn(){}, error(){} }
 
@@ -101,8 +107,8 @@ function createLiveChannel({ ticket, poll, url, onEvent, onSnapshot, onStatus = 
         }
         if(frame.type === 'pong' || frame.type === 'subscribed') return
         const data = frame.data
-        if(frame.channel !== CHANNEL || !data || data.type !== 'friends') return
-        if(!EVENTS.has(data.event)) return
+        if(frame.channel !== CHANNEL || !data) return
+        if(!EVENTS.get(data.type)?.has(data.event)) return
         onEvent(data.event, data)
     }
 

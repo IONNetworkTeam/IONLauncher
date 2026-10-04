@@ -57,6 +57,16 @@ let friendsWin = null
  * @param {Electron.BrowserWindow} deps.host The launcher window, where Join and Challenge run.
  * @param {Object} deps.logger
  */
+/**
+ * The message a pushed frame becomes for the renderer. Party frames reuse friends event names
+ * (`invite`, `invite_expired`), so they travel as `party_<event>`. The name is set last, so the
+ * frame's own `event` key can never override it.
+ */
+function rendererMessage(event, frame){
+    const name = frame?.type === 'party' ? `party_${event}` : event
+    return { ...frame, event: name }
+}
+
 function init({ app, ipcMain, BrowserWindow, safeStorage, webAuth, web, appDir, host, logger }){
     hostWin = host
     if(initialised) return
@@ -93,7 +103,7 @@ function init({ app, ipcMain, BrowserWindow, safeStorage, webAuth, web, appDir, 
 
     function broadcast(event, payload = {}){
         for(const w of BrowserWindow.getAllWindows()){
-            if(!w.isDestroyed()) w.webContents.send('friends:event', { event, ...payload })
+            if(!w.isDestroyed()) w.webContents.send('friends:event', { ...payload, event })
         }
     }
 
@@ -137,7 +147,11 @@ function init({ app, ipcMain, BrowserWindow, safeStorage, webAuth, web, appDir, 
         ticket: () => api.wsTicket().then(note),
         poll: () => api.presence().then(note),
         url: web.url.replace(/^http/, 'ws') + '/api/launcher/friends/ws',
-        onEvent: (event, frame) => { logger.info(`Friends: ${event} pushed.`); broadcast(event, frame) },
+        onEvent: (event, frame) => {
+            const msg = rendererMessage(event, frame)
+            logger.info(`Friends: ${msg.event} pushed.`)
+            broadcast(msg.event, msg)
+        },
         onSnapshot: friends => broadcast('snapshot', { friends }),
         onStatus: up => setStatus({ live: up }),
         logger
@@ -268,4 +282,4 @@ function init({ app, ipcMain, BrowserWindow, safeStorage, webAuth, web, appDir, 
     return { setAccount, view, stop }
 }
 
-module.exports = { init, SESSION_FILE }
+module.exports = { init, SESSION_FILE, rendererMessage }
