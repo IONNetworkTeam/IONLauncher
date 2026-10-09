@@ -216,6 +216,26 @@ function dataVersionForMinecraft(mcVersion){
 }
 
 /**
+ * The Minecraft release an options.txt was last written by, from its data version. Releases
+ * newer than the table resolve to the newest release in it.
+ *
+ * @param {number} dataVersion The data version (the `version` line of options.txt).
+ * @returns {string|null} The newest release whose data version is not above it.
+ */
+function minecraftForDataVersion(dataVersion){
+    if(!Number.isInteger(dataVersion) || dataVersion <= 0){
+        return null
+    }
+    let best = null
+    for(const [release, dv] of Object.entries(DATA_VERSIONS)){
+        if(dv <= dataVersion && (best == null || dv > DATA_VERSIONS[best])){
+            best = release
+        }
+    }
+    return best
+}
+
+/**
  * Whether a Minecraft version uses the modern (1.13+) options format.
  *
  * @param {string} mcVersion The Minecraft version.
@@ -583,6 +603,7 @@ module.exports = {
     MODERN_DATA_VERSION,
     EXCLUDED_KEYS,
     dataVersionForMinecraft,
+    minecraftForDataVersion,
     isModernMinecraft,
     legacyCodeToKeyName,
     keyNameToLegacyCode,

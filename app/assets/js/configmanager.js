@@ -90,7 +90,11 @@ const DEFAULT_CONFIG = {
             enabled: true,
             excludedServers: [],
             sharePacks: true,
-            packModes: {}
+            packModes: {},
+            external: {
+                path: '',
+                direction: 'import'
+            }
         },
         launcher: {
             allowPrerelease: false,
@@ -963,6 +967,28 @@ exports.setPackMode = function(packName, mode){
         delete config.settings.settingsSync.packModes[packName]
     } else {
         config.settings.settingsSync.packModes[packName] = mode
+    }
+}
+
+/**
+ * Get the Minecraft folder outside the launcher that settings and packs are synced with.
+ *
+ * @returns {{path: string, direction: string}} An empty path when none is set. The direction is
+ *          'import' (from that folder only), 'both' or 'export' (into that folder only).
+ */
+exports.getExternalSync = function(){
+    return { ...config.settings.settingsSync.external }
+}
+
+/**
+ * Set the Minecraft folder outside the launcher that settings and packs are synced with.
+ *
+ * @param {{path: string, direction: string}} external An empty path turns it off.
+ */
+exports.setExternalSync = function(external){
+    config.settings.settingsSync.external = {
+        path: external.path || '',
+        direction: external.direction || DEFAULT_CONFIG.settings.settingsSync.external.direction
     }
 }
 

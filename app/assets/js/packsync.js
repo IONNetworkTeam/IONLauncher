@@ -9,6 +9,10 @@
  * impossible. A pack can be forced into every instance ("everywhere") or kept out of sharing
  * ("off") per pack. Removing a linked copy by hand keeps that pack out of that instance.
  *
+ * A participant may live outside the launcher (a vanilla .minecraft folder or another launcher's
+ * instance): it then gives its own folder as `dir`, and `readFrom: false` keeps its packs from
+ * being shared while `writeTo: false` keeps packs from being linked into it.
+ *
  * No Electron dependencies; the SettingsSync module owns the store and drives this.
  */
 
@@ -233,7 +237,7 @@ async function linkPack(src, dest, isDir){
             await fs.symlink(src, dest, process.platform === 'win32' ? 'junction' : 'dir')
             return 'symlink'
         } catch {
-            await fs.copy(src, dest)
+            await fs.copy(src, dest, { preserveTimestamps: true })
             return 'copy'
         }
     }
@@ -241,7 +245,8 @@ async function linkPack(src, dest, isDir){
         await fs.link(src, dest)
         return 'hardlink'
     } catch {
-        await fs.copyFile(src, dest)
+        // Keep the origin's times, or copyIsCurrent would see the copy as stale every time.
+        await fs.copy(src, dest, { preserveTimestamps: true })
         return 'copy'
     }
 }
@@ -303,20 +308,22 @@ class PackSync {
     constructor({ instanceDir, logger }){
         this.instanceDir = instanceDir
         this.logger = logger || { info(){}, warn(){}, error(){} }
+        this.dirs = new Map()
     }
 
     packPath(serverId, dir, name){
-        return path.join(this.instanceDir, serverId, dir, name)
+        return path.join(this.dirs.get(serverId) || path.join(this.instanceDir, serverId), dir, name)
     }
 
     /**
      * Share packs between the participating instances.
      *
      * @param {Object} store The settings sync store; `store.packs` is created and updated.
-     * @param {Array<{id: string, resourceFormat: number|null, hasShaderLoader: boolean}>} servers
+     * @param {Array<{id: string, resourceFormat: number|null, hasShaderLoader: boolean, dir?: string, readFrom?: boolean, writeTo?: boolean}>} servers
      * @param {Object<string, 'compatible'|'everywhere'|'off'>} modes Per pack name overrides.
      */
     async sync(store, servers, modes = {}){
+        this.dirs = new Map(servers.filter(s => s.dir != null).map(s => [s.id, s.dir]))
         if(store.packs == null){
             store.packs = {}
         }
@@ -331,11 +338,14 @@ class PackSync {
     async syncKind(records, dir, kind, servers, modes){
         const present = {}
         for(const server of servers){
-            present[server.id] = new Map((await listPacks(path.join(this.instanceDir, server.id, dir))).map(p => [p.name, p]))
+            present[server.id] = new Map((await listPacks(path.dirname(this.packPath(server.id, dir, '_')))).map(p => [p.name, p]))
         }
 
         // Adopt packs the launcher has not seen yet.
         for(const server of servers){
+            if(server.readFrom === false){
+                continue
+            }
             for(const [name, info] of present[server.id]){
                 if(records[name] == null){
                     records[name] = { origin: server.id, isDir: info.isDir, linked: [], excluded: [], meta: null, size: 0, mtimeMs: 0 }
@@ -358,14 +368,18 @@ class PackSync {
                 }
             }
 
-            // Make sure the origin still has the pack, or find a new origin among own copies.
-            if(present[rec.origin] == null || !present[rec.origin].has(name)){
-                const other = servers.find(s => present[s.id].has(name) && !rec.linked.includes(s.id))
+            // Make sure the origin still has the pack and may share it, or find a new origin among
+            // own copies.
+            const originServer = servers.find(s => s.id === rec.origin)
+            if(present[rec.origin] == null || !present[rec.origin].has(name) || originServer.readFrom === false){
+                const other = servers.find(s => s.readFrom !== false && present[s.id].has(name) && !rec.linked.includes(s.id))
                 if(other == null){
                     if(present[rec.origin] != null || servers.some(s => rec.linked.includes(s.id))){
                         await this.removeLinks(rec, dir, name, servers)
                         if(present[rec.origin] != null){
-                            this.logger.info(`${name} was deleted from ${rec.origin}; removed it from the other instances.`)
+                            this.logger.info(originServer.readFrom === false
+                                ? `${name} of ${rec.origin} is no longer shared; removed it from the other instances.`
+                                : `${name} was deleted from ${rec.origin}; removed it from the other instances.`)
                             delete records[name]
                         }
                     }
@@ -401,6 +415,14 @@ class PackSync {
 
             for(const server of servers){
                 if(server.id === rec.origin || rec.excluded.includes(server.id)){
+                    continue
+                }
+                if(server.writeTo === false){
+                    if(rec.linked.includes(server.id)){
+                        await fs.remove(this.packPath(server.id, dir, name))
+                        rec.linked = rec.linked.filter(x => x !== server.id)
+                        this.logger.info(`Removed ${name} from ${server.id}: packs are no longer synced into it.`)
+                    }
                     continue
                 }
                 const exists = present[server.id].has(name)

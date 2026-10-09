@@ -169,3 +169,38 @@ after `generate distro` the Manager rewrites `distribution.json` and sets
 `servers[].ion.settingsSync = false` for every server whose meta has `settingsSync === false`.
 This follows the `ion` server/module extension convention from the mod-licensing design.
 Unknown fields are ignored by helios-core, so older launchers keep working.
+
+## Pairing with a Minecraft outside the launcher
+
+One folder outside the launcher can join the sync (`settings.settingsSync.external`,
+`{ path, direction }`, off while `path` is empty): the official launcher's `.minecraft`, or a
+Prism Launcher / MultiMC instance (`externalmc.js`). Settings → Minecraft → "Your Other
+Minecraft" lists the `.minecraft` folder and every Prism / MultiMC instance found (including a
+custom `InstanceDir` from `prismlauncher.cfg`). "Choose Folder" takes any other folder.
+
+- **Game folder**: picking a Prism / MultiMC instance (it has `instance.cfg` or `mmc-pack.json`)
+  or the game folder inside one resolves to `.minecraft` (Prism) or `minecraft` (older
+  MultiMC). Any other folder is used as it is.
+- **Minecraft version**: a Prism instance's `net.minecraft` component from `mmc-pack.json`. For a
+  plain folder it comes from the data version on the `version` line of its `options.txt`, mapped
+  to the newest known release at or below it. When the version is unknown, options still
+  sync. Resource packs then only go into the folder in "everywhere" mode.
+- **Direction**, one of:
+  - `import`, the default, shown as "From Minecraft". The folder's changes come into the store.
+    Nothing is written to it.
+  - `both`.
+  - `export`, shown as "To Minecraft". The store is written into the folder. Nothing is read
+    from it.
+
+  For packs the same rule applies: `readFrom: false` means the folder's packs are never adopted
+  or used as an origin, and `writeTo: false` means nothing is linked into it. Switching away from
+  a direction takes back the launcher's links that the new direction no longer allows. The
+  folder's own files are never deleted.
+- **First pairing wins**: the first time a folder is seen, its options are read last, so they
+  win over newer files in the launcher's instances. Pairing means "take my settings from there".
+  After that the usual newest-change-wins order applies.
+- The participant id is `external-<hash of the folder path>`, so pointing at a different folder
+  starts fresh.
+- The folder only joins when at least one launcher instance takes part, and it follows the same
+  global switches. Packs that lie on another filesystem than the instances are copied, keeping
+  their times so they are not copied again on every sync.

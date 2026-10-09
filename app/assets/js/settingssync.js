@@ -8,6 +8,11 @@
  * instance about to start, after the game exits the instance's files are read back into the
  * store and pushed to every other instance. See docs/superpowers/specs for the design.
  *
+ * Besides the launcher's own instances, one folder outside the launcher can take part: a vanilla
+ * .minecraft folder or a Prism Launcher / MultiMC instance (see externalmc.js). It joins as a
+ * participant with its own `dir` and a direction: `readFrom` lets its changes into the store,
+ * `writeTo` lets the store write into it.
+ *
  * The SettingsSync class only needs paths and never touches the launcher configuration, so it
  * can be tested on its own. The module level functions bind it to ConfigManager.
  */
@@ -17,6 +22,7 @@ const fs     = require('fs-extra')
 const path   = require('path')
 
 const mc = require('./mcoptions')
+const ExternalMC = require('./externalmc')
 const { PackSync, PACK_KINDS, SHADER_LOADER_PATTERN, resourceFormatForMinecraft, resourceFormatFromVersionJson, modsDirHasShaderLoader } = require('./packsync')
 
 const STORE_VERSION = 1
@@ -92,8 +98,16 @@ class SettingsSync {
         await writeAtomic(this.storePath, JSON.stringify(store, null, 4))
     }
 
-    instanceFile(serverId, name){
-        return path.join(this.instanceDir, serverId, name)
+    /**
+     * The game directory of a participant: its own `dir`, else its folder in the instance
+     * directory.
+     */
+    gameDir(server){
+        return server.dir != null ? server.dir : path.join(this.instanceDir, server.id)
+    }
+
+    instanceFile(server, name){
+        return path.join(this.gameDir(server), name)
     }
 
     /**
@@ -101,8 +115,8 @@ class SettingsSync {
      *
      * @returns {Promise<{text: string, hash: string, mtimeMs: number}|null>}
      */
-    async readInstanceFile(serverId, name){
-        const file = this.instanceFile(serverId, name)
+    async readInstanceFile(server, name){
+        const file = this.instanceFile(server, name)
         try {
             const [text, stats] = await Promise.all([fs.readFile(file, 'utf8'), fs.stat(file)])
             return { text, hash: sha1(text), mtimeMs: stats.mtimeMs }
@@ -158,6 +172,9 @@ class SettingsSync {
      * @returns {Promise<Object|null>}
      */
     async readVersionJson(mcVersion){
+        if(typeof mcVersion !== 'string'){
+            return null // An outside folder whose version could not be told.
+        }
         if(mcVersion in this.versionJsonCache){
             return this.versionJsonCache[mcVersion]
         }
@@ -187,7 +204,7 @@ class SettingsSync {
             out.push({
                 ...server,
                 resourceFormat: await this.resolveResourceFormat(server.minecraftVersion),
-                hasShaderLoader: server.hasShaderLoader === true || await modsDirHasShaderLoader(path.join(this.instanceDir, server.id, 'mods'))
+                hasShaderLoader: server.hasShaderLoader === true || await modsDirHasShaderLoader(path.join(this.gameDir(server), 'mods'))
             })
         }
         return out
@@ -196,14 +213,25 @@ class SettingsSync {
     /**
      * List the packs the launcher knows about, for the settings UI.
      *
-     * @returns {Promise<Array<{name: string, kind: string, dir: string, origin: string, linked: string[], formats: Object|null, valid: boolean, mode: string}>>}
+     * @param {Array<{id: string, dir?: string}>} [servers] Participants with their own folder, so
+     *        `file` can point into them.
+     * @returns {Promise<Array<{name: string, kind: string, dir: string, origin: string, linked: string[], formats: Object|null, valid: boolean, mode: string, file: string|null}>>}
+     *          `file` is a path the pack can be read from, null when no copy is left.
      */
-    async listSharedPacks(){
+    async listSharedPacks(servers = []){
         const store = await this.loadStore()
         const packs = []
         for(const { dir, kind } of PACK_KINDS){
             const records = store.packs != null && store.packs[dir] != null ? store.packs[dir] : {}
             for(const [name, rec] of Object.entries(records)){
+                let file = null
+                for(const id of [rec.origin, ...(rec.linked || [])]){
+                    const candidate = path.join(this.gameDir(servers.find(s => s.id === id) || { id }), dir, name)
+                    if(id != null && await fs.pathExists(candidate)){
+                        file = candidate
+                        break
+                    }
+                }
                 packs.push({
                     name,
                     kind,
@@ -212,7 +240,8 @@ class SettingsSync {
                     linked: rec.linked || [],
                     formats: rec.meta != null ? rec.meta.formats : null,
                     valid: rec.meta != null ? rec.meta.valid !== false : true,
-                    mode: this.packs.modes[name] || 'compatible'
+                    mode: this.packs.modes[name] || 'compatible',
+                    file
                 })
             }
         }
@@ -228,9 +257,12 @@ class SettingsSync {
     async findChanged(store, servers){
         const changed = []
         for(const server of servers){
+            if(server.readFrom === false){
+                continue
+            }
             let newest = null
             for(const spec of SYNCED_FILES){
-                const current = await this.readInstanceFile(server.id, spec.name)
+                const current = await this.readInstanceFile(server, spec.name)
                 if(current != null && current.hash !== this.recordedHash(store, server.id, spec.name)){
                     newest = newest == null ? current.mtimeMs : Math.max(newest, current.mtimeMs)
                 }
@@ -247,8 +279,11 @@ class SettingsSync {
      * read. Values the instance has overwrite the store, values it lacks are kept.
      */
     async ingest(store, server){
+        if(server.readFrom === false){
+            return
+        }
         for(const spec of SYNCED_FILES){
-            const current = await this.readInstanceFile(server.id, spec.name)
+            const current = await this.readInstanceFile(server, spec.name)
             if(current == null || current.hash === this.recordedHash(store, server.id, spec.name)){
                 continue
             }
@@ -288,13 +323,16 @@ class SettingsSync {
      * @returns {Promise<boolean>} Whether any file was written.
      */
     async push(store, server){
+        if(server.writeTo === false){
+            return false
+        }
         let wrote = false
         for(const spec of SYNCED_FILES){
             const bucket = store.files[spec.name]
             if(bucket == null || Object.keys(bucket.values).length === 0){
                 continue
             }
-            let current = await this.readInstanceFile(server.id, spec.name)
+            let current = await this.readInstanceFile(server, spec.name)
             if(current != null && spec.seed && Object.keys(mc.entriesOf(mc.parseOptions(current.text, spec.sep))).length === 0){
                 current = null // An empty options.txt is as good as none; seed it.
             }
@@ -303,7 +341,7 @@ class SettingsSync {
                     ? mc.applyCanonical(current.text, bucket.values, server.minecraftVersion)
                     : mc.applyPlain(current.text, bucket.values, spec.sep)
                 if(result.changed){
-                    await writeAtomic(this.instanceFile(server.id, spec.name), result.text)
+                    await writeAtomic(this.instanceFile(server, spec.name), result.text)
                     this.recordHash(store, server.id, spec.name, sha1(result.text))
                     this.logger.info(`Updated ${spec.name} of ${server.id}.`)
                     wrote = true
@@ -320,7 +358,7 @@ class SettingsSync {
                     this.logger.warn(`Not creating ${spec.name} for ${server.id}: the data version of Minecraft ${server.minecraftVersion} is unknown.`)
                     continue
                 }
-                await writeAtomic(this.instanceFile(server.id, spec.name), text)
+                await writeAtomic(this.instanceFile(server, spec.name), text)
                 this.recordHash(store, server.id, spec.name, sha1(text))
                 this.logger.info(`Created ${spec.name} for ${server.id} from the synced settings.`)
                 wrote = true
@@ -330,17 +368,34 @@ class SettingsSync {
     }
 
     /**
+     * Whether the launcher has never read or written any file of a participant.
+     */
+    isFirstSight(store, server){
+        return store.instances[server.id] == null || Object.keys(store.instances[server.id]).length === 0
+    }
+
+    /**
      * Bring every instance up to date: read changed instances into the store, newest change
      * last so it wins, then write the store into every instance.
      *
-     * @param {Array<{id: string, minecraftVersion: string}>} servers The instances taking part.
+     * An outside folder seen for the first time wins over the launcher's instances: linking one
+     * means "take my settings from there".
+     *
+     * @param {Array<{id: string, minecraftVersion: string, dir?: string, external?: boolean, readFrom?: boolean, writeTo?: boolean}>} servers
+     *        The instances taking part.
      * @param {{id: string}} [last] An instance whose changes must win regardless of file times,
      *        typically the one whose game just exited.
      */
     async reconcile(servers, last){
         const store = await this.loadStore()
         const changed = await this.findChanged(store, servers)
+        const newcomers = changed.filter(c => c.server.external === true && this.isFirstSight(store, c.server))
         for(const { server } of changed){
+            if((last == null || server.id !== last.id) && !newcomers.some(c => c.server.id === server.id)){
+                await this.ingest(store, server)
+            }
+        }
+        for(const { server } of newcomers){
             if(last == null || server.id !== last.id){
                 await this.ingest(store, server)
             }
@@ -428,6 +483,20 @@ function isEnabledFor(rawServer){
         && !isLockedByDistribution(rawServer)
 }
 
+/**
+ * The outside Minecraft folder the player paired with, as a participant. Null when none is set
+ * or the folder is gone.
+ */
+async function externalParticipant(){
+    const ConfigManager = require('./configmanager')
+    try {
+        return await ExternalMC.participantFor(ConfigManager.getExternalSync())
+    } catch(err) {
+        getLogger().warn('Could not read the paired Minecraft folder.', err)
+        return null
+    }
+}
+
 function descriptor(heliosServer){
     return {
         id: heliosServer.rawServer.id,
@@ -441,7 +510,8 @@ function descriptor(heliosServer){
  */
 async function listSharedPacks(){
     try {
-        return await fromConfig().listSharedPacks()
+        const external = await externalParticipant()
+        return await fromConfig().listSharedPacks(external != null ? [external] : [])
     } catch(err) {
         getLogger().warn('Could not list shared packs.', err)
         return []
@@ -458,13 +528,29 @@ function participatingServers(distro){
 }
 
 /**
+ * The instances that take part in sync, plus the paired outside folder. The outside folder
+ * only joins when at least one instance takes part, since it has nothing to sync with
+ * otherwise.
+ *
+ * @param {Object} distro The HeliosDistribution.
+ */
+async function participants(distro){
+    const servers = participatingServers(distro)
+    if(servers.length === 0){
+        return servers
+    }
+    const external = await externalParticipant()
+    return external != null ? [...servers, external] : servers
+}
+
+/**
  * Bring all instances up to date. Runs in the background; errors are logged.
  *
  * @param {Object} distro The HeliosDistribution.
  */
 function reconcileAll(distro){
-    return enqueue('reconcile', () => {
-        const servers = participatingServers(distro)
+    return enqueue('reconcile', async () => {
+        const servers = await participants(distro)
         if(servers.length === 0){
             return
         }
@@ -480,8 +566,8 @@ function reconcileAll(distro){
  * @param {Object} server The HeliosServer about to launch.
  */
 function beforeLaunch(distro, server){
-    return enqueue('before launch', () => {
-        const servers = participatingServers(distro)
+    return enqueue('before launch', async () => {
+        const servers = await participants(distro)
         if(servers.length === 0){
             return
         }
@@ -498,12 +584,12 @@ function beforeLaunch(distro, server){
  * @param {Object} server The HeliosServer whose game exited.
  */
 function afterExit(distro, server){
-    return enqueue('after exit', () => {
+    return enqueue('after exit', async () => {
         if(!isEnabledFor(server.rawServer)){
             return
         }
         getLogger().info(`Syncing settings after ${server.rawServer.id} exited..`)
-        return fromConfig().reconcile(participatingServers(distro), descriptor(server))
+        return fromConfig().reconcile(await participants(distro), descriptor(server))
     })
 }
 
@@ -513,6 +599,7 @@ module.exports = {
     isLockedByDistribution,
     isEnabledFor,
     participatingServers,
+    participants,
     listSharedPacks,
     reconcileAll,
     beforeLaunch,

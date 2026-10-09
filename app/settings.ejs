@@ -67,6 +67,26 @@
             <div id="settingsSyncServersContainer">
                 <div class="ws-sub"><div class="rt"><%- lang('settings.settingsSyncServersHeader') %></div><div class="rd" id="settingsSyncServersDesc"><%- lang('settings.settingsSyncServersDesc') %></div></div>
                 <div id="settingsSyncServersContent"></div>
+                <div class="ws-sub"><div class="rt"><%- lang('settings.externalSyncHeader') %></div><div class="rd"><%- lang('settings.externalSyncDesc') %></div></div>
+                <div class="ws-block">
+                    <div class="rt"><%- lang('settings.externalSyncSourceTitle') %></div>
+                    <div class="ws-file">
+                        <div class="settingsSelectContainer" id="settingsSyncExternalSelect">
+                            <div class="settingsSelectSelected field" id="settingsSyncExternalSelected"></div>
+                            <div class="settingsSelectOptions" id="settingsSyncExternalOptions" hidden></div>
+                        </div>
+                        <button id="settingsSyncExternalBrowse" class="btn"><%- lang('settings.chooseFolder') %></button>
+                    </div>
+                    <div class="rd" id="settingsSyncExternalInfo"></div>
+                </div>
+                <div class="row" id="settingsSyncExternalDirectionRow">
+                    <div><div class="rt"><%- lang('settings.externalSyncDirectionTitle') %></div><div class="rd" id="settingsSyncExternalDirectionDesc"></div></div>
+                    <div class="settingsSyncPackModes" id="settingsSyncExternalDirections">
+                        <button class="settingsSyncPackMode" direction="import"><%- lang('settings.externalSyncDirectionImport') %></button>
+                        <button class="settingsSyncPackMode" direction="both"><%- lang('settings.externalSyncDirectionBoth') %></button>
+                        <button class="settingsSyncPackMode" direction="export"><%- lang('settings.externalSyncDirectionExport') %></button>
+                    </div>
+                </div>
                 <div class="row settingsSyncPacksField">
                     <div><div class="rt"><%- lang('settings.sharePacksTitle') %></div><div class="rd"><%- lang('settings.sharePacksDesc') %></div></div>
                     <label class="toggleSwitch"><input type="checkbox" id="settingsSharePacks" cValue="SharePacks"><span class="toggleSwitchSlider"></span></label>

@@ -3,6 +3,7 @@ const os     = require('os')
 const semver = require('semver')
 
 const DropinModUtil  = require('./assets/js/dropinmodutil')
+const ExternalMC     = require('./assets/js/externalmc')
 const IconReader     = require('./assets/js/iconreader')
 const { ModrinthIcons } = require('./assets/js/modrinthicons')
 const { MSFT_OPCODE, MSFT_REPLY_TYPE, MSFT_ERROR } = require('./assets/js/ipcconstants')
@@ -244,7 +245,8 @@ const SETTINGS_ICON_GLYPHS = {
     mod: '<path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5M12 13v8"/>',
     resource: '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/>',
     shader: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
-    off: '<circle cx="12" cy="12" r="9"/><path d="m5.6 5.6 12.8 12.8"/>'
+    off: '<circle cx="12" cy="12" r="9"/><path d="m5.6 5.6 12.8 12.8"/>',
+    folder: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>'
 }
 
 /**
@@ -374,12 +376,159 @@ async function prepareSettingsSyncList(){
     loadSettingsIcons(settingsSyncServersContent)
     settingsSyncEnabled.onchange = refreshSettingsSyncListState
     refreshSettingsSyncListState()
+    await prepareExternalSync()
+}
+
+/**
+ * Pairing with a Minecraft outside the launcher (Minecraft tab, under the synced modpacks).
+ */
+
+const settingsSyncExternalSelected   = document.getElementById('settingsSyncExternalSelected')
+const settingsSyncExternalOptions    = document.getElementById('settingsSyncExternalOptions')
+const settingsSyncExternalInfo       = document.getElementById('settingsSyncExternalInfo')
+const settingsSyncExternalDirections = document.getElementById('settingsSyncExternalDirections')
+const settingsSyncExternalDirRow     = document.getElementById('settingsSyncExternalDirectionRow')
+const settingsSyncExternalDirDesc    = document.getElementById('settingsSyncExternalDirectionDesc')
+
+/** What the player picked in this settings session: { path, direction }. */
+let externalSyncChoice = { path: '', direction: ExternalMC.DEFAULT_DIRECTION }
+/** The choice as it was saved, to tell whether a sync must run after saving. */
+let externalSyncSaved = null
+
+function samePath(a, b){
+    return a !== '' && b !== '' && path.resolve(a) === path.resolve(b)
+}
+
+/**
+ * Describe the chosen folder below the "Sync with" title.
+ */
+async function refreshExternalSyncInfo(){
+    const chosen = externalSyncChoice.path
+    if(!chosen){
+        settingsSyncExternalInfo.textContent = Lang.queryJS('settings.settingsSync.externalInfoOff')
+    } else {
+        const info = await ExternalMC.resolveFolder(chosen)
+        if(externalSyncChoice.path !== chosen){
+            return // The player picked something else meanwhile.
+        }
+        const version = info.minecraftVersion != null ? `Minecraft ${info.minecraftVersion}` : Lang.queryJS('settings.settingsSync.externalVersionUnknown')
+        if(!info.exists){
+            settingsSyncExternalInfo.textContent = Lang.queryJS('settings.settingsSync.externalInfoMissing', { path: chosen })
+        } else if(info.kind === 'mmc'){
+            settingsSyncExternalInfo.textContent = Lang.queryJS('settings.settingsSync.externalInfoMmc', { version, path: info.gameDir })
+        } else {
+            settingsSyncExternalInfo.textContent = Lang.queryJS('settings.settingsSync.externalInfoVanilla', { version, path: info.gameDir })
+        }
+    }
+    if(chosen){
+        settingsSyncExternalDirRow.removeAttribute('disabled')
+    } else {
+        settingsSyncExternalDirRow.setAttribute('disabled', '')
+    }
+}
+
+function refreshExternalDirection(){
+    for(const btn of settingsSyncExternalDirections.children){
+        btn.toggleAttribute('selected', btn.getAttribute('direction') === externalSyncChoice.direction)
+    }
+    const key = externalSyncChoice.direction.charAt(0).toUpperCase() + externalSyncChoice.direction.slice(1)
+    settingsSyncExternalDirDesc.textContent = Lang.queryJS(`settings.settingsSync.externalDirection${key}`)
+}
+
+/**
+ * Fill the "Sync with" list: nothing, the official launcher's folder, every Prism / MultiMC
+ * instance found, and a folder chosen by hand if it is none of those.
+ *
+ * @param {{path: string, direction: string}} [pending] An unsaved choice to show; the saved
+ *        one when left out.
+ */
+async function prepareExternalSync(pending){
+    if(pending == null){
+        externalSyncChoice = ConfigManager.getExternalSync()
+        externalSyncChoice.direction = ExternalMC.normalizeDirection(externalSyncChoice.direction)
+        externalSyncSaved = { ...externalSyncChoice }
+    } else {
+        externalSyncChoice = pending
+    }
+
+    const sources = [{ path: '', label: Lang.queryJS('settings.settingsSync.externalOff'), glyph: 'off' }]
+    const vanilla = await ExternalMC.findVanillaDir()
+    if(vanilla != null){
+        sources.push({ path: vanilla, label: Lang.queryJS('settings.settingsSync.externalVanilla'), glyph: 'folder' })
+    }
+    for(const inst of await ExternalMC.listMmcInstances()){
+        const version = inst.minecraftVersion != null ? ` · ${inst.minecraftVersion}` : ''
+        sources.push({ path: inst.path, label: `${inst.name}${version}`, glyph: 'folder' })
+    }
+    if(externalSyncChoice.path && !sources.some(src => samePath(src.path, externalSyncChoice.path))){
+        sources.push({ path: externalSyncChoice.path, label: path.basename(externalSyncChoice.path), glyph: 'folder' })
+    }
+
+    settingsSyncExternalOptions.innerHTML = ''
+    for(const src of sources){
+        const d = document.createElement('DIV')
+        d.innerHTML = `${settingsIconTile(src.glyph)}<span>${escapeHtml(src.label)}</span>`
+        d.setAttribute('value', src.path)
+        d.title = src.path
+        const isSelected = src.path === '' ? !externalSyncChoice.path : samePath(src.path, externalSyncChoice.path)
+        if(isSelected){
+            d.setAttribute('selected', '')
+            settingsSyncExternalSelected.innerHTML = d.innerHTML
+        }
+        d.addEventListener('click', () => {
+            for(const sib of settingsSyncExternalOptions.children){
+                sib.removeAttribute('selected')
+            }
+            d.setAttribute('selected', '')
+            settingsSyncExternalSelected.innerHTML = d.innerHTML
+            externalSyncChoice.path = src.path
+            closeSettingsSelect()
+            refreshExternalSyncInfo()
+        })
+        settingsSyncExternalOptions.appendChild(d)
+    }
+
+    document.getElementById('settingsSyncExternalBrowse').onclick = async () => {
+        const res = await remote.dialog.showOpenDialog(remote.getCurrentWindow(), {
+            title: Lang.queryJS('settings.settingsSync.externalChooseTitle'),
+            defaultPath: externalSyncChoice.path || vanilla || os.homedir(),
+            properties: ['openDirectory', 'showHiddenFiles']
+        })
+        if(!res.canceled && res.filePaths.length > 0){
+            await prepareExternalSync({ ...externalSyncChoice, path: res.filePaths[0] })
+        }
+    }
+
+    for(const btn of settingsSyncExternalDirections.children){
+        btn.onclick = () => {
+            externalSyncChoice.direction = btn.getAttribute('direction')
+            refreshExternalDirection()
+        }
+    }
+    refreshExternalDirection()
+    await refreshExternalSyncInfo()
+}
+
+/**
+ * Save the pairing. When it changed, sync right away so packs and settings show up without a
+ * restart.
+ */
+function saveExternalSyncValues(){
+    ConfigManager.setExternalSync(externalSyncChoice)
+    const saved = externalSyncSaved
+    externalSyncSaved = { ...externalSyncChoice }
+    if(saved != null && (saved.path !== externalSyncChoice.path || saved.direction !== externalSyncChoice.direction) && externalSyncChoice.path){
+        DistroAPI.getDistribution()
+            .then(distro => SettingsSync.reconcileAll(distro))
+            .catch(err => LoggerUtil.getLogger('Settings').warn('Could not sync with the paired Minecraft.', err))
+    }
 }
 
 /**
  * Save the per-server sync choices. The global switch is saved with the other cValue fields.
  */
 function saveSettingsSyncValues(){
+    saveExternalSyncValues()
     for(const el of settingsSyncServersContent.querySelectorAll('[syncserver]')){
         if(!el.disabled){
             ConfigManager.setSettingsSyncExcluded(el.getAttribute('syncserver'), !el.checked)
@@ -431,24 +580,6 @@ function describePackSharing(pack){
 }
 
 /**
- * Where a shared pack can be read from: its origin instance, else an instance it is linked into.
- *
- * @returns {string|null}
- */
-function sharedPackPath(pack){
-    for(const serverId of [pack.origin, ...pack.linked]){
-        if(serverId == null){
-            continue
-        }
-        const file = path.join(ConfigManager.getInstanceDirectory(), serverId, pack.dir, pack.name)
-        if(require('fs').existsSync(file)){
-            return file
-        }
-    }
-    return null
-}
-
-/**
  * List every resource pack and shader pack the launcher knows about, with a mode control each.
  */
 async function prepareSharedPacksList(){
@@ -460,12 +591,15 @@ async function prepareSharedPacksList(){
         let html = ''
         for(const pack of packs){
             const kind = Lang.queryJS(pack.kind === 'shader' ? 'settings.settingsSync.packKindShader' : 'settings.settingsSync.packKindResource')
-            const info = [kind, describePackFormats(pack), describePackSharing(pack)].filter(s => s).join(' · ')
+            const fromExternal = typeof pack.origin === 'string' && pack.origin.startsWith('external-')
+                ? Lang.queryJS('settings.settingsSync.packFromExternal')
+                : ''
+            const info = [kind, describePackFormats(pack), fromExternal, describePackSharing(pack)].filter(s => s).join(' · ')
             const modes = PACK_MODES.map(mode => {
                 const label = Lang.queryJS(`settings.settingsSync.packMode${mode.charAt(0).toUpperCase()}${mode.slice(1)}`)
                 return `<button class="settingsSyncPackMode" mode="${mode}" ${pack.mode === mode ? 'selected' : ''}>${label}</button>`
             }).join('')
-            const packFile = sharedPackPath(pack)
+            const packFile = pack.file
             html += `<div class="settingsSyncPack" syncpack="${esc(pack.name)}" ${pack.valid ? '' : 'invalid'}>
                 <div class="ws-item">
                     ${settingsIconTile(pack.kind, packFile != null ? { pack: packFile } : {})}
