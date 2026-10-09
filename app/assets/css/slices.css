@@ -4,12 +4,12 @@
 .slice-img{position:absolute;top:0;left:50%;height:100%;width:100vw;min-width:100%;object-fit:cover;transform:translateX(-50%) scale(1.08);filter:saturate(.7) brightness(.85);transition:transform 1.8s cubic-bezier(.2,.7,.2,1),filter .8s}
 .is-open .slice-img{transform:translateX(-50%) scale(1);filter:none;animation:drift 40s ease-in-out 1.8s infinite alternate}
 @keyframes drift{from{transform:translateX(-50%) scale(1)}to{transform:translateX(-51.5%) scale(1.05)}}
-.veil-dim{position:absolute;top:0;bottom:0;left:50%;width:100vw;min-width:100%;transform:translateX(-50%);background:linear-gradient(0deg,rgba(7,8,11,.94),rgba(7,8,11,.55) 60%,rgba(7,8,11,.7));transition:opacity .6s}
+.veil-dim{position:absolute;inset:0;background:linear-gradient(0deg,rgba(7,8,11,.94),rgba(7,8,11,.55) 60%,rgba(7,8,11,.7));transition:opacity .6s}
 .slice:not(.is-open):hover .veil-dim{opacity:.72}
 .is-open .veil-dim{opacity:0}
 .is-mini .veil-dim{opacity:1}
 .is-mini .slice:hover .veil-dim{opacity:.7}
-.veil-open{position:absolute;top:0;bottom:0;left:50%;width:100vw;min-width:100%;transform:translateX(-50%);opacity:0;background:linear-gradient(0deg,rgba(7,8,11,.95) 0%,rgba(7,8,11,.5) 30%,rgba(7,8,11,0) 56%),linear-gradient(180deg,rgba(7,8,11,.7) 0%,rgba(7,8,11,0) 18%);transition:opacity .8s}
+.veil-open{position:absolute;inset:0;opacity:0;background:linear-gradient(0deg,rgba(7,8,11,.95) 0%,rgba(7,8,11,.5) 30%,rgba(7,8,11,0) 56%),linear-gradient(180deg,rgba(7,8,11,.7) 0%,rgba(7,8,11,0) 18%);transition:opacity .8s}
 .is-open .veil-open{opacity:1}
 .is-mini .veil-open{opacity:0}
 .tag{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:44px 0 30px;width:100%;border:0;background:none;color:#fff;cursor:pointer;transition:opacity .35s .25s}
@@ -106,7 +106,7 @@
 .tag-line.net{height:30px;box-shadow:0 0 12px rgba(110,140,240,.8)}
 .slice:hover .tag-line.net{height:46px}
 .is-mini .is-open .tag-line.net{height:46px}
-.frame{transition:opacity 1.6s ease,transform 1.8s cubic-bezier(.2,.7,.2,1),filter .8s}
+.frame{transition:opacity 1.6s ease,visibility 0s linear 1.6s,transform 1.8s cubic-bezier(.2,.7,.2,1),filter .8s}
 .netpanel{width:320px;padding:16px 18px 14px;box-sizing:border-box;border-radius:16px;background:rgba(9,10,14,.62);backdrop-filter:blur(18px) saturate(1.3);box-shadow:inset 0 0 0 1px rgba(255,255,255,.1)}
 .np-h{display:flex;align-items:center;gap:10px;font:500 10.5px 'Geist Mono',ui-monospace,monospace;letter-spacing:.2em;color:rgba(255,255,255,.6)}
 .np-h i{flex:1;height:1px;background:rgba(255,255,255,.12)}
@@ -174,8 +174,8 @@
 .mb-badge[hidden],.ann[hidden]{display:none}
 
 /* Slices: accent per slice, the two wallpaper layers, the tag's parts */
-.slice-img{opacity:0}
-.slice-img.on{opacity:1}
+.slice-img{opacity:0;visibility:hidden}
+.slice-img.on{opacity:1;visibility:visible;transition-delay:0s}
 .tag-top{display:flex;align-items:center;justify-content:center;height:20px}
 .tag-star{width:20px;height:20px}
 .tag-num{font-size:11px;color:rgba(255,255,255,.45)}

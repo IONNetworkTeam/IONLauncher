@@ -2,7 +2,7 @@ const remoteMain = require('@electron/remote/main')
 remoteMain.initialize()
 
 // Requirements
-const { app, BrowserWindow, ipcMain, Menu, safeStorage, session, shell } = require('electron')
+const { app, BrowserWindow, ipcMain, Menu, safeStorage, screen, session, shell } = require('electron')
 const autoUpdater                       = require('electron-updater').autoUpdater
 const ejse                              = require('ejs-electron')
 const fs                                = require('fs')
@@ -609,6 +609,18 @@ app.on('web-contents-created', (_event, contents) => {
     })
 })
 
+/*
+ * Chromium sizes a page's tile memory from the screen it believes the window opened on, and on
+ * Wayland that is not always the largest one: at 4K the Play view then exceeds the 512 MB it gets
+ * and the compositor stops drawing the opening slice's wallpaper during a switch (the same page
+ * through X11 gets 874 MB). Give it what it computes itself for a large screen, double the default
+ * (cc's GetGpuMemoryPolicy), before the first renderer starts.
+ */
+app.on('ready', () => {
+    if(app.commandLine.hasSwitch('force-gpu-mem-available-mb')) return
+    const widest = Math.max(0, ...screen.getAllDisplays().map(d => d.size.width * d.scaleFactor))
+    if(widest >= 3500) app.commandLine.appendSwitch('force-gpu-mem-available-mb', '1024')
+})
 app.on('ready', createWindow)
 app.on('ready', createMenu)
 
