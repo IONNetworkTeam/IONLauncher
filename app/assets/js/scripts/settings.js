@@ -3,6 +3,8 @@ const os     = require('os')
 const semver = require('semver')
 
 const DropinModUtil  = require('./assets/js/dropinmodutil')
+const IconReader     = require('./assets/js/iconreader')
+const { ModrinthIcons } = require('./assets/js/modrinthicons')
 const { MSFT_OPCODE, MSFT_REPLY_TYPE, MSFT_ERROR } = require('./assets/js/ipcconstants')
 
 const settingsState = {
@@ -15,9 +17,9 @@ function bindSettingsSelect(){
 
         selectedDiv.onclick = (e) => {
             e.stopPropagation()
-            closeSettingsSelect(e.target)
-            e.target.nextElementSibling.toggleAttribute('hidden')
-            e.target.classList.toggle('select-arrow-active')
+            closeSettingsSelect(selectedDiv)
+            selectedDiv.nextElementSibling.toggleAttribute('hidden')
+            selectedDiv.classList.toggle('select-arrow-active')
         }
     }
 }
@@ -233,6 +235,91 @@ function saveSettingsValues(){
 }
 
 /**
+ * Icons for the settings lists: servers, packs and mods.
+ */
+
+/** Glyphs a list row shows until (or instead of) its real icon, inside a 24×24 stroked SVG. */
+const SETTINGS_ICON_GLYPHS = {
+    server: '<rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 7.5h.01M7 16.5h.01"/>',
+    mod: '<path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5M12 13v8"/>',
+    resource: '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/>',
+    shader: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+    off: '<circle cx="12" cy="12" r="9"/><path d="m5.6 5.6 12.8 12.8"/>'
+}
+
+/**
+ * The icon tile of a list row. It shows a glyph; loadSettingsIcons swaps in the real icon once
+ * the row scrolls into view.
+ *
+ * @param {string} glyph A key of SETTINGS_ICON_GLYPHS.
+ * @param {Object} [source] Where the real icon comes from, if anywhere.
+ * @param {string} [source.url] An image URL (server icons).
+ * @param {string} [source.mod] A mod jar to read the icon out of.
+ * @param {string} [source.pack] A resource or shader pack to read pack.png out of; packs without
+ *        one are looked up on Modrinth (glyph 'resource' or 'shader' says which kind).
+ * @returns {string} The tile's markup.
+ */
+function settingsIconTile(glyph, source = {}){
+    let attr = ''
+    if(source.url){
+        attr = `data-icon-url="${escapeHtml(source.url)}"`
+    } else if(source.mod){
+        attr = `data-icon-mod="${escapeHtml(source.mod)}"`
+    } else if(source.pack){
+        attr = `data-icon-pack="${escapeHtml(source.pack)}" data-icon-kind="${glyph}"`
+    }
+    return `<span class="ws-icon" ${attr}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${SETTINGS_ICON_GLYPHS[glyph]}</svg></span>`
+}
+
+const modrinthIcons = new ModrinthIcons({ cacheFile: path.join(ConfigManager.getLauncherDirectory(), 'modrinth-icons.json') })
+
+const settingsIconObserver = new IntersectionObserver(entries => {
+    for(const entry of entries){
+        if(entry.isIntersecting){
+            settingsIconObserver.unobserve(entry.target)
+            loadSettingsIcon(entry.target)
+        }
+    }
+}, { rootMargin: '200px' })
+
+async function loadSettingsIcon(tile){
+    const { iconUrl, iconMod, iconPack, iconKind } = tile.dataset
+    let url = iconUrl
+    if(iconMod){
+        url = await IconReader.readModIcon(iconMod)
+    } else if(iconPack){
+        url = await IconReader.readPackIcon(iconPack) || await modrinthIcons.lookupPackIcon(iconPack, iconKind)
+    }
+    if(!url){
+        return
+    }
+    const img = new Image()
+    img.alt = ''
+    img.onload = () => {
+        // Pixel art stays crisp when it is scaled up; larger icons are scaled down smoothly.
+        if(img.naturalWidth < tile.clientWidth * window.devicePixelRatio){
+            img.classList.add('ws-icon-pixel')
+        }
+        tile.replaceChildren(img)
+        tile.setAttribute('loaded', '')
+    }
+    img.src = url
+}
+
+/**
+ * Load the real icons of the tiles in a container as they come into view.
+ *
+ * @param {Element} container
+ */
+function loadSettingsIcons(container){
+    for(const tile of container.querySelectorAll('.ws-icon:not([loaded])')){
+        if(tile.matches('[data-icon-url],[data-icon-mod],[data-icon-pack]')){
+            settingsIconObserver.observe(tile)
+        }
+    }
+}
+
+/**
  * Settings Sync (Minecraft tab)
  */
 
@@ -269,10 +356,13 @@ async function prepareSettingsSyncList(){
         const locked = SettingsSync.isLockedByDistribution(raw)
         const checked = !locked && !ConfigManager.isSettingsSyncExcluded(raw.id)
         html += `<div class="settingsSyncServer" ${locked ? 'locked' : ''}>
-            <div class="settingsSyncServerDetails">
-                <span class="settingsSyncServerName">${raw.name}</span>
-                <span class="settingsSyncServerVersion">${raw.minecraftVersion}</span>
-                ${locked ? `<span class="settingsSyncServerNote">${Lang.queryJS('settings.settingsSync.lockedNote')}</span>` : ''}
+            <div class="ws-item">
+                ${settingsIconTile('server', { url: raw.icon })}
+                <div class="settingsSyncServerDetails">
+                    <span class="settingsSyncServerName">${raw.name}</span>
+                    <span class="settingsSyncServerVersion">${raw.minecraftVersion}</span>
+                    ${locked ? `<span class="settingsSyncServerNote">${Lang.queryJS('settings.settingsSync.lockedNote')}</span>` : ''}
+                </div>
             </div>
             <label class="toggleSwitch">
                 <input type="checkbox" syncserver="${raw.id}" ${checked ? 'checked' : ''} ${locked ? 'disabled' : ''}>
@@ -281,6 +371,7 @@ async function prepareSettingsSyncList(){
         </div>`
     }
     settingsSyncServersContent.innerHTML = html
+    loadSettingsIcons(settingsSyncServersContent)
     settingsSyncEnabled.onchange = refreshSettingsSyncListState
     refreshSettingsSyncListState()
 }
@@ -340,6 +431,24 @@ function describePackSharing(pack){
 }
 
 /**
+ * Where a shared pack can be read from: its origin instance, else an instance it is linked into.
+ *
+ * @returns {string|null}
+ */
+function sharedPackPath(pack){
+    for(const serverId of [pack.origin, ...pack.linked]){
+        if(serverId == null){
+            continue
+        }
+        const file = path.join(ConfigManager.getInstanceDirectory(), serverId, pack.dir, pack.name)
+        if(require('fs').existsSync(file)){
+            return file
+        }
+    }
+    return null
+}
+
+/**
  * List every resource pack and shader pack the launcher knows about, with a mode control each.
  */
 async function prepareSharedPacksList(){
@@ -356,15 +465,20 @@ async function prepareSharedPacksList(){
                 const label = Lang.queryJS(`settings.settingsSync.packMode${mode.charAt(0).toUpperCase()}${mode.slice(1)}`)
                 return `<button class="settingsSyncPackMode" mode="${mode}" ${pack.mode === mode ? 'selected' : ''}>${label}</button>`
             }).join('')
+            const packFile = sharedPackPath(pack)
             html += `<div class="settingsSyncPack" syncpack="${esc(pack.name)}" ${pack.valid ? '' : 'invalid'}>
-                <div class="settingsSyncPackDetails">
-                    <span class="settingsSyncPackName" title="${esc(pack.name)}">${esc(pack.name)}</span>
-                    <span class="settingsSyncPackInfo">${esc(info)}</span>
+                <div class="ws-item">
+                    ${settingsIconTile(pack.kind, packFile != null ? { pack: packFile } : {})}
+                    <div class="settingsSyncPackDetails">
+                        <span class="settingsSyncPackName" title="${esc(pack.name)}">${esc(pack.name)}</span>
+                        <span class="settingsSyncPackInfo">${esc(info)}</span>
+                    </div>
                 </div>
                 <div class="settingsSyncPackModes">${modes}</div>
             </div>`
         }
         settingsSyncPacksContent.innerHTML = html
+        loadSettingsIcons(settingsSyncPacksContent)
         for(const btn of settingsSyncPacksContent.querySelectorAll('.settingsSyncPackMode')){
             btn.onclick = () => {
                 for(const sibling of btn.parentElement.children){
@@ -950,6 +1064,7 @@ async function resolveModsForUI(){
     document.getElementById('settingsOptModsContent').innerHTML = modStr.optMods
     // Most releases have no optional mods: no heading over an empty section.
     document.getElementById('settingsOptModsHeader').hidden = !modStr.optMods
+    loadSettingsIcons(settingsModsContainer)
 }
 
 /**
@@ -998,6 +1113,7 @@ function parseModulesForUI(mdls, submodules, servConf){
                     <div class="settingsModContent">
                         <div class="settingsModMainWrapper">
                             <div class="settingsModStatus"></div>
+                            ${settingsIconTile('mod', { mod: mdl.getPath() })}
                             <div class="settingsModDetails">
                                 <span class="settingsModName">${mdl.rawModule.name}</span>
                                 <span class="settingsModVersion">v${mdl.mavenComponents.version}</span>
@@ -1023,6 +1139,7 @@ function parseModulesForUI(mdls, submodules, servConf){
                     <div class="settingsModContent">
                         <div class="settingsModMainWrapper">
                             <div class="settingsModStatus"></div>
+                            ${settingsIconTile('mod', { mod: mdl.getPath() })}
                             <div class="settingsModDetails">
                                 <span class="settingsModName">${mdl.rawModule.name}</span>
                                 <span class="settingsModVersion">v${mdl.mavenComponents.version}</span>
@@ -1123,6 +1240,7 @@ async function resolveDropinModsForUI(){
                     <div class="settingsModContent">
                         <div class="settingsModMainWrapper">
                             <div class="settingsModStatus"></div>
+                            ${settingsIconTile('mod', { mod: path.join(CACHE_SETTINGS_MODS_DIR, dropin.fullName) })}
                             <div class="settingsModDetails">
                                 <span class="settingsModName">${dropin.name}</span>
                                 <div class="settingsDropinRemoveWrapper">
@@ -1139,6 +1257,7 @@ async function resolveDropinModsForUI(){
     }
 
     document.getElementById('settingsDropinModsContent').innerHTML = dropinMods
+    loadSettingsIcons(document.getElementById('settingsDropinModsContent'))
 }
 
 /**
@@ -1267,17 +1386,23 @@ async function resolveShaderpacksForUI(){
 
 function setShadersOptions(arr, selected){
     const cont = document.getElementById('settingsShadersOptions')
+    const selectedEl = document.getElementById('settingsShadersSelected')
     cont.innerHTML = ''
     for(let opt of arr) {
         const d = document.createElement('DIV')
-        d.innerHTML = opt.name
+        const icon = opt.fullName === 'OFF'
+            ? settingsIconTile('off')
+            : settingsIconTile('shader', { pack: path.join(CACHE_SETTINGS_INSTANCE_DIR, 'shaderpacks', opt.fullName) })
+        d.innerHTML = `${icon}<span>${escapeHtml(opt.name)}</span>`
         d.setAttribute('value', opt.fullName)
         if(opt.fullName === selected) {
             d.setAttribute('selected', '')
-            document.getElementById('settingsShadersSelected').innerHTML = opt.name
+            selectedEl.innerHTML = d.innerHTML
+            loadSettingsIcons(selectedEl)
         }
         d.addEventListener('click', function(e) {
             this.parentNode.previousElementSibling.innerHTML = this.innerHTML
+            loadSettingsIcons(this.parentNode.previousElementSibling)
             for(let sib of this.parentNode.children){
                 sib.removeAttribute('selected')
             }
@@ -1286,6 +1411,7 @@ function setShadersOptions(arr, selected){
         })
         cont.appendChild(d)
     }
+    loadSettingsIcons(cont)
 }
 
 function saveShaderpackSettings(){
