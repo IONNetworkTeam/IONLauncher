@@ -122,8 +122,8 @@
 .ann:hover{background:rgba(9,10,14,.75);transform:translateX(4px)}
 .ann-dot{flex-shrink:0;width:8px;height:8px;border-radius:50%;animation:annPulse 2.4s ease-in-out infinite}
 @keyframes annPulse{50%{transform:scale(1.5);opacity:.6}}
-.heads{display:flex;align-items:center;padding-left:6px}
-.hd{position:relative;display:block;width:30px;height:30px;margin-left:-6px;border-radius:7px;box-shadow:0 0 0 2px rgba(12,13,18,.95);transition:transform .3s cubic-bezier(.3,1.5,.5,1),margin .3s cubic-bezier(.3,1.5,.5,1);cursor:default}
+.heads{display:flex;flex:none;align-items:center;padding-left:6px}
+.hd{position:relative;display:block;flex:none;width:30px;height:30px;min-width:30px;max-width:none;margin-left:-6px;border-radius:7px;box-shadow:0 0 0 2px rgba(12,13,18,.95);transition:transform .3s cubic-bezier(.3,1.5,.5,1),margin .3s cubic-bezier(.3,1.5,.5,1);cursor:default}
 .heads:hover .hd{margin-left:2px}
 .hd:hover{transform:translateY(-4px)}
 .hist{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px}
