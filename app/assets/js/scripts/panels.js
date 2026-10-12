@@ -3,10 +3,11 @@
  * server's name. Live numbers come from the site (`/api/launcher/live`), who is online from a
  * server-list ping, and the rest from this machine.
  */
-/* global ConfigManager, DistroAPI, ipcRenderer, Lang, LoggerUtil, escapeHtml, getServerStatus, Slices, GameState, TitleBar, showTab */
+/* global ConfigManager, DistroAPI, ipcRenderer, Lang, LoggerUtil, escapeHtml, Slices, GameState, TitleBar, showTab */
 const fsp = require('fs/promises')
 const pathMod = require('path')
 const { playtime, since, size, count } = require('./assets/js/panelformat')
+const ServerStatus = require('./assets/js/serverstatus')
 
 const Panels = (() => {
     const log = LoggerUtil.getLogger('Panels')
@@ -113,7 +114,7 @@ const Panels = (() => {
     async function ping(r){
         try {
             const serv = (await DistroAPI.getDistribution()).getServerById(r.id)
-            const s = await getServerStatus(47, serv.hostname, serv.port)
+            const s = await ServerStatus.ping(serv.hostname, serv.port)
             pings.set(r.id, { online: s.players.online, max: s.players.max, sample: s.players.sample || [] })
         } catch(err) {
             pings.delete(r.id)
