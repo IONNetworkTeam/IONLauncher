@@ -1138,12 +1138,22 @@ function renderIonAccountTab(){
     head.style.display = mc ? '' : 'none'
 
     show('settingsIonOpen', loggedIn)
+    show('settingsIonVerify', loggedIn && !webState.minecraftName && !!ConfigManager.getSelectedAccount())
     show('settingsIonSignOut', loggedIn)
     show('settingsIonLogin', known && !loggedIn)
     show('settingsIonRegister', known && !loggedIn)
 }
 
 document.getElementById('settingsIonOpen').onclick = () => openIonPage('/account')
+document.getElementById('settingsIonVerify').onclick = async e => {
+    const button = e.currentTarget
+    button.disabled = true
+    try {
+        if((await linkMinecraftAccount()).ok) reloadWebTabs()
+    } finally {
+        button.disabled = false
+    }
+}
 document.getElementById('settingsIonLogin').onclick = () => openIonPage('/auth/login')
 document.getElementById('settingsIonRegister').onclick = () => openIonPage('/auth/register')
 document.getElementById('settingsIonSignOut').onclick = async e => {

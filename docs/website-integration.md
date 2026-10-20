@@ -44,8 +44,9 @@ renders differently for the launcher, send `Vary: User-Agent` so caches keep the
 
 ## The bridge
 
-Pages in the web tabs get `window.ionLauncher`. Both calls are fire-and-forget, and the launcher
-ignores messages from any origin other than the configured website.
+Pages in the web tabs get `window.ionLauncher`. `report` and `toast` are fire-and-forget,
+`linkMinecraft` answers when it is over, and the launcher ignores messages from any origin other
+than the configured website.
 
 ```ts
 interface IonLauncher {
@@ -65,6 +66,12 @@ interface IonLauncher {
 
 	/** Show a notification in the launcher, whichever tab is open. `href` is a path on the site. */
 	toast(note: { text: string; href: string }): void;
+
+	/** Verify the selected Minecraft account for the signed-in ION account (see below). */
+	linkMinecraft(): Promise<
+		| { ok: true; minecraftName: string }
+		| { ok: false; reason: 'cancelled' | 'busy' | 'failed'; error?: string }
+	>;
 }
 ```
 
@@ -125,6 +132,34 @@ Discord (`web:discord`) opens `/api/launcher/account/discord/start` in its own w
 short-lived session; the site sends it on to Strapi's Discord connect. When Strapi sends the window
 back to `/auth/discord/callback?access_token=…`, the launcher takes the token from the address
 before the page loads, closes the window and posts the token to `/api/launcher/account/discord`.
+
+## Verifying the Minecraft account
+
+The launcher can verify the selected Minecraft account for the ION account signed in on the site,
+instead of the player running `/register` in game. The site's account page offers it through
+`ionLauncher.linkMinecraft()`, and Settings › Account has a button for it. Either way the launcher
+runs the whole exchange from the main process (`mclink.js`):
+
+```
+POST /api/launcher/account/link/start     {session}                                → {challenge, username}
+     the launcher asks: link <Minecraft name> to the ION account <username>?
+POST sessionserver.mojang.com/session/minecraft/join   {accessToken, selectedProfile, serverId}
+POST /api/launcher/account/link/complete  {session, challenge, name, confirmTransfer} → {linked, minecraftName}
+```
+
+- `session` is the site login from the web tabs' `ion_session` cookie. It travels in the body
+  because `Authorization` may already carry the basic-auth gate's credentials.
+- `serverId` is `sha1("ion-website-link:" + challenge)` in hex. The launcher works it out itself and
+  never takes a server id from the site, so a join made here is no good to a real server.
+- Strapi asks Mojang `hasJoined` and links the account Mojang names, so the Minecraft account comes
+  from Mojang, not from the launcher. The access token goes to Mojang only.
+- The page only starts the exchange and gets the outcome. The challenge, the session and the
+  confirmation all stay in the launcher, and the confirmation names the ION account as the site
+  reports it to the main process, so a script on the page cannot link to someone else.
+- A challenge lives two minutes and belongs to the ION account that asked for it. A 409
+  (`LINKED_ELSEWHERE`, with `existingUser`) means the Minecraft account is linked to another ION
+  account. The launcher asks again, then completes with `confirmTransfer: true`, using the proof
+  Strapi kept, with no second join.
 
 ## HTTP basic authentication
 

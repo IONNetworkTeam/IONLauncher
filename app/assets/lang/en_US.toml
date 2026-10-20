@@ -311,6 +311,30 @@ retry = "Try again"
 locked = "{host} is password-protected."
 enterPassword = "Enter password"
 
+[js.shell.link]
+kicker = "ION ACCOUNT"
+title = "Verify your Minecraft account?"
+description = "Link the Minecraft account <strong>{minecraft}</strong> to the ION account <strong>{ion}</strong>. Mojang confirms which Minecraft account the launcher is signed in with; your Minecraft login is never sent to the website."
+confirm = "Verify"
+cancel = "Cancel"
+transferTitle = "Move the Minecraft account?"
+transferDescription = "<strong>{minecraft}</strong> is linked to the ION account <strong>{other}</strong>. Move it to <strong>{ion}</strong>? The other account loses it."
+transferDescriptionUnnamed = "<strong>{minecraft}</strong> is linked to another ION account. Move it to <strong>{ion}</strong>? That account loses it."
+transfer = "Move it"
+doneTitle = "Minecraft account verified"
+done = "<strong>{minecraft}</strong> is now linked to the ION account <strong>{ion}</strong>."
+failedTitle = "Could not verify"
+ok = "OK"
+
+[js.shell.link.error]
+SIGNED_OUT = "Sign in to the website first, then try again."
+NO_ACCOUNT = "Sign in to a Minecraft account in the launcher first."
+MOJANG = "Mojang did not accept your Minecraft login. Sign in to it again in the launcher, then try again."
+OFFLINE = "Could not reach Mojang. Check your connection."
+RATE_LIMITED = "Too many attempts. Wait a minute and try again."
+EXPIRED = "That took too long. Try again."
+UNAVAILABLE = "Verifying is unavailable right now. Try again in a moment."
+
 [js.shell.auth]
 title = "Sign in to {host}"
 description = "This website is password-protected. Enter the username and password you were given."
@@ -631,6 +655,7 @@ signedInMojang = "Mojang · signed in"
 [ejs.settings.ion]
 section = "ION Account"
 open = "Open account"
+verify = "Verify Minecraft account"
 register = "Create account"
 login = "Sign in"
 signOut = "Sign out"

@@ -14,6 +14,7 @@ const { AZURE_CLIENT_ID, MSFT_OPCODE, MSFT_REPLY_TYPE, MSFT_ERROR, SHELL_OPCODE 
 const LangLoader                        = require('./app/assets/js/langloader')
 const Web                               = require('./app/assets/js/weburl')
 const WebAuth                           = require('./app/assets/js/webauth')
+const MinecraftLink                     = require('./app/assets/js/mclink')
 const Friends                           = require('./app/assets/js/friends')
 const { createWallStore }               = require('./app/assets/js/wallstore')
 const { LoggerUtil }                    = require('helios-core')
@@ -502,6 +503,24 @@ ipcMain.handle('web:account', (_e, action, body) => {
     if(!ACCOUNT_ROUTES[action] || action === 'discord' || body == null || typeof body !== 'object') return { ok: false, error: 'Unknown request.' }
     return accountRequest(action, body)
 })
+
+// Verify the selected Minecraft account for the website's signed-in account (mclink.js). The
+// renderer asks the player in between and hands over the account; the website session it reads
+// from the cookie and the challenge never leave this process.
+const mcLink = MinecraftLink.createMinecraftLink({
+    fetchJson: WebAuth.fetchJson,
+    fetchMojang: (url, init) => fetch(url, init),
+    readSession: async () => {
+        const cookies = await session.fromPartition(Web.partition).cookies.get({ url: Web.url, name: 'ion_session' })
+        const value = cookies.find(c => c.value)?.value
+        if(!value) return null
+        try { return decodeURIComponent(value) } catch { return null }
+    }
+})
+ipcMain.handle('web:linkStart', () => mcLink.start())
+ipcMain.handle('web:linkConfirm', (_e, account) => mcLink.confirm(account))
+ipcMain.handle('web:linkTransfer', () => mcLink.transfer())
+ipcMain.handle('web:linkCancel', () => mcLink.cancel())
 
 /**
  * Sign in with Discord: a window runs Strapi's Discord connect, started by the site's

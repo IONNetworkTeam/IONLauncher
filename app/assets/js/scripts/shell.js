@@ -6,8 +6,8 @@
  * A web tab's webview is created the first time the tab opens and kept afterwards. The Challenges
  * tab is opened in the background shortly after start, since it reports the user's coins.
  *
- * The website talks to the launcher through webbridge.js with two messages, `web:report` and
- * `web:toast`; see docs/website-integration.md.
+ * The website talks to the launcher through webbridge.js with three messages, `web:report`,
+ * `web:toast` and `web:linkMinecraft`; see docs/website-integration.md.
  */
 const Web = require('./assets/js/weburl')
 
@@ -160,6 +160,12 @@ function onBridgeMessage(view, channel, payload){
         promptForAccount()
     } else if(channel === 'web:toast' && typeof payload.text === 'string' && typeof payload.href === 'string'){
         showToast(payload.text, payload.href)
+    } else if(channel === 'web:linkMinecraft' && Number.isInteger(payload.id)){
+        linkMinecraftAccount().then(outcome => {
+            view.send('web:linkMinecraftResult', { id: payload.id, ...outcome })
+            // The asking page refreshes itself; the other tabs reload to show the linked account.
+            if(outcome.ok) reloadWebTabs(view)
+        })
     }
 }
 
@@ -202,9 +208,120 @@ async function signOutOfWebsite(){
 function signedInToWebsite(username){
     webState = { ...(webState || { balance: null, minecraftName: null }), loggedIn: true, username }
     renderWebState()
+    reloadWebTabs()
+}
+
+/** Reload the open web tabs (not the live map), except `skip`. */
+function reloadWebTabs(skip = null){
     for(const [tab, view] of Object.entries(webviews)){
-        if(tab !== 'map' && view.dataset.ready === 'true') view.reload()
+        if(tab !== 'map' && view !== skip && view.dataset.ready === 'true') view.reload()
     }
+}
+
+/* Verifying the Minecraft account (mclink.js) */
+
+let linking = null
+
+/**
+ * Verify the selected Minecraft account for the ION account signed in on the website. The
+ * launcher asks the player first, in its own window, naming both accounts as the website and the
+ * launcher know them; a page can start this, but not steer it.
+ *
+ * @returns {Promise<{ok: true, minecraftName: string} | {ok: false, reason: 'cancelled'|'busy'|'failed', error?: string}>}
+ */
+function linkMinecraftAccount(){
+    if(linking) return Promise.resolve({ ok: false, reason: 'busy' })
+    linking = runMinecraftLink()
+        .catch(err => {
+            loggerShell.error('Could not verify the Minecraft account.', err)
+            ipcRenderer.invoke('web:linkCancel').catch(() => {})
+            return linkFailed({ code: 'UNAVAILABLE' })
+        })
+        .finally(() => { linking = null })
+    return linking
+}
+
+/** Show a two-button message card; resolves true for its acknowledge button, false for dismiss or Escape. */
+function askInLauncher(content){
+    return new Promise(resolve => {
+        setOverlayContent(content)
+        setOverlayHandler(() => { toggleOverlay(false); resolve(true) })
+        setDismissHandler(() => { toggleOverlay(false); resolve(false) })
+        toggleOverlay(true, true)
+    })
+}
+
+function showLinkMessage(content){
+    setOverlayContent({ kicker: Lang.queryJS('shell.link.kicker'), icon: 'account', acknowledge: Lang.queryJS('shell.link.ok'), ...content })
+    setOverlayHandler(null)
+    toggleOverlay(true)
+}
+
+/** Tell the player why it did not work: the website's own sentence, else the launcher's for the code. */
+function linkFailed(res){
+    const codes = ['SIGNED_OUT', 'NO_ACCOUNT', 'MOJANG', 'OFFLINE', 'RATE_LIMITED', 'EXPIRED']
+    const error = res.error || Lang.queryJS(`shell.link.error.${codes.includes(res.code) ? res.code : 'UNAVAILABLE'}`)
+    showLinkMessage({ tone: 'warn', title: Lang.queryJS('shell.link.failedTitle'), description: escapeHtml(error) })
+    return { ok: false, reason: 'failed', error }
+}
+
+function linkAccount(){
+    const a = ConfigManager.getSelectedAccount()
+    return a?.uuid && a.accessToken ? { uuid: a.uuid, displayName: a.displayName, accessToken: a.accessToken } : null
+}
+
+async function runMinecraftLink(){
+    if(!linkAccount()) return linkFailed({ code: 'NO_ACCOUNT' })
+    // A login near its expiry is refreshed first. One that cannot be shows its own dialog (uibinder.js).
+    if(typeof validateSelectedAccount === 'function' && await validateSelectedAccount() !== true){
+        return { ok: false, reason: 'failed', error: Lang.queryJS('shell.link.error.MOJANG') }
+    }
+    const account = linkAccount()
+    if(!account) return linkFailed({ code: 'NO_ACCOUNT' })
+
+    const start = await ipcRenderer.invoke('web:linkStart')
+    if(!start.ok) return linkFailed(start)
+    const names = { minecraft: escapeHtml(account.displayName), ion: escapeHtml(start.username) }
+    const kicker = Lang.queryJS('shell.link.kicker')
+    const agreed = await askInLauncher({
+        icon: 'account',
+        kicker,
+        title: Lang.queryJS('shell.link.title'),
+        description: Lang.queryJS('shell.link.description', names),
+        acknowledge: Lang.queryJS('shell.link.confirm'),
+        dismiss: Lang.queryJS('shell.link.cancel')
+    })
+    if(!agreed){
+        await ipcRenderer.invoke('web:linkCancel')
+        return { ok: false, reason: 'cancelled' }
+    }
+
+    let res = await ipcRenderer.invoke('web:linkConfirm', account)
+    if(res.code === 'LINKED_ELSEWHERE'){
+        const move = await askInLauncher({
+            tone: 'warn',
+            icon: 'account',
+            kicker,
+            title: Lang.queryJS('shell.link.transferTitle'),
+            description: res.existingUser
+                ? Lang.queryJS('shell.link.transferDescription', { ...names, other: escapeHtml(res.existingUser) })
+                : Lang.queryJS('shell.link.transferDescriptionUnnamed', names),
+            acknowledge: Lang.queryJS('shell.link.transfer'),
+            dismiss: Lang.queryJS('shell.link.cancel'),
+            destructive: true
+        })
+        if(!move){
+            await ipcRenderer.invoke('web:linkCancel')
+            return { ok: false, reason: 'cancelled' }
+        }
+        res = await ipcRenderer.invoke('web:linkTransfer')
+    }
+    if(!res.ok) return linkFailed(res)
+
+    webState = { ...(webState || { balance: null }), loggedIn: true, username: start.username, minecraftName: res.minecraftName || account.displayName }
+    renderWebState()
+    showLinkMessage({ tone: 'good', icon: 'check', title: Lang.queryJS('shell.link.doneTitle'), description: Lang.queryJS('shell.link.done', names) })
+    return { ok: true, minecraftName: webState.minecraftName }
 }
 
 /* The ION account prompt */
