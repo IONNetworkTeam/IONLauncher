@@ -91,7 +91,7 @@ function row(f, section){
     }
     return `<div class="fr-row${st === 'offline' ? ' is-off' : ''}">
         <span class="fr-head${st === 'offline' ? ' is-off' : ''}" style="${headStyle(f.headUrl)}${st === 'playing' ? `;box-shadow:0 0 0 2px #0e0f14,0 0 0 3.5px ${esc(ring)}` : ''}">${st !== 'offline' ? `<span class="fr-dot" style="background:${esc(ring)};box-shadow:0 0 0 3px #0e0f14"></span>` : ''}</span>
-        <span style="min-width:0"><span class="fr-name">${esc(f.name)}</span><span class="fr-act">${icon ? `<img src="${icon}" alt="">` : ''}<span>${esc(activityLine(f.presence, releaseName, TEXTS))}</span>${since ? `<span class="fr-since">· ${esc(since)}</span>` : ''}</span></span>
+        <span style="min-width:0"><span class="fr-name${f.presence.afk ? ' is-afk' : ''}">${esc(f.name)}${f.presence.afk ? `<span class="fr-afk">${esc(t('afk'))}</span>` : ''}</span><span class="fr-act">${icon ? `<img src="${icon}" alt="">` : ''}<span>${esc(activityLine(f.presence, releaseName, TEXTS))}</span>${since ? `<span class="fr-since">· ${esc(since)}</span>` : ''}</span></span>
         <span class="fr-acts">${acts}</span>
         ${n ? `<span class="fr-note">${esc(n.text)}</span>` : ''}
     </div>`

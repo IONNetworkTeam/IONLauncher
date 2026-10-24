@@ -42,6 +42,7 @@ function cleanPresence(p){
         status,
         since: typeof p?.since === 'string' ? p.since : null,
         lastOnline: typeof p?.lastOnline === 'string' ? p.lastOnline : null,
+        afk: p?.afk === true,
         activity: a && (a.kind === 'network' || a.kind === 'pack') ? {
             kind: a.kind,
             gamemode: typeof a.gamemode === 'string' ? a.gamemode : null,

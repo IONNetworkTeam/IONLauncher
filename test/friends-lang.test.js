@@ -17,3 +17,7 @@ test('every party text the strip, the toasts and the window read exists in Engli
     assert.match(lang.js.friends.followWent, /\{name\}.*\{where\}/)
     assert.match(lang.js.friends.partyDisbandsIn, /\{n\}/)
 })
+
+test('the AFK badge has its text', () => {
+    assert.equal(typeof lang.js.friends.afk, 'string')
+})

@@ -29,6 +29,7 @@
 .fs-head:hover,.fs-head.is-hot{transform:scale(1.1)}
 .fs-head.is-off{width:32px;height:32px;border-radius:8px;filter:grayscale(1);opacity:.45}
 .fs-head.is-off:hover,.fs-head.is-off.is-hot{opacity:.9}
+.fs-head.is-afk{opacity:.6}
 .fs-badge{position:absolute;right:-5px;bottom:-5px;width:18px;height:18px;border-radius:5px;background:#0c0d12;display:flex;align-items:center;justify-content:center}
 .fs-badge img{width:14px;height:14px;image-rendering:pixelated}
 .fs-dot{position:absolute;right:-3px;bottom:-3px;width:11px;height:11px;border-radius:50%;background:#25AB90;box-shadow:0 0 0 3px #0c0d12}
@@ -68,6 +69,8 @@
 .fr-head.is-off{filter:grayscale(1)}
 .fr-dot{position:absolute;right:-3px;bottom:-3px;width:11px;height:11px;border-radius:50%;box-shadow:0 0 0 3px #111219}
 .fr-name{display:block;font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fr-name.is-afk{color:rgba(255,255,255,.5)}
+.fr-afk{display:inline-block;margin-left:6px;padding:0 4px;border-radius:4px;font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;vertical-align:middle;background:rgba(255,255,255,.1);color:rgba(255,255,255,.6)}
 .fr-act{display:flex;align-items:center;gap:6px;margin-top:3px;font-size:12px;color:rgba(255,255,255,.6);white-space:nowrap;overflow:hidden}
 .fr-act img{width:14px;height:14px;image-rendering:pixelated;flex-shrink:0}
 .fr-act .fr-since{font:400 11px 'Geist Mono',ui-monospace,monospace;color:rgba(255,255,255,.4)}

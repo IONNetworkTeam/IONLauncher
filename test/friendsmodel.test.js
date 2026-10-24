@@ -1,6 +1,6 @@
 const { test } = require('node:test')
 const assert = require('node:assert/strict')
-const { createFriendsModel, activityLine, ago, compareFriends, NAME } = require('../app/assets/js/friendsmodel')
+const { createFriendsModel, activityLine, ago, compareFriends, cleanPresence, NAME } = require('../app/assets/js/friendsmodel')
 
 const presence = (status, extra = {}) => ({ status, since: null, lastOnline: null, activity: null, join: { play: false, spectate: false, reason: null }, ...extra })
 const friend = (uuid, name, status, extra) => ({ uuid, name, bedrock: false, headUrl: `/api/launcher/friends/head/${uuid}`, presence: presence(status, extra) })
@@ -116,4 +116,13 @@ test('garbage from the website is dropped, not drawn', () => {
     assert.equal(m.settings.appearOffline, false)
     assert.equal(m.loaded, true)
     assert.ok(NAME.test('Juli0q') && !NAME.test('ab') && !NAME.test('has space'))
+})
+
+test('an AFK friend stays online and playing; only afk: true on the wire reads as AFK', () => {
+    assert.equal(cleanPresence(presence('playing')).afk, false)
+    assert.equal(cleanPresence(undefined).afk, false)
+    const afk = cleanPresence(presence('playing', { afk: true, activity: network('bowbash', false) }))
+    assert.equal(afk.afk, true)
+    assert.equal(afk.status, 'playing')
+    for(const v of ['true', 1, 'yes', {}, null]) assert.equal(cleanPresence(presence('playing', { afk: v })).afk, false)
 })

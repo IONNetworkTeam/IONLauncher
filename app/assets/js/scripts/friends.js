@@ -364,7 +364,7 @@ const Friends = (() => {
             const icon = st === 'playing' && a?.kind === 'network' && a.gamemode && a.gamemode !== 'lobby' ? modeIcon(a.gamemode) : null
             const ring = st === 'playing' ? `box-shadow:0 0 0 2px #0c0d12,0 0 0 3px ${escapeHtml(ringOf(r))}` : ''
             const rule = st === 'offline' && !ruled ? (ruled = true, '<span class="fs-rule"></span>') : ''
-            return `${rule}<button class="fs-head${st === 'offline' ? ' is-off' : ''}${hot === f.uuid ? ' is-hot' : ''}" data-head="${escapeHtml(f.uuid)}" aria-label="${escapeHtml(f.name)} · ${escapeHtml(line(f))}" style="${headStyle(f.headUrl)};${ring}">${icon ? `<span class="fs-badge"><img src="${icon}" alt=""></span>` : ''}${st === 'launcher' || st === 'online' ? '<span class="fs-dot"></span>' : ''}</button>`
+            return `${rule}<button class="fs-head${st === 'offline' ? ' is-off' : ''}${hot === f.uuid ? ' is-hot' : ''}${f.presence.afk ? ' is-afk' : ''}" data-head="${escapeHtml(f.uuid)}" aria-label="${escapeHtml(f.name)} · ${escapeHtml(line(f))}" style="${headStyle(f.headUrl)};${ring}">${icon ? `<span class="fs-badge"><img src="${icon}" alt=""></span>` : ''}${st === 'launcher' || st === 'online' ? '<span class="fs-dot"></span>' : ''}</button>`
         }).join('')
         const shown = all.length || party ? html : emptyState(unavailable)
         strip.classList.toggle('is-empty', !all.length && !party)
