@@ -12,7 +12,7 @@
  * (showTab, escapeHtml, onSelectedServerChanged), slices.js (Slices), panels.js (Panels).
  */
 /* global ConfigManager, ipcRenderer, Lang, LoggerUtil, GameState, Slices, Panels, showTab, escapeHtml, getCurrentView, VIEWS, validateSelectedAccount */
-const { createFriendsModel, activityLine, ago, toastMs, followPlace, followKey, modeLabel, partyWhereKey, confirmStep, CROWN_SVG, PARTY_TICK_MS, MODES: FRIEND_MODES, NAME: FRIEND_NAME } = require('./assets/js/friendsmodel')
+const { createFriendsModel, activityLine, ago, toastMs, followPlace, followKey, modeLabel, partyWhereKey, confirmStep, roundLines, cleanSort, CROWN_SVG, PARTY_TICK_MS, MODES: FRIEND_MODES, NAME: FRIEND_NAME } = require('./assets/js/friendsmodel')
 const FriendsWeb = require('./assets/js/weburl')
 
 const Friends = (() => {
@@ -20,6 +20,12 @@ const Friends = (() => {
     const model = createFriendsModel()
     const t = (k, p) => Lang.queryJS(`friends.${k}`, p)
     const h = (k, p) => escapeHtml(t(k, p))
+    const sh = (k, p) => h(`social.${k}`, p)
+    const ROUND_TEXTS = {
+        map: map => map,
+        team: team => t('social.roundTeam', { team }),
+        waiting: (count, max) => t('social.roundWaiting', { count, max })
+    }
     const TEXTS = {
         inTheLauncher: t('inTheLauncher'), online: t('online'), inTheHub: t('inTheHub'), inAMatch: t('inAMatch'),
         lobby: t('lobby'), podium: t('podium'), playing: t('playing'), offline: t('offline'), lastOnline: when => t('lastOnline', { when })
@@ -61,9 +67,10 @@ const Friends = (() => {
     let accountRefreshAt = 0
     let releasesSent = ''
     let partyCard = null        // 'menu' | 'invite' | null: the card the bracket's ⋯ or + opened
-    let partyConfirm = null     // 'leave' | 'kick:<uuid>': armed by the first click, confirmed by the second (confirmStep)
+    let partyConfirm = null     // 'leave' | 'disband' | 'kick:<uuid>': armed by the first click, confirmed by the second (confirmStep)
+    let blockConfirm = null     // the friend whose card's Block is armed: the second click blocks
     const partyBusy = new Set() // party changes sent from the card and not answered yet, by op:uuid
-    let partyTick = null        // redraws "Disbands in N min" while I am in a party; cleared when the party goes
+    let partyTick = null        // redraws "Offline for N min" while a party member is away; cleared otherwise
     let strip, card, addCard, pcard, inv, showBtn
 
     /* Releases */
@@ -142,6 +149,8 @@ const Friends = (() => {
 
         bind()
         render()
+        // The friends window's sort lives in this window's config; the main process hands it on.
+        ipcRenderer.invoke('friends:prefs', { sort: cleanSort(ConfigManager.getFriendsSort()) }).catch(() => {})
         sendAccount()
         reportPresence()
         ipcRenderer.invoke('friends:party').catch(() => {})
@@ -214,7 +223,8 @@ const Friends = (() => {
         render()
         setTimeout(() => { if(notes.get(uuid)?.until <= Date.now()) { notes.delete(uuid); render() } }, NOTE_MS + 50)
     }
-    const failText = res => res?.error || (res?.code === 'UNAVAILABLE' || res?.code === 'GATE' ? t('unavailable') : res?.code === 'NO_SESSION' ? t('noSession') : t('noteFailed'))
+    /** Why a call did not work. BACKEND_OFF first: the network still runs social on PAF, the feature comes later. */
+    const failText = res => res?.code === 'BACKEND_OFF' ? t('social.availableSoon') : res?.error || (res?.code === 'UNAVAILABLE' || res?.code === 'GATE' ? t('unavailable') : res?.code === 'NO_SESSION' ? t('noSession') : t('noteFailed'))
 
     /** What a Join or a party Follow answered: moved, a release to start here, or why not. */
     function joined(res, fail){
@@ -319,9 +329,9 @@ const Friends = (() => {
         syncPartyTick()
     }
 
-    /** "Disbands in N min" counts down without any event arriving: a tick while I am in a party, none otherwise. */
+    /** "Offline for N min" ages without any event arriving: a tick while a party member is away, none otherwise. */
     function syncPartyTick(){
-        const want = mounted && !!model.party
+        const want = mounted && !!model.party?.members.some(m => m.where === 'away' && m.awaySince != null)
         if(want && !partyTick) partyTick = setInterval(render, PARTY_TICK_MS)
         else if(!want && partyTick){ clearInterval(partyTick); partyTick = null }
     }
@@ -372,29 +382,38 @@ const Friends = (() => {
         updateAddCard()
     }
 
+    /** "Offline for 12 min" for an away member with `awaySince`, otherwise the plain place label. */
+    function whereText(m){
+        if(m.where === 'away' && m.awaySince != null){
+            const when = ago(new Date(m.awaySince).toISOString())
+            return when === 'now' ? t('social.awayJustNow') : t('social.awayFor', { when })
+        }
+        return t(partyWhereKey(m.where))
+    }
+
     /**
      * The party at the top of the strip: one bracket, the leader crowned and first, members who
      * are not my friends included (no card for them, only their name), an invite "+" for the
-     * leader, the ⋯ menu, and "Disbands in N min" once the party has been idle 10 min.
+     * leader while there is a seat, the ⋯ menu, and "3/8" when the party has a cap.
      */
     function partyBracket(p){
         const heads = p.members.map(m => {
             const f = model.friend(m.uuid)
             const self = model.isMe(m.uuid)
             const crown = m.leader ? `<span class="fp-crown">${CROWN_SVG}</span>` : ''
-            const label = `${self ? t('you') : m.name}${m.leader ? ` · ${t('partyLeader')}` : ''} · ${t(partyWhereKey(m.where))}`
+            const label = `${self ? t('you') : m.name}${m.leader ? ` · ${t('partyLeader')}` : ''} · ${whereText(m)}`
             const cls = `fs-head fp-head${m.leader ? ' is-leader' : ''}${m.where === 'away' ? ' is-away' : ''}${self ? ' is-me' : ''}`
             if(f && !self) return `<button class="${cls}${hot === f.uuid ? ' is-hot' : ''}" data-head="${escapeHtml(f.uuid)}" aria-label="${escapeHtml(label)}" style="${headStyle(m.headUrl ?? f.headUrl)}">${crown}</button>`
             return `<span class="${cls} is-member" role="img" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}" style="${headStyle(m.headUrl)}">${crown}</span>`
         }).join('')
-        const idle = model.idleDisbandIn()
-        return `<div class="fp${idle != null ? ' is-idle' : ''}" role="group" aria-label="${h('partyLabel')}">
+        const seats = model.partySeats()
+        return `<div class="fp" role="group" aria-label="${h('partyLabel')}">
             ${heads}
             <span class="fp-tools">
-                ${model.amLeader() ? `<button class="fp-btn" data-act="partyInvite" aria-expanded="${partyCard === 'invite'}" title="${h('partyInviteMore')}" aria-label="${h('partyInviteMore')}">+</button>` : ''}
+                ${model.amLeader() && !seats.full ? `<button class="fp-btn" data-act="partyInvite" aria-expanded="${partyCard === 'invite'}" title="${h('partyInviteMore')}" aria-label="${h('partyInviteMore')}">+</button>` : ''}
                 <button class="fp-btn" data-act="partyMenu" aria-expanded="${partyCard === 'menu'}" title="${h('partyMenu')}" aria-label="${h('partyMenu')}">⋯</button>
             </span>
-            ${idle != null ? `<span class="fp-idle">${h('partyDisbandsIn', { n: idle })}</span>` : ''}
+            ${seats.max != null ? `<span class="fp-size${seats.full ? ' is-full' : ''}" title="${seats.full ? sh('partyFull') : ''}">${seats.members}/${seats.max}</span>` : ''}
         </div>`
     }
 
@@ -422,8 +441,17 @@ const Friends = (() => {
         if(!adding) delete addCard.dataset.focused
     }
 
+    /** A round's line (map · team · time, or the waiting fill) and its standings, as plain text. */
+    function roundHtml(f){
+        if(f.presence.status !== 'playing') return ''
+        const r = roundLines(f.presence.activity?.round, ROUND_TEXTS)
+        if(!r) return ''
+        return `${r.line ? `<span class="fr-round">${escapeHtml(r.line)}</span>` : ''}${r.standings.length ? `<span class="fr-standings">${r.standings.map(x => `<span>${escapeHtml(x)}</span>`).join('')}</span>` : ''}`
+    }
+
     function renderCard(){
         const f = hot ? model.friend(hot) : null
+        if(blockConfirm && blockConfirm !== hot) blockConfirm = null
         if(!f || stripHidden || windowOpen || away()){
             card.classList.remove('is-open')
             return
@@ -446,15 +474,20 @@ const Friends = (() => {
                 <span class="fr-head${f.presence.status === 'offline' ? ' is-off' : ''}" style="width:44px;height:44px;${headStyle(f.headUrl)};box-shadow:0 0 0 2px #111219,0 0 0 3.5px ${escapeHtml(ring)}"></span>
                 <span style="min-width:0;flex:1">
                     <span class="fr-kicker" style="color:${escapeHtml(ring)}">${escapeHtml(kickerOf(f))}</span>
-                    <span class="fr-name" style="margin-top:3px;font-size:15px">${escapeHtml(f.name)}</span>
+                    <span class="fr-name" style="margin-top:3px;font-size:15px">${escapeHtml(f.name)}${f.clanTag ? `<span class="fr-tag">[${escapeHtml(f.clanTag)}]</span>` : ''}</span>
                     <span class="fr-act">${icon ? `<img src="${icon}" alt="">` : ''}<span>${escapeHtml(line(f))}</span>${since ? `<span class="fr-since">· ${escapeHtml(since)}</span>` : ''}</span>
+                    ${roundHtml(f)}
                 </span>
             </div>
-            ${canChallenge || canJoin || canInvite ? `<div class="fcard-actions">
+            ${blockConfirm === f.uuid ? `<div class="fcard-actions">
+                <button class="fr-ghost" data-act="blockCancel">${h('cancel')}</button>
+                <button class="fr-join fr-danger" data-act="block" title="${escapeHtml(t('social.blockHint', { name: f.name }))}" ${stale ? 'disabled' : ''}>${h('block')}</button>
+            </div>` : `<div class="fcard-actions">
+                <button class="fr-ghost" data-act="block" title="${escapeHtml(t('social.blockHint', { name: f.name }))}" ${stale ? 'disabled' : ''}>${h('block')}</button>
                 ${canChallenge ? `<button class="fr-ghost" data-act="challenge">${h('challenge')}</button>` : ''}
                 ${canJoin ? `<button class="fr-join" data-act="join" style="--join-bg:${escapeHtml(joinBgOf(r))}" ${stale ? 'disabled' : ''}>${h(f.presence.join.play ? 'join' : 'spectate')}</button>` : ''}
                 ${canInvite ? `<button class="fr-join${inviteDone ? ' is-done' : ''}" data-act="invite" style="--join-bg:var(--acc)" title="${escapeHtml(t(inviteKind === 'party' ? 'partyInviteHint' : 'roundInviteHint', { name: f.name }))}" ${stale || inviteDone ? 'disabled' : ''}>${h(inviteDone ? 'invited' : 'invite')}</button>` : ''}
-            </div>` : ''}
+            </div>`}
             ${n ? `<p class="fcard-note${n.good ? ' is-good' : ''}">${escapeHtml(n.text)}</p>` : ''}`
         const head = strip.querySelector(`[data-head="${CSS.escape(f.uuid)}"]`)
         if(head){
@@ -499,20 +532,26 @@ const Friends = (() => {
                 }
                 return `<div class="fp-row${m.leader ? ' is-leader' : ''}">
                     <span class="fr-head${m.where === 'away' ? ' is-off' : ''}" style="${headStyle(m.headUrl)}"></span>
-                    <span style="min-width:0"><span class="fr-name">${escapeHtml(self ? t('you') : m.name)}${m.leader ? `<span class="fp-lead" title="${h('partyLeader')}">${CROWN_SVG}</span>` : ''}</span><span class="fr-act"><span>${h(partyWhereKey(m.where))}${model.friend(m.uuid) || self ? '' : ` · ${h('partyNotFriend')}`}</span></span></span>
+                    <span style="min-width:0"><span class="fr-name">${escapeHtml(self ? t('you') : m.name)}${m.leader ? `<span class="fp-lead" title="${h('partyLeader')}">${CROWN_SVG}</span>` : ''}</span><span class="fr-act"><span>${escapeHtml(whereText(m))}${model.friend(m.uuid) || self ? '' : ` · ${h('partyNotFriend')}`}</span></span></span>
                     <span class="fr-acts">${acts}</span>
                 </div>`
             }).join('')
         }
-        const idle = model.idleDisbandIn()
+        const seats = model.partySeats()
         const n = notes.get('party')
+        const title = seats.max != null ? sh('partySize', { n: seats.members, max: seats.max }) : h('partyCardTitle', { n: seats.members })
+        // Leader only: Disband (two clicks, like Leave) and Warp; everyone: Leave.
+        let menuActs
+        if(partyConfirm === 'leave') menuActs = `<button class="fr-ghost" data-act="pCancel">${h('cancel')}</button><button class="fr-join fr-danger" data-act="pLeave" ${off}>${h('partyLeave')}</button>`
+        else if(partyConfirm === 'disband') menuActs = `<button class="fr-ghost" data-act="pCancel">${h('cancel')}</button><button class="fr-join fr-danger" data-act="pDisband" ${off}>${sh('partyDisband')}</button>`
+        else {
+            menuActs = `${leader ? `<button class="fr-ghost" data-act="pDisband" ${off}>${sh('partyDisband')}</button><button class="fr-ghost" data-act="pWarp" title="${sh('partyWarpHint')}" ${off}>${sh('partyWarp')}</button>` : ''}
+                <button class="fr-ghost" data-act="pLeave" ${off}>${h('partyLeave')}</button>`
+        }
         const html = `
-            <span class="fr-kicker">${partyCard === 'invite' ? h('partyInviteTitle') : h('partyCardTitle', { n: p.members.length })}</span>
-            ${partyCard === 'menu' && idle != null ? `<p class="fp-idle-line">${h('partyDisbandsIn', { n: idle })}</p>` : ''}
+            <span class="fr-kicker">${partyCard === 'invite' ? h('partyInviteTitle') : title}</span>
             <div class="fp-rows">${rows}</div>
-            ${partyCard === 'menu' ? `<div class="fcard-actions">${partyConfirm === 'leave'
-        ? `<button class="fr-ghost" data-act="pCancel">${h('cancel')}</button><button class="fr-join fr-danger" data-act="pLeave" ${off}>${h('partyLeave')}</button>`
-        : `<button class="fr-ghost" data-act="pLeave" ${off}>${h('partyLeave')}</button>`}</div>` : ''}
+            ${partyCard === 'menu' ? `<div class="fcard-actions">${menuActs}</div>` : ''}
             ${n ? `<p class="fcard-note${n.good ? ' is-good' : ''}">${escapeHtml(n.text)}</p>` : ''}`
         if(pcard.dataset.html !== html){ pcard.innerHTML = html; pcard.dataset.html = html }
         const anchor = strip.querySelector('.fp')
@@ -536,7 +575,16 @@ const Friends = (() => {
         } finally { partyBusy.delete(key) }
     }
 
-    /** Leave and Kick take two clicks: the first arms the button, the second on the same target does it. */
+    /** Warp (leader): pull the party to my server; the card says how many came and how many stayed in a round. */
+    async function warp(){
+        const res = await partyAct('partyWarp')
+        if(!res?.ok) return
+        const moved = Array.isArray(res.data?.moved) ? res.data.moved.length : 0
+        const kept = Array.isArray(res.data?.keptBack) ? res.data.keptBack.length : 0
+        note('party', t('social.warped', { moved, kept }), true)
+    }
+
+    /** Leave, Kick and Disband take two clicks: the first arms the button, the second on the same target does it. */
     function confirmThen(target, run){
         const step = confirmStep(partyConfirm, target)
         partyConfirm = step.next
@@ -758,8 +806,21 @@ const Friends = (() => {
         card.addEventListener('mouseleave', leave)
         card.addEventListener('mouseenter', () => clearTimeout(leaveTimer))
         card.addEventListener('click', e => {
-            const act = e.target.closest('[data-act]')?.dataset.act
-            if(!act || !hot) return
+            const b = e.target.closest('[data-act]')
+            const act = b?.dataset.act
+            if(!act || !hot || b.disabled) return
+            if(act === 'block'){
+                // Two clicks, like Leave: the first arms the card's Block, the second blocks.
+                if(e.detail > 1) return
+                if(blockConfirm !== hot){ blockConfirm = hot; render(); return }
+                const uuid = hot
+                blockConfirm = null
+                hot = null
+                render()
+                ipcRenderer.invoke('friends:block', uuid).then(res => { if(!res?.ok) note(uuid, failText(res)) }).catch(() => {})
+                return
+            }
+            if(act === 'blockCancel'){ blockConfirm = null; render(); return }
             if(act === 'join') join(hot)
             else if(act === 'challenge') challenge(hot)
             else if(act === 'invite') invite(hot)
@@ -768,13 +829,15 @@ const Friends = (() => {
             const b = e.target.closest('[data-act]')
             if(!b || b.disabled) return
             // A double-click must not arm and confirm in one go.
-            if(e.detail > 1 && (b.dataset.act === 'pLeave' || b.dataset.act === 'pKick')) return
+            if(e.detail > 1 && (b.dataset.act === 'pLeave' || b.dataset.act === 'pKick' || b.dataset.act === 'pDisband')) return
             const uuid = b.dataset.uuid
             switch(b.dataset.act){
                 case 'pInvite': partyAct('partyInvite', uuid); break
                 case 'pPromote': partyAct('partyPromote', uuid); break
                 case 'pKick': confirmThen(`kick:${uuid}`, () => partyAct('partyKick', uuid)); break
                 case 'pLeave': confirmThen('leave', () => partyAct('partyLeave')); break
+                case 'pDisband': confirmThen('disband', () => partyAct('partyDisband')); break
+                case 'pWarp': warp(); break
                 case 'pCancel':
                     partyConfirm = null
                     render()
@@ -835,7 +898,7 @@ const Friends = (() => {
         })
         document.addEventListener('keydown', e => {
             if(e.key !== 'Escape') return
-            if(partyConfirm){ partyConfirm = null; render(); return }
+            if(partyConfirm || blockConfirm){ partyConfirm = null; blockConfirm = null; render(); return }
             if(adding || hot || partyCard){ adding = false; hot = null; partyCard = null; render() }
         })
     }
@@ -852,6 +915,11 @@ const Friends = (() => {
             case 'window':
                 windowOpen = !!f.open
                 render()
+                break
+            case 'prefs':
+                // The friends window changed its sort: this window owns the config, so it keeps it.
+                ConfigManager.setFriendsSort(cleanSort(f.prefs?.sort))
+                ConfigManager.save()
                 break
             case 'view':
                 model.apply('view', f)

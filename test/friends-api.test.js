@@ -148,3 +148,28 @@ test('a party error keeps the site\'s code and sentence', async () => {
     assert.equal(r.code, 'IN_A_PARTY')
     assert.equal(r.error, 'Leave your party first.')
 })
+
+test('the IONSocial routes: cancel a request, read settings, the clan, disband and warp', async () => {
+    const ok = { ok: true, status: 200, data: null }
+    const h = harness(Array(5).fill(ok))
+    await h.api.cancelRequest('u/9')
+    await h.api.getSettings()
+    await h.api.clanMembers()
+    await h.api.partyDisband()
+    await h.api.partyWarp()
+    assert.deepEqual(h.calls.map(c => [c.method, c.path, c.body]), [
+        ['DELETE', `${BASE}/requests/u%2F9`, undefined],
+        ['GET', `${BASE}/settings`, undefined],
+        ['GET', `${BASE}/clan/members`, undefined],
+        ['POST', `${BASE}/party/disband`, undefined],
+        ['POST', `${BASE}/party/warp`, undefined]
+    ])
+})
+
+test('a BACKEND_OFF refusal keeps its code for the window\'s "available soon"', async () => {
+    const h = harness([{ ok: false, status: 409, code: 'BACKEND_OFF', error: 'Not on this network yet.' }])
+    const res = await h.api.cancelRequest('u1')
+    assert.equal(res.ok, false)
+    assert.equal(res.code, 'BACKEND_OFF')
+    assert.equal(res.status, 409)
+})

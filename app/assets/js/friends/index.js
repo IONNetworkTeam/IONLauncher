@@ -9,7 +9,10 @@
  *   friends:signOut uuid                                       an account was removed
  *   friends:view                                               the whole FriendsView
  *   friends:request name · friends:accept uuid · friends:decline uuid · friends:remove uuid
- *   friends:block uuid · friends:unblock uuid · friends:settings patch
+ *   friends:cancelRequest uuid                                 withdraw my own outgoing request
+ *   friends:block uuid · friends:unblock uuid · friends:settings patch · friends:getSettings
+ *   friends:clanMembers                                        my clan and its members, with presence
+ *   friends:prefs [patch]                                      the window's local choices (sort); the launcher window keeps them in its config
  *   friends:join uuid, inGame · friends:invite uuid · friends:dismissInvite uuid
  *   friends:presence {state, release}                          what the launcher is doing (presence.js)
  *   friends:poll                                               the presence poll, now (a window opened)
@@ -20,12 +23,13 @@
  *   friends:windowNote scope, text                             from the launcher window: forwarded to the friends window as a `note` event
  *   friends:party · friends:partyCreate · friends:partyInvite uuid · friends:partyAccept partyId
  *   friends:partyDecline partyId · friends:partyLeave · friends:partyKick uuid · friends:partyPromote uuid
+ *   friends:partyDisband · friends:partyWarp                   leader only; warp answers {moved, keptBack}
  *   friends:partyFollow                                        a JoinResult, like friends:join
  *
  * Main → renderer (`friends:event`, to every window): `{event, ...payload}` for the pushed events
  * of the contract (presence, request, request_resolved, friend_added, friend_removed, invite,
  * invite_expired), `snapshot` {friends} from the presence poll, `view` {view} after a change made
- * here, `status` {session, live, reason}, `window` {open} and `releases` {releases}. The launcher
+ * here, `status` {session, live, reason}, `window` {open}, `releases` {releases} and `prefs` {prefs}. The launcher
  * window alone gets `friends:do` {op, uuid} for a Join, Challenge or Follow pressed in the friends window.
  * `party` {party, invites} follows every party answer, the start and each poll; the pushed party frames
  * arrive as party_invite, party_invite_expired, party_updated, party_disbanded and party_follow.
@@ -43,6 +47,7 @@ const { createFriendsApi } = require('./api')
 const { createPresence } = require('./presence')
 const { createLiveChannel } = require('./live')
 const { createPartyHandlers } = require('./party')
+const { cleanSettingsPatch, cleanSort } = require('../friendsmodel')
 
 const SESSION_FILE = 'friends-session.bin'
 const NAME = /^[A-Za-z0-9_]{3,16}$/
@@ -104,6 +109,8 @@ function init({ app, ipcMain, BrowserWindow, safeStorage, webAuth, web, appDir, 
     let account = null
     let lastView = null
     let releases = []
+    /** The friends window's local choices, owned by the launcher window's config (friends.js hands them in). */
+    let prefs = { sort: 'online' }
     let status = { session: false, live: false, reason: null }
 
     const api = createFriendsApi({ fetchJson: webAuth.fetchJson, session, account: () => account, logger })
@@ -228,15 +235,22 @@ function init({ app, ipcMain, BrowserWindow, safeStorage, webAuth, web, appDir, 
         request: (_e, name) => NAME.test(String(name)) ? mutate(api.sendRequest)(String(name)) : { ok: false, status: 400, code: 'BAD_NAME', error: null },
         accept: (_e, uuid) => guard(uuid) ? mutate(api.accept)(uuid) : badUuid(),
         decline: (_e, uuid) => guard(uuid) ? mutate(api.decline)(uuid) : badUuid(),
+        cancelRequest: (_e, uuid) => guard(uuid) ? mutate(api.cancelRequest)(uuid) : badUuid(),
         remove: (_e, uuid) => guard(uuid) ? mutate(api.remove)(uuid) : badUuid(),
         block: (_e, uuid) => guard(uuid) ? mutate(api.block)(uuid) : badUuid(),
         unblock: (_e, uuid) => guard(uuid) ? mutate(api.unblock)(uuid) : badUuid(),
         settings: (_e, patch) => {
-            const clean = {}
-            for(const k of ['showActivity', 'appearOffline', 'allowJoin', 'receiveRequests']){
-                if(typeof patch?.[k] === 'boolean') clean[k] = patch[k]
+            const clean = cleanSettingsPatch(patch)
+            return clean ? mutate(api.settings)(clean) : { ok: false, status: 400, code: 'BAD_REQUEST', error: null }
+        },
+        getSettings: () => api.getSettings().then(note),
+        clanMembers: () => api.clanMembers().then(note),
+        prefs: (_e, patch) => {
+            if(patch && typeof patch === 'object' && 'sort' in patch){
+                const next = { ...prefs, sort: cleanSort(patch.sort) }
+                if(next.sort !== prefs.sort){ prefs = next; broadcast('prefs', { prefs }) }
             }
-            return Object.keys(clean).length ? mutate(api.settings)(clean) : { ok: false, status: 400, code: 'BAD_REQUEST', error: null }
+            return prefs
         },
         join: (_e, uuid, inGame) => guard(uuid) ? api.join(uuid, !!inGame).then(note) : badUuid(),
         invite: (_e, uuid) => guard(uuid) ? api.invite(uuid).then(note) : badUuid(),

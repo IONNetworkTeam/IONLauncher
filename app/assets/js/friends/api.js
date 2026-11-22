@@ -78,11 +78,20 @@ function createFriendsApi({ fetchJson, session, account, logger = silent }){
         sendRequest: name => call('POST', '/requests', { name }),
         accept: uuid => call('POST', `/requests/${seg(uuid)}/accept`),
         decline: uuid => call('POST', `/requests/${seg(uuid)}/decline`),
+        /** Withdraws my own outgoing request. 404 NOT_REQUESTED, 409 BACKEND_OFF (the network still runs social on PAF). */
+        cancelRequest: uuid => call('DELETE', `/requests/${seg(uuid)}`),
         remove: uuid => call('DELETE', `/${seg(uuid)}`),
         block: uuid => call('POST', `/blocks/${seg(uuid)}`),
         unblock: uuid => call('DELETE', `/blocks/${seg(uuid)}`),
-        /** @param {{showActivity?: boolean, appearOffline?: boolean, allowJoin?: boolean, receiveRequests?: boolean}} patch */
+        /** The Settings alone; the IONSocial keys are absent (not null) while the network runs social on PAF. */
+        getSettings: () => call('GET', '/settings'),
+        /**
+         * Any subset of showActivity, appearOffline, allowJoin, receiveRequests, onlineNotices, clanNotices (booleans)
+         * and partyInvites, privateMessages, hideMode, friendSort (enum constants). 409 BACKEND_OFF for a new key on PAF.
+         */
         settings: patch => call('PATCH', '/settings', patch),
+        /** `{clan: {id, name, tag}|null, members: [{uuid, name, headUrl, role, friend, presence}]}`. */
+        clanMembers: () => call('GET', '/clan/members'),
         /** @returns {Promise<{ok: boolean, data?: {outcome: 'moved'|'launch'|'pack'|'refused', role?: string, release?: string, reason?: string, error?: string}}>} */
         join: (uuid, inGame) => call('POST', `/${seg(uuid)}/join`, { inGame: !!inGame }),
         invite: uuid => call('POST', `/${seg(uuid)}/invite`),
@@ -94,13 +103,17 @@ function createFriendsApi({ fetchJson, session, account, logger = silent }){
         /** `PartyResponse{party: PartyView|null, invites: [PartyInviteView]}`: my party and the invites addressed to me. */
         party: () => call('GET', '/party'),
         partyCreate: () => call('POST', '/party'),
-        /** Friends only; creates the party when I have none. 403 NOT_FRIENDS · REFUSES_INVITES · NOT_LEADER, 409 IN_A_PARTY · FULL, 404 OFFLINE, 400 SELF. */
+        /** Creates the party when I have none; who may be invited is the invitee's own policy. 403 NOT_FRIENDS · REFUSES_INVITES · NOT_LEADER, 409 IN_A_PARTY · FULL, 404 OFFLINE, 400 SELF. */
         partyInvite: uuid => call('POST', `/party/invite/${seg(uuid)}`),
         partyAccept: partyId => call('POST', `/party/invites/${seg(partyId)}/accept`),
         partyDecline: partyId => call('POST', `/party/invites/${seg(partyId)}/decline`),
         partyLeave: () => call('POST', '/party/leave'),
         partyKick: uuid => call('POST', `/party/kick/${seg(uuid)}`),
         partyPromote: uuid => call('POST', `/party/leader/${seg(uuid)}`),
+        /** Leader only; a PartyResponse with `party: null`. 403 NOT_LEADER, 404 NOT_IN_PARTY, 409 BACKEND_OFF. */
+        partyDisband: () => call('POST', '/party/disband'),
+        /** Leader only: `{moved: [{uuid, name}], keptBack: [{uuid, name}]}`. 409 NOT_ONLINE (the leader is not on the network), BACKEND_OFF. */
+        partyWarp: () => call('POST', '/party/warp'),
         /** A `JoinResult` with the leader as target: `moved` / `launch` / `pack` / `refused`. */
         partyFollow: () => call('POST', '/party/follow'),
         /** The site path of a player's head picture. */

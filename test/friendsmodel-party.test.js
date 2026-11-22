@@ -1,6 +1,6 @@
 const { test } = require('node:test')
 const assert = require('node:assert/strict')
-const { createFriendsModel, toMs, cleanPartyView, toastMs, followPlace, modeLabel, partyWhereKey, idleDisbandMinutes, confirmStep, CROWN_SVG, PARTY_TICK_MS, PARTY_WHERE_KEYS } = require('../app/assets/js/friendsmodel')
+const { createFriendsModel, toMs, cleanPartyView, toastMs, followPlace, modeLabel, partyWhereKey, partySeats, confirmStep, CROWN_SVG, PARTY_TICK_MS, PARTY_WHERE_KEYS } = require('../app/assets/js/friendsmodel')
 
 const T0 = Date.parse('2026-10-04T12:00:00Z')
 const MIN = 60000
@@ -15,7 +15,7 @@ const view = () => ({
 })
 const member = (uuid, name, where, leader = false) => ({ uuid, name, headUrl: `/h/${uuid}`, leader, where, presence: presence('launcher') })
 const partyView = (over = {}) => ({
-    id: 'p1', leader: 'me', private: false, createdAt: iso(T0), lastActivity: iso(T0), idleDisbandAt: iso(T0 + 15 * MIN),
+    id: 'p1', leader: 'me', private: false, createdAt: iso(T0), lastActivity: iso(T0), idleDisbandAt: null,
     members: [member('d', 'Dan', 'launcher'), member('me', 'Me', 'launcher', true), member('x', 'Xeno', 'network')],
     invites: [{ uuid: 'o', name: 'Olga', expiresAt: iso(T0 + MIN) }],
     ...over
@@ -31,7 +31,9 @@ test('a PartyResponse from the main process sets the party and my invites; leade
     assert.equal(m.party.members[0].leader, true)
     assert.equal(m.party.members.find(x => x.uuid === 'x').name, 'Xeno')
     assert.deepEqual(m.partyInvites.map(i => i.partyId), ['p9'])
-    assert.equal(m.party.idleDisbandAt, T0 + 15 * MIN)                // ISO text in, epoch ms held
+    assert.equal(m.party.lastActivity, T0)                            // ISO text in, epoch ms held
+    assert.equal('idleDisbandAt' in m.party, false)                    // there is no idle disband: nothing to count down
+    assert.equal(m.party.maxSize, null)                               // no cap named
     assert.equal(m.partyInvites[0].expiresAt, T0 + MIN)
     m.apply('party', { party: null })
     assert.equal(m.party, null)
@@ -110,10 +112,11 @@ test('a follow from myself or for another party is ignored', () => {
 test('garbage party payloads are cleaned or dropped, and times may be ms or ISO text', () => {
     assert.equal(cleanPartyView(null), null)
     assert.equal(cleanPartyView({ members: [] }), null)
-    const p = cleanPartyView({ id: 'p1', leader: 'b', lastActivity: '2026-10-04T12:00:00Z', idleDisbandAt: 'soon', members: [null, { uuid: 1 }, { uuid: 'a', name: 'A', where: 'mars' }, { uuid: 'b', name: 'B', where: 'network' }], invites: 'no' })
+    const p = cleanPartyView({ id: 'p1', leader: 'b', lastActivity: '2026-10-04T12:00:00Z', idleDisbandAt: 'soon', maxSize: -3, members: [null, { uuid: 1 }, { uuid: 'a', name: 'A', where: 'mars' }, { uuid: 'b', name: 'B', where: 'network' }], invites: 'no' })
     assert.deepEqual(p.members.map(x => [x.uuid, x.where, x.leader]), [['b', 'network', true], ['a', 'away', false]])
     assert.equal(p.lastActivity, T0)
-    assert.equal(p.idleDisbandAt, null)
+    assert.equal(p.maxSize, null)
+    assert.equal(p.members[1].awaySince, null)
     assert.deepEqual(p.invites, [])
     assert.equal(p.members[1].headUrl, null)
     assert.equal(p.members[1].presence.status, 'offline')
@@ -221,18 +224,30 @@ test('who I can invite, and how: a party invite outside a round, the round invit
     assert.equal(m.inviteAction('o', true), 'round')
 })
 
-test('"Disbands in N min" once the party has been idle 10 min', () => {
+test('"3/8": the cap counts members and open invites; a full party offers no party invite', () => {
     const m = loaded()
-    assert.equal(m.idleDisbandIn(T0), null)                         // no party
-    m.apply('party', { party: partyView(), invites: [] })
-    assert.equal(m.idleDisbandIn(T0 + 9 * MIN), null)
-    assert.equal(m.idleDisbandIn(T0 + 10 * MIN), 5)
-    assert.equal(m.idleDisbandIn(T0 + 11.5 * MIN), 4)
-    assert.equal(m.idleDisbandIn(T0 + 16 * MIN), 1)                 // overdue: the reaper is on its way
-    m.apply('party', { party: partyView({ idleDisbandAt: null }), invites: [] })
-    assert.equal(m.idleDisbandIn(T0 + 12 * MIN), null)
-    m.apply('party', { party: partyView({ lastActivity: T0, idleDisbandAt: T0 + 15 * MIN }), invites: [] })   // epoch ms still reads
-    assert.equal(m.idleDisbandIn(T0 + 10 * MIN), 5)
+    assert.equal(m.partySeats(), null)                               // no party
+    m.apply('party', { party: partyView({ maxSize: 8 }), invites: [] })
+    assert.deepEqual(m.partySeats(), { members: 3, max: 8, full: false })
+    assert.equal(m.inviteAction('a', false), 'party')
+    m.apply('party', { party: partyView({ maxSize: 4 }), invites: [] })   // 3 members + Olga's open invite
+    assert.deepEqual(m.partySeats(), { members: 3, max: 4, full: true })
+    assert.equal(m.inviteAction('a', false), null)
+    assert.equal(m.inviteAction('o', true), 'round')                // the round invite is not a seat
+    m.apply('party', { party: partyView({ maxSize: '8' }), invites: [] })
+    assert.deepEqual(m.partySeats(), { members: 3, max: null, full: false })
+    assert.equal(partySeats(null), null)
+})
+
+test('an away member keeps when they went ("offline since"); others carry no awaySince', () => {
+    const p = cleanPartyView(partyView({
+        members: [
+            { ...member('me', 'Me', 'launcher', true), awaySince: iso(T0) },
+            { ...member('d', 'Dan', 'away'), awaySince: iso(T0 - 5 * MIN) },
+            { ...member('x', 'Xeno', 'away'), awaySince: 'yesterday' }
+        ]
+    }))
+    assert.deepEqual(p.members.map(x => [x.uuid, x.awaySince]), [['me', null], ['d', T0 - 5 * MIN], ['x', null]])
 })
 
 test('the follow toast names a mode, the hub or ION Network, never a server', () => {
@@ -285,7 +300,7 @@ test('the kicked note comes right after party invites, before a follow or a roun
     assert.equal(m.pickToast(new Set(['party:p9'])).kind, 'round')
 })
 
-test('shared helpers both renderers use: place keys, crown, idle minutes, two-click confirm', () => {
+test('shared helpers both renderers use: place keys, crown, two-click confirm', () => {
     assert.deepEqual(PARTY_WHERE_KEYS, { launcher: 'whereLauncher', network: 'whereNetwork', away: 'whereAway' })
     assert.equal(partyWhereKey('network'), 'whereNetwork')
     assert.equal(partyWhereKey('__proto__'), 'whereAway')
@@ -296,11 +311,6 @@ test('shared helpers both renderers use: place keys, crown, idle minutes, two-cl
     assert.equal(modeLabel('toString'), 'toString')
     assert.match(CROWN_SVG, /^<svg .*<\/svg>$/)
     assert.equal(PARTY_TICK_MS, 30000)
-    const p = { lastActivity: T0, idleDisbandAt: T0 + 15 * MIN }
-    assert.equal(idleDisbandMinutes(null, T0), null)
-    assert.equal(idleDisbandMinutes(p, T0 + 9 * MIN), null)
-    assert.equal(idleDisbandMinutes(p, T0 + 10 * MIN), 5)
-    assert.equal(idleDisbandMinutes({ lastActivity: T0, idleDisbandAt: null }, T0 + 12 * MIN), null)
     // The first click arms, the second on the same target confirms; another target re-arms.
     assert.deepEqual(confirmStep(null, 'leave'), { confirmed: false, next: 'leave' })
     assert.deepEqual(confirmStep('leave', 'leave'), { confirmed: true, next: null })

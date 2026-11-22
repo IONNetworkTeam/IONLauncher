@@ -45,6 +45,9 @@ function createPartyHandlers({ api, isId, note, broadcast, epoch: readEpoch, bum
         partyLeave: () => run(() => api.partyLeave()),
         partyKick: withId(uuid => api.partyKick(uuid)),
         partyPromote: withId(uuid => api.partyPromote(uuid)),
+        partyDisband: () => run(() => api.partyDisband()),
+        // Warp moves members, not the party: its answer is `{moved, keptBack}`, nothing to broadcast.
+        partyWarp: () => api.partyWarp().then(note),
         partyFollow: () => api.partyFollow().then(note)
     }
 }

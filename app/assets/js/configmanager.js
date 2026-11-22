@@ -99,7 +99,9 @@ const DEFAULT_CONFIG = {
         launcher: {
             allowPrerelease: false,
             dataDirectory: dataPath,
-            friends: true
+            friends: true,
+            /** The friends window's sort: online, az, za, longest or recent (friendsmodel.js SORTS). */
+            friendsSort: 'online'
         }
     },
     newsCache: {
@@ -1031,4 +1033,21 @@ exports.getFriendsEnabled = function(def = false){
  */
 exports.setFriendsEnabled = function(enabled){
     config.settings.launcher.friends = !!enabled
+}
+
+/**
+ * How the friends window sorts friends. Kept here, not on the website: the in-game sort is a
+ * separate setting.
+ *
+ * @returns {string} online, az, za, longest or recent.
+ */
+exports.getFriendsSort = function(){
+    return config.settings.launcher.friendsSort ?? DEFAULT_CONFIG.settings.launcher.friendsSort
+}
+
+/**
+ * @param {string} sort online, az, za, longest or recent (checked by the friends system).
+ */
+exports.setFriendsSort = function(sort){
+    config.settings.launcher.friendsSort = sort
 }

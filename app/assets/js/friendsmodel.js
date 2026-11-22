@@ -19,13 +19,26 @@ const MODES = {
 }
 const NAME = /^[A-Za-z0-9_]{3,16}$/
 const EMPTY_SETTINGS = { showActivity: true, appearOffline: false, allowJoin: true, receiveRequests: true }
+/**
+ * The IONSocial settings. The website leaves them out (not null) while the network still runs
+ * social on PAF, so the model holds null for "not offered yet" and the window says so.
+ */
+const SOCIAL_FLAGS = ['onlineNotices', 'clanNotices']
+const SETTING_ENUMS = {
+    partyInvites: ['EVERYONE', 'FRIENDS', 'FRIENDS_AND_CLAN', 'NOBODY'],
+    privateMessages: ['FRIENDS', 'FRIENDS_AND_CLAN', 'NOBODY'],
+    hideMode: ['SHOW_ALL', 'FRIENDS', 'FRIENDS_AND_STAFF', 'STAFF', 'NOBODY', 'PARTY', 'CLAN'],
+    friendSort: ['ONLINE_FIRST', 'NAME_ASC', 'NAME_DESC', 'LONGEST_FRIENDS', 'RECENTLY_ONLINE']
+}
+/** The window's own sort (kept in the launcher config, not on the website). */
+const SORTS = ['online', 'az', 'za', 'longest', 'recent']
+const STANDINGS_MAX = 4
+const CLAN_ROLES = ['LEADER', 'OFFICER', 'MEMBER']
 const PARTY_WHERE = ['launcher', 'network', 'away']
 const ENDED_KEPT = 32
-/** The strip's "Disbands in N min" line shows once the party has been idle this long (the store reaps at 15). */
-const IDLE_WARN_MS = 10 * 60000
 const TOAST_MIN_MS = 5000
 const TOAST_MAX_MS = 60000
-/** How often both renderers redraw a party so "Disbands in N min" counts down. */
+/** How often both renderers redraw a party with an away member, so "Offline for N min" ages. */
 const PARTY_TICK_MS = 30000
 /** A member's `where` -> the language key of its label (friends.<key>); shared by the strip card and the window. */
 const PARTY_WHERE_KEYS = { launcher: 'whereLauncher', network: 'whereNetwork', away: 'whereAway' }
@@ -33,6 +46,8 @@ const PARTY_WHERE_KEYS = { launcher: 'whereLauncher', network: 'whereNetwork', a
 const CROWN_SVG = '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 7.5l4.6 4L12 4l4.4 7.5L21 7.5 19.2 18H4.8z"/></svg>'
 
 const isObj = v => v && typeof v === 'object'
+const str = v => typeof v === 'string' ? v : null
+const list = v => Array.isArray(v) ? v : []
 
 /** A friend as the website sends it, reduced to what the UI reads; anything odd is dropped. */
 function cleanPresence(p){
@@ -49,7 +64,8 @@ function cleanPresence(p){
             inMatch: !!a.inMatch,
             phase: ['lobby', 'match', 'podium'].includes(a.phase) ? a.phase : null,
             matchId: typeof a.matchId === 'string' ? a.matchId : null,
-            release: typeof a.release === 'string' ? a.release : null
+            release: typeof a.release === 'string' ? a.release : null,
+            round: a.kind === 'network' ? cleanRound(a.round) : null
         } : null,
         join: {
             play: !!p?.join?.play,
@@ -59,9 +75,33 @@ function cleanPresence(p){
     }
 }
 
+const count = v => Number.isInteger(v) && v >= 0 ? v : null
+const text = (v, max) => typeof v === 'string' && v.trim() ? v.trim().slice(0, max) : null
+
+/**
+ * A friend's round (IONSocial): map, team, how long it has run, the waiting lobby's fill and at
+ * most four plain-text standings lines. Absent while activity is hidden or there is no round.
+ */
+function cleanRound(r){
+    if(!isObj(r)) return null
+    const w = isObj(r.waiting) ? r.waiting : null
+    const waiting = w && count(w.count) != null && count(w.max) != null && w.max > 0 ? { count: w.count, max: w.max } : null
+    return {
+        map: text(r.map, 48),
+        team: text(r.team, 32),
+        elapsedSeconds: count(r.elapsedSeconds),
+        waiting,
+        standings: list(r.standings).map(x => text(x, 64)).filter(Boolean).slice(0, STANDINGS_MAX)
+    }
+}
+
 function cleanFriend(f){
     if(!isObj(f) || typeof f.uuid !== 'string' || typeof f.name !== 'string') return null
-    return { uuid: f.uuid, name: f.name, bedrock: !!f.bedrock, headUrl: typeof f.headUrl === 'string' ? f.headUrl : null, presence: cleanPresence(f.presence) }
+    return {
+        uuid: f.uuid, name: f.name, bedrock: !!f.bedrock, headUrl: typeof f.headUrl === 'string' ? f.headUrl : null, presence: cleanPresence(f.presence),
+        clanTag: text(f.clanTag, 16),
+        since: toMs(f.since)
+    }
 }
 
 function cleanRequest(r){
@@ -78,14 +118,39 @@ function cleanInvite(i){
     }
 }
 
+/** One of an enum's constants, in any case, as its name; anything else is null. */
+function enumValue(key, v){
+    if(typeof v !== 'string') return null
+    const up = v.toUpperCase()
+    return SETTING_ENUMS[key].includes(up) ? up : null
+}
+
+/** Settings as the website sends them: the four switches defaulted, the IONSocial keys null while absent. */
 function cleanSettings(s){
     const out = { ...EMPTY_SETTINGS }
     for(const k of Object.keys(EMPTY_SETTINGS)) if(typeof s?.[k] === 'boolean') out[k] = s[k]
+    for(const k of SOCIAL_FLAGS) out[k] = typeof s?.[k] === 'boolean' ? s[k] : null
+    for(const k of Object.keys(SETTING_ENUMS)) out[k] = enumValue(k, s?.[k])
     return out
 }
 
-const str = v => typeof v === 'string' ? v : null
-const list = v => Array.isArray(v) ? v : []
+/**
+ * A settings PATCH as the main process forwards it: only known keys, switches as booleans and
+ * enums as one of their constants. Returns null when nothing is left.
+ */
+function cleanSettingsPatch(patch){
+    if(!isObj(patch)) return null
+    const out = {}
+    // Own keys only: an inherited value is not something the renderer sent.
+    const own = k => Object.hasOwn(patch, k) ? patch[k] : undefined
+    for(const k of [...Object.keys(EMPTY_SETTINGS), ...SOCIAL_FLAGS]) if(typeof own(k) === 'boolean') out[k] = own(k)
+    for(const k of Object.keys(SETTING_ENUMS)){
+        const v = enumValue(k, own(k))
+        if(v) out[k] = v
+    }
+    return Object.keys(out).length ? out : null
+}
+
 /** The same player, dashed or not, any case. */
 const uid = v => String(v ?? '').replace(/-/g, '').toLowerCase()
 
@@ -98,7 +163,8 @@ function toMs(v){
 
 function cleanPartyMember(m){
     if(!isObj(m) || typeof m.uuid !== 'string' || typeof m.name !== 'string') return null
-    return { uuid: m.uuid, name: m.name, headUrl: str(m.headUrl), leader: !!m.leader, where: PARTY_WHERE.includes(m.where) ? m.where : 'away', presence: cleanPresence(m.presence) }
+    const where = PARTY_WHERE.includes(m.where) ? m.where : 'away'
+    return { uuid: m.uuid, name: m.name, headUrl: str(m.headUrl), leader: !!m.leader, where, awaySince: where === 'away' ? toMs(m.awaySince) : null, presence: cleanPresence(m.presence) }
 }
 
 /** A PartyView as the website sends it; members leader first, then in the server's order. `version` is the store snapshot version. */
@@ -115,7 +181,8 @@ function cleanPartyView(p){
         private: !!p.private,
         createdAt: toMs(p.createdAt),
         lastActivity: toMs(p.lastActivity),
-        idleDisbandAt: toMs(p.idleDisbandAt),
+        // The cap counts members and open invites; null when the website names none.
+        maxSize: Number.isInteger(p.maxSize) && p.maxSize > 0 ? p.maxSize : null,
         members: ordered,
         invites: list(p.invites).filter(i => isObj(i) && typeof i.uuid === 'string').map(i => ({ uuid: i.uuid, name: typeof i.name === 'string' ? i.name : '', expiresAt: toMs(i.expiresAt) }))
     }
@@ -162,14 +229,11 @@ function modeLabel(gamemode){
     return Object.hasOwn(MODES, gamemode) ? MODES[gamemode] : gamemode
 }
 
-/**
- * Whole minutes until the idle disband, once the party has been idle 10 min (at least 1: when
- * overdue the reaper is on its way); otherwise null.
- */
-function idleDisbandMinutes(party, now = Date.now()){
-    if(!party || party.lastActivity == null || party.idleDisbandAt == null) return null
-    if(now - party.lastActivity < IDLE_WARN_MS) return null
-    return Math.max(1, Math.ceil((party.idleDisbandAt - now) / 60000))
+/** The party's seats taken (members and open invites) against its cap; `full` is false without a cap. */
+function partySeats(party){
+    if(!party) return null
+    const taken = party.members.length + party.invites.length
+    return { members: party.members.length, max: party.maxSize, full: party.maxSize != null && taken >= party.maxSize }
 }
 
 /**
@@ -200,10 +264,96 @@ function followPlace(where, texts){
     return modeLabel(g)
 }
 
+const byName = (a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
+const statusRank = f => STATUS_ORDER[f.presence.status] ?? 3
+
 /** playing → launcher (and online) → offline, then by name. */
 function compareFriends(a, b){
-    const d = (STATUS_ORDER[a.presence.status] ?? 3) - (STATUS_ORDER[b.presence.status] ?? 3)
-    return d !== 0 ? d : a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
+    const d = statusRank(a) - statusRank(b)
+    return d !== 0 ? d : byName(a, b)
+}
+
+/** When a friend was last on: now while online, `lastOnline` while offline, unknown last. */
+function lastSeen(f, now){
+    if(f.presence.status !== 'offline') return now
+    return toMs(f.presence.lastOnline) ?? -Infinity
+}
+
+/**
+ * The window's sorts. `online` is the sections' order; `longest` puts the oldest friendships first
+ * (an unknown `since` last); `recent` puts whoever is on first, then the offline by `lastOnline`.
+ */
+function sortFriends(all, sort = 'online', now = Date.now()){
+    const out = all.slice()
+    switch(sort){
+        case 'az': return out.sort(byName)
+        case 'za': return out.sort((a, b) => byName(b, a))
+        case 'longest': return out.sort((a, b) => ((a.since ?? Infinity) - (b.since ?? Infinity)) || byName(a, b))
+        case 'recent': return out.sort((a, b) => (lastSeen(b, now) - lastSeen(a, now)) || compareFriends(a, b))
+        default: return out.sort(compareFriends)
+    }
+}
+
+/** A sort from the config or the menu; anything unknown is the default. */
+function cleanSort(v){
+    return SORTS.includes(v) ? v : 'online'
+}
+
+/** Friends whose name (or clan tag) holds the search text, any case; an empty search keeps everyone. */
+function searchFriends(all, query){
+    const q = String(query ?? '').trim().toLowerCase()
+    if(!q) return all.slice()
+    return all.filter(f => f.name.toLowerCase().includes(q) || (f.clanTag ?? '').toLowerCase().includes(q))
+}
+
+/** '12:04' or '1:02:09' for a round's running time. */
+function clock(seconds){
+    const s = Math.max(0, Math.floor(seconds))
+    const h = Math.floor(s / 3600)
+    const m = Math.floor((s % 3600) / 60)
+    const sec = String(s % 60).padStart(2, '0')
+    return h ? `${h}:${String(m).padStart(2, '0')}:${sec}` : `${m}:${sec}`
+}
+
+/**
+ * What a friend card says about a round: one line (map · team · time, or the waiting lobby's
+ * fill) and the standings lines as sent. Null when there is nothing to say.
+ *
+ * @param {Object} round A cleaned `activity.round`.
+ * @param {{map: Function, team: Function, waiting: Function}} t Texts with placeholders.
+ */
+function roundLines(round, t){
+    if(!round) return null
+    const parts = []
+    if(round.map) parts.push(t.map(round.map))
+    if(round.team) parts.push(t.team(round.team))
+    if(round.waiting) parts.push(t.waiting(round.waiting.count, round.waiting.max))
+    else if(round.elapsedSeconds != null) parts.push(clock(round.elapsedSeconds))
+    if(!parts.length && !round.standings.length) return null
+    return { line: parts.join(' · '), standings: round.standings }
+}
+
+/** A clan member, reduced like a friend; the role is one of LEADER, OFFICER, MEMBER. */
+function cleanClanMember(m){
+    if(!isObj(m) || typeof m.uuid !== 'string' || typeof m.name !== 'string') return null
+    return {
+        uuid: m.uuid, name: m.name, headUrl: str(m.headUrl),
+        role: CLAN_ROLES.includes(m.role) ? m.role : 'MEMBER',
+        friend: m.friend === true,
+        presence: cleanPresence(m.presence)
+    }
+}
+
+/** `GET /clan/members`: my clan (null in none) and its members, leaders first, then on before off, then by name. */
+function cleanClanMembers(c){
+    const clan = isObj(c?.clan) && typeof c.clan.name === 'string'
+        ? { id: Number.isFinite(c.clan.id) ? c.clan.id : null, name: c.clan.name, tag: text(c.clan.tag, 16) }
+        : null
+    if(!clan) return { clan: null, members: [] }
+    const rank = m => CLAN_ROLES.indexOf(m.role)
+    const members = list(c.members).map(cleanClanMember).filter(Boolean)
+        .sort((a, b) => (rank(a) - rank(b)) || compareFriends(a, b))
+    return { clan, members }
 }
 
 /** '· 12 min' material: how long the current activity has run. */
@@ -469,8 +619,8 @@ function createFriendsModel(){
         amLeader: () => !!party && party.leader != null && !!me?.uuid && uid(party.leader) === uid(me.uuid),
         /** My party has a live invite out for this player. */
         invitedToMyParty: uuid => !!party?.invites.some(i => uid(i.uuid) === uid(uuid)),
-        /** Whole minutes until the idle disband, once the party has been idle 10 min; otherwise null. */
-        idleDisbandIn: (now = Date.now()) => idleDisbandMinutes(party, now),
+        /** Seats taken against the cap, for "3/8" and a full party's hidden invite. */
+        partySeats: () => partySeats(party),
         /**
          * What Invite does for a friend. While I am in a round, friends in the launcher get the
          * round invite ("come where I am"), as before, even if already in my party. Otherwise
@@ -485,6 +635,7 @@ function createFriendsModel(){
             if(inRound && (st === 'launcher' || st === 'online')) return 'round'
             if(api.isInMyParty(uuid)) return null
             if(party && !api.amLeader()) return null
+            if(partySeats(party)?.full) return null
             return 'party'
         },
         /** The one toast to show: a party invite, the kicked note, a follow, then a round invite, skipping dismissed keys. */
@@ -548,4 +699,8 @@ function createFriendsModel(){
     return api
 }
 
-module.exports = { createFriendsModel, cleanPresence, compareFriends, activityLine, ago, toMs, toastMs, followPlace, followKey, modeLabel, partyWhereKey, idleDisbandMinutes, confirmStep, cleanPartyView, cleanPartyInvite, CROWN_SVG, PARTY_TICK_MS, PARTY_WHERE_KEYS, MODES, NAME, TEXTS }
+module.exports = {
+    createFriendsModel, cleanPresence, cleanFriend, cleanSettings, cleanSettingsPatch, compareFriends, sortFriends, cleanSort, searchFriends,
+    roundLines, clock, cleanClanMembers, activityLine, ago, toMs, toastMs, followPlace, followKey, modeLabel, partyWhereKey, partySeats,
+    confirmStep, cleanPartyView, cleanPartyInvite, CROWN_SVG, PARTY_TICK_MS, PARTY_WHERE_KEYS, MODES, NAME, TEXTS, SETTING_ENUMS, SOCIAL_FLAGS, SORTS
+}

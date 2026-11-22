@@ -31,9 +31,11 @@ test('every friends:party* handler calls its route with the checked argument and
     await h.handlers.partyKick(e, U)
     await h.handlers.partyPromote(e, U)
     await h.handlers.partyFollow(e)
-    assert.deepEqual(h.calls, [['party'], ['partyCreate'], ['partyInvite', U], ['partyAccept', P], ['partyDecline', P], ['partyLeave'], ['partyKick', U], ['partyPromote', U], ['partyFollow']])
-    assert.equal(h.noted.length, 9)
-    assert.deepEqual(Object.keys(h.handlers).sort(), ['party', 'partyAccept', 'partyCreate', 'partyDecline', 'partyFollow', 'partyInvite', 'partyKick', 'partyLeave', 'partyPromote'])
+    await h.handlers.partyDisband(e)
+    await h.handlers.partyWarp(e)
+    assert.deepEqual(h.calls, [['party'], ['partyCreate'], ['partyInvite', U], ['partyAccept', P], ['partyDecline', P], ['partyLeave'], ['partyKick', U], ['partyPromote', U], ['partyFollow'], ['partyDisband'], ['partyWarp']])
+    assert.equal(h.noted.length, 11)
+    assert.deepEqual(Object.keys(h.handlers).sort(), ['party', 'partyAccept', 'partyCreate', 'partyDecline', 'partyDisband', 'partyFollow', 'partyInvite', 'partyKick', 'partyLeave', 'partyPromote', 'partyWarp'])
 })
 
 test('a PartyResponse goes to every window as `party`; a JoinResult and a refusal do not', async () => {
@@ -98,4 +100,22 @@ test('a party change bumps the epoch, so a read already in flight cannot overwri
     release({ ok: true, status: 200, data: { party: null, invites: [] } }) // the older answer: no party yet
     await read
     assert.deepEqual(sent, [['party', { party: { id: P, version: 5 }, invites: [] }]])
+})
+
+test('disband broadcasts the party it answers; warp answers {moved, keptBack} and broadcasts nothing', async () => {
+    const warped = { ok: true, status: 200, data: { moved: [{ uuid: U, name: 'A' }], keptBack: [] } }
+    const h = harness(name => name === 'partyWarp' ? warped : { ok: true, status: 200, data: { party: null, invites: [] } })
+    await h.handlers.partyDisband({})
+    assert.deepEqual(h.sent, [['party', { party: null, invites: [] }]])
+    const res = await h.handlers.partyWarp({})
+    assert.equal(res, warped)
+    assert.equal(h.sent.length, 1)
+})
+
+test('a BACKEND_OFF refusal of disband or warp comes back as is and moves no party', async () => {
+    const off = { ok: false, status: 409, code: 'BACKEND_OFF', error: 'Not yet.', data: null }
+    const h = harness(() => off)
+    assert.equal((await h.handlers.partyDisband({})).code, 'BACKEND_OFF')
+    assert.equal((await h.handlers.partyWarp({})).code, 'BACKEND_OFF')
+    assert.deepEqual(h.sent, [])
 })

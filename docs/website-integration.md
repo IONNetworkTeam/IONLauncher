@@ -197,6 +197,17 @@ site's to document; `app/assets/js/friends/api.js` lists what the launcher calls
 degrades: no session means an empty strip, a `503` keeps the last view with its actions greyed, and
 the Play button never waits for any of it.
 
+There is no messaging here, and there will not be: private messages and party chat live in
+Minecraft only. The window's settings tab shows the in-game message policy, never a message.
+Settings that only the ION social backend knows (`partyInvites`, `privateMessages`,
+`onlineNotices`, `clanNotices`) are absent while the network still runs social on PAF; the window
+says "available soon" for them, and for any `409 BACKEND_OFF` refusal. The window's sort is the
+launcher's own (`settings.launcher.friendsSort`), not the in-game `friendSort`.
+
+The friends texts also exist in German (`app/assets/lang/de_DE.toml`, friends only so far).
+`langloader.js` loads it over `en_US.toml` when the system locale is German (`ION_LANG` overrides,
+e.g. `ION_LANG=en`), so a key it lacks reads in English.
+
 A site behind HTTP basic authentication cannot serve these routes to the launcher as they are:
 `Authorization` carries either the site password or the bearer, and the launcher sends the bearer.
 The gate has to let `/api/launcher/friends/*` through (the routes check the bearer themselves) or

@@ -1,6 +1,7 @@
 <%#
-    The friends window (friendswindow.js): its own title bar, the add row, the requests, the three
-    sections and the two switches, as the "Friends v2" window board shows them. Opened from the
+    The friends window (friendswindow.js): its own title bar, the add row, and three tabs: friends
+    (party, requests, the sections, with search and sort), the clan, and the settings with the
+    blocked list. Opened from the
     friends strip (friends.js) through the main process (friends/index.js).
 %>
 <html lang="en" xmlns="http://www.w3.org/1999/xhtml">
@@ -37,17 +38,22 @@
             </div>
             <p class="fcard-note" id="fwAddNote" hidden></p>
         </form>
-        <div class="fd-body" id="fwBody"></div>
-        <div class="fd-foot">
-            <div class="row">
-                <div class="rt"><%= lang('friends.showActivity') %></div>
-                <button class="sw" id="fwShowActivity" role="switch" aria-checked="true" aria-label="<%= lang('friends.showActivity') %>"><span></span></button>
-            </div>
-            <div class="row">
-                <div class="rt"><%= lang('friends.appearOffline') %></div>
-                <button class="sw" id="fwAppearOffline" role="switch" aria-checked="false" aria-label="<%= lang('friends.appearOffline') %>"><span></span></button>
-            </div>
+        <nav class="fw-tabs" id="fwTabs" role="tablist" aria-label="<%= lang('friends.social.tabsLabel') %>">
+            <button class="fw-tab" role="tab" data-tab="friends" aria-selected="true"><%= lang('friends.social.tabFriends') %></button>
+            <button class="fw-tab" role="tab" data-tab="clan" aria-selected="false"><%= lang('friends.social.tabClan') %></button>
+            <button class="fw-tab" role="tab" data-tab="settings" aria-selected="false"><%= lang('friends.social.tabSettings') %></button>
+        </nav>
+        <div class="fw-tools" id="fwTools">
+            <input id="fwSearch" class="fr-field" type="search" maxlength="16" autocomplete="off" spellcheck="false" placeholder="<%= lang('friends.social.searchPlaceholder') %>" aria-label="<%= lang('friends.social.searchPlaceholder') %>">
+            <select id="fwSort" class="fw-sort" aria-label="<%= lang('friends.social.sortLabel') %>">
+                <option value="online"><%= lang('friends.social.sortOnline') %></option>
+                <option value="az"><%= lang('friends.social.sortAz') %></option>
+                <option value="za"><%= lang('friends.social.sortZa') %></option>
+                <option value="longest"><%= lang('friends.social.sortLongest') %></option>
+                <option value="recent"><%= lang('friends.social.sortRecent') %></option>
+            </select>
         </div>
+        <div class="fd-body" id="fwBody" role="tabpanel"></div>
     </div>
     <script src="./assets/js/scripts/friendswindow.js"></script>
 </body>
